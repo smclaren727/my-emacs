@@ -18,6 +18,8 @@
   ;; Core paths — all derived from my-notes-directory.
   (org-directory my-notes-directory)
   (org-default-notes-file (expand-file-name "inbox.org" my-notes-directory))
+  ;; RET on a link opens it instead of inserting a newline.
+  (org-return-follows-link t)
 
   ;; Agenda pulls from these files.
   (org-agenda-files (list my-notes-directory))

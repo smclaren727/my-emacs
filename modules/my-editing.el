@@ -69,5 +69,15 @@
   :custom
   (vundo-glyph-alist vundo-unicode-symbols))
 
+;;; Markdown ----------------------------------------------------------
+
+(use-package markdown-mode
+  :mode ("\\.md\\'" . markdown-mode)
+  :custom
+  (markdown-command "pandoc")
+  (markdown-fontify-code-blocks-natively t)
+  (markdown-header-scaling t)
+  (markdown-enable-math t))
+
 (provide 'my-editing)
 ;;; my-editing.el ends here
