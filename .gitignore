@@ -1,0 +1,22 @@
+# Installed packages (reinstallable)
+elpa/
+
+# Runtime and cache files
+var/
+
+# Tree-sitter compiled grammars
+tree-sitter/
+
+# Compiled Emacs Lisp
+*.elc
+
+# Native compilation artifacts
+*.eln
+
+# macOS metadata
+.DS_Store
+
+# Backup and auto-save files
+*~
+\#*\#
+.\#*
