@@ -16,6 +16,9 @@ tree-sitter/
 # macOS metadata
 .DS_Store
 
+# Emacs Custom (machine-generated, varies per machine)
+etc/custom.el
+
 # Backup and auto-save files
 *~
 \#*\#
