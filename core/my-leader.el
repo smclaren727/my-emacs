@@ -31,5 +31,36 @@
 KEY is a string accepted by `kbd'."
   (define-key my-leader-map (kbd key) command))
 
+;;; Bindings ----------------------------------------------------------
+;; Organized alphabetically by prefix.  Commands from optional modules
+;; are bound here as symbols; they resolve at call time so loading order
+;; doesn't matter.
+
+;; c = compile / build
+(my-leader-define "c c" #'compile)
+(my-leader-define "c r" #'recompile)
+
+;; f = files / search
+(my-leader-define "f f" #'project-find-file)
+(my-leader-define "f g" #'consult-ripgrep)
+(my-leader-define "f r" #'my-os-macos-reveal-in-finder) ; macOS only
+
+;; g = git
+(my-leader-define "g b" #'magit-blame-addition)
+(my-leader-define "g g" #'magit-status)
+
+;; o = org
+(my-leader-define "o a" #'org-agenda)
+(my-leader-define "o c" #'org-capture)
+(my-leader-define "o l" #'org-store-link)
+
+;; p = project
+(my-leader-define "p p" #'project-switch-project)
+
+;; s = shell
+(my-leader-define "s n" #'my-shell-named)
+(my-leader-define "s s" #'my-shell-here)
+(my-leader-define "s w" #'my-shell-switch)
+
 (provide 'my-leader)
 ;;; my-leader.el ends here

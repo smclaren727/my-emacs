@@ -2,27 +2,19 @@
 
 ;;; Project management ------------------------------------------------
 (use-package project
-  :ensure nil
-  :bind
-  (("C-c u p" . project-switch-project)
-   ("C-c u f" . project-find-file)))
+  :ensure nil)
 
 ;;; Compilation -------------------------------------------------------
 ;; Run build commands from Emacs.  Scroll stops at first error.
 (use-package compile
   :ensure nil
   :custom
-  (compilation-scroll-output 'first-error)
-  :bind
-  (("C-c u c" . compile)
-   ("C-c u r" . recompile)))
+  (compilation-scroll-output 'first-error))
 
 ;;; Git ---------------------------------------------------------------
 (use-package magit
   :bind
-  (("C-c u m" . magit-status)
-   ("C-x g"   . magit-status)
-   ("C-c u b" . magit-blame-addition))
+  (("C-x g" . magit-status))
   :custom
   (magit-save-repository-buffers 'dontask))
 

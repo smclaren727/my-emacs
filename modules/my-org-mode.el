@@ -10,10 +10,6 @@
 (use-package org
   :ensure nil
   :hook (org-mode . visual-line-mode)
-  :bind
-  (("C-c u c" . org-capture)
-   ("C-c u a" . org-agenda)
-   ("C-c u l" . org-store-link))
   :custom
   ;; Core paths — all derived from my-notes-directory.
   (org-directory my-notes-directory)

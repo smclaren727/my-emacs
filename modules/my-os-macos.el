@@ -40,7 +40,5 @@
   (let ((path (or (buffer-file-name) default-directory)))
     (call-process "open" nil 0 nil "-R" (expand-file-name path))))
 
-(global-set-key (kbd "C-c u o") #'my-os-macos-reveal-in-finder)
-
 (provide 'my-os-macos)
 ;;; my-os-macos.el ends here

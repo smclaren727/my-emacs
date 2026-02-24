@@ -74,11 +74,5 @@ Useful for maintaining multiple shells (build, logs, remote)."
     (delete-process proc))
   (kill-buffer (current-buffer)))
 
-;;; Keybindings -------------------------------------------------------
-;; All under C-c u s prefix.
-(global-set-key (kbd "C-c u s s") #'my-shell-here)
-(global-set-key (kbd "C-c u s n") #'my-shell-named)
-(global-set-key (kbd "C-c u s w") #'my-shell-switch)
-
 (provide 'my-shells)
 ;;; my-shells.el ends here

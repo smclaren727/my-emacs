@@ -23,7 +23,6 @@
    ("C-x b"   . consult-buffer)
    ("M-g g"   . consult-goto-line)
    ("M-g M-g" . consult-goto-line)
-   ("C-c u g" . consult-ripgrep)
    ("M-s f"   . consult-find)
    ("C-x r b" . consult-bookmark)
    ("M-y"     . consult-yank-pop)))
