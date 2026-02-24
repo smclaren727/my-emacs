@@ -37,6 +37,10 @@
 ;; Core sets up: no-littering, sane defaults, and startup restoration.
 (require 'my-core)
 
+;;; Leader — must succeed ---------------------------------------------
+;; Provides the leader keymap that modules bind into.
+(require 'my-leader)
+
 ;;; Optional modules --------------------------------------------------
 ;; Each is guarded by its feature flag and wrapped in error handling.
 ;; A broken module logs to *startup-errors* but does not take down Emacs.
@@ -66,20 +70,3 @@
   (my-load-module shells "my-shells"))
 
 ;;; init.el ends here
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(custom-safe-themes
-   '("1b7e575c6681e66d8d83634c2c160b40af12f3756360a4dd81b8032f4495cb5e"
-     "0325a6b5eea7e5febae709dab35ec8648908af12cf2d2b569bedc8da0a3a81c1"
-     "6a95b0faf6cee6adfda34cdfadb2fed6f4157a1d49aabef8cc9b94c187d69a1d"
-     default))
- '(package-selected-packages nil))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )

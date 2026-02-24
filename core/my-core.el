@@ -83,6 +83,11 @@
 (set-default-coding-systems 'utf-8)
 (prefer-coding-system 'utf-8)
 
+;; Redirect customize writes to a separate file so they don't pollute init.el.
+(setq custom-file (expand-file-name "etc/custom.el" user-emacs-directory))
+(when (file-exists-p custom-file)
+  (load custom-file 'noerror))
+
 ;;; Keybinding discovery ----------------------------------------------
 ;; Shows available keybindings after a prefix key is pressed.
 ;; Built-in from Emacs 30; package for Emacs 29.
