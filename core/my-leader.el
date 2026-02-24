@@ -40,6 +40,11 @@ KEY is a string accepted by `kbd'."
 (my-leader-define "c c" #'compile)
 (my-leader-define "c r" #'recompile)
 
+;; e = emacs / evaluate
+(my-leader-define "e b" #'eval-buffer)
+(my-leader-define "e r" #'eval-region)
+(my-leader-define "e e" #'eval-expression)
+
 ;; f = files / search
 (my-leader-define "f f" #'project-find-file)
 (my-leader-define "f g" #'consult-ripgrep)
@@ -61,6 +66,18 @@ KEY is a string accepted by `kbd'."
 (my-leader-define "s n" #'my-shell-named)
 (my-leader-define "s s" #'my-shell-here)
 (my-leader-define "s w" #'my-shell-switch)
+
+;;; Which-key descriptions --------------------------------------------
+(with-eval-after-load 'which-key
+  (which-key-add-keymap-based-replacements my-leader-map
+    "b" "buffer"
+    "c" "compile"
+    "e" "emacs/eval"
+    "f" "files"
+    "g" "git"
+    "o" "org"
+    "p" "project"
+    "s" "shell"))
 
 (provide 'my-leader)
 ;;; my-leader.el ends here
