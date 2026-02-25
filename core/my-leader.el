@@ -58,6 +58,7 @@ KEY is a string accepted by `kbd'."
 (my-leader-define "o a" #'org-agenda)
 (my-leader-define "o c" #'org-capture)
 (my-leader-define "o l" #'org-store-link)
+(my-leader-define "o r" #'org-refile)
 
 ;; p = project
 (my-leader-define "p p" #'project-switch-project)

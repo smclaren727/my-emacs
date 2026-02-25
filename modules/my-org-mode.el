@@ -1,3 +1,4 @@
+
 ;;; my-org-mode.el --- Org-mode knowledge layer -*- lexical-binding: t; -*-
 
 ;;; Notes root --------------------------------------------------------
@@ -72,11 +73,15 @@
   ;; org-refile-use-outline-path shows the full path (file/heading/subheading)
   ;; so you can distinguish headings with the same name in different files.
   ;; Completing in one step (not nil) is faster with Vertico/Consult.
-  (setq org-refile-targets
+(setq org-refile-targets
         `((,(expand-file-name "projects.org" my-notes-directory) :maxlevel . 3)
           (,(expand-file-name "inbox.org" my-notes-directory)    :maxlevel . 2))
         org-refile-use-outline-path 'file
-        org-outline-path-complete-in-steps nil)
+        org-outline-path-complete-in-steps nil
+        org-refile-allow-creating-parent-nodes 'confirm)
+
+  ;; Auto-save all org files after refile so the move is persisted immediately.
+  (advice-add 'org-refile :after #'org-save-all-org-buffers)
 
   ;; --- Capture templates ---
   ;; C-c u c then press the key in parentheses to select a template.
