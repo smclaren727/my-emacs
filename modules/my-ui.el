@@ -73,5 +73,34 @@
 ;; Highlight the current line — helps track the cursor.
 (global-hl-line-mode 1)
 
+;; Hide cursor in inactive windows — reduces visual noise.
+(setq cursor-in-non-selected-windows nil)
+
+;; Remove the \ continuation indicator from the fringe.
+(setq-default fringe-indicator-alist
+              (delq (assq 'continuation fringe-indicator-alist)
+                    fringe-indicator-alist))
+
+;;; Window layout history ---------------------------------------------
+;; Undo/redo window configurations — M-<escape> or M-` to undo.
+(use-package winner
+  :ensure nil
+  :bind (("M-<escape>" . winner-undo)
+         ("M-`"        . winner-undo)
+         ("M-~"        . winner-redo))
+  :config
+  (winner-mode 1))
+
+;;; Smooth scrolling --------------------------------------------------
+;; ultra-scroll provides pixel-level smooth scrolling.
+;; scroll-conservatively and scroll-margin are set here since
+;; ultra-scroll owns these settings.
+(use-package ultra-scroll
+  :custom
+  (scroll-conservatively 3)
+  (scroll-margin 0)
+  :config
+  (ultra-scroll-mode 1))
+
 (provide 'my-ui)
 ;;; my-ui.el ends here

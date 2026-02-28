@@ -66,6 +66,13 @@
 
 (setq use-short-answers t)
 
+;; Suppress all native GUI dialogs — keep everything in the minibuffer.
+(setq use-dialog-box nil)
+
+;; Prevent accidentally suspending/minimizing Emacs.
+(global-unset-key (kbd "C-z"))
+(global-unset-key (kbd "C-x C-z"))
+
 ;; Silence the audible bell and visual flash.
 (setq ring-bell-function 'ignore)
 

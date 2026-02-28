@@ -21,17 +21,27 @@
 ;; Delete files to Trash instead of permanent delete.
 (setq delete-by-moving-to-trash t)
 
-;;; File dialogs ------------------------------------------------------
-;; Use minibuffer instead of native dialogs — keeps Vertico/Orderless active.
-(setq use-file-dialog nil)
-
-;;; Scrolling ---------------------------------------------------------
-(setq mac-mouse-wheel-smooth-scroll t)
+;;; Frame appearance --------------------------------------------------
+;; Remove thin border introduced in macOS Monterey.
+(set-frame-parameter nil 'internal-border-width 0)
 
 ;;; Titlebar ----------------------------------------------------------
 (use-package ns-auto-titlebar
   :config
   (ns-auto-titlebar-mode 1))
+
+;;; Input protection --------------------------------------------------
+;; Prevent trackpad pinch and ctrl-wheel from resizing font accidentally.
+(global-set-key (kbd "<pinch>") 'ignore)
+(global-set-key (kbd "<C-wheel-up>") 'ignore)
+(global-set-key (kbd "<C-wheel-down>") 'ignore)
+
+;;; Fonts — Unicode and emoji -----------------------------------------
+;; Render Apple Color Emoji and SF symbols correctly in GUI frames.
+(when (display-graphic-p)
+  (set-fontset-font t 'symbol
+                    (font-spec :family "Apple Color Emoji") nil 'prepend)
+  (set-fontset-font t nil "SF Pro Display" nil 'append))
 
 ;;; Reveal in Finder --------------------------------------------------
 (defun my-os-macos-reveal-in-finder ()
