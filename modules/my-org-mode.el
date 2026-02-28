@@ -73,9 +73,11 @@
   ;; org-refile-use-outline-path shows the full path (file/heading/subheading)
   ;; so you can distinguish headings with the same name in different files.
   ;; Completing in one step (not nil) is faster with Vertico/Consult.
-(setq org-refile-targets
-        `((,(expand-file-name "projects.org" my-notes-directory) :maxlevel . 3)
-          (,(expand-file-name "inbox.org" my-notes-directory)    :maxlevel . 2))
+  (setq org-refile-targets
+        `((,(expand-file-name "projects.org" my-notes-directory)  :maxlevel . 3)
+          (,(expand-file-name "inbox.org" my-notes-directory)     :maxlevel . 2)
+          (,(expand-file-name "areas.org" my-notes-directory)     :maxlevel . 3)
+          (,(expand-file-name "interests.org" my-notes-directory) :maxlevel . 2))
         org-refile-use-outline-path 'file
         org-outline-path-complete-in-steps nil
         org-refile-allow-creating-parent-nodes 'confirm)
