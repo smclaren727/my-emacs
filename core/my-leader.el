@@ -22,7 +22,7 @@
 (use-package key-chord
   :config
   (setq key-chord-two-keys-delay 0.05)
-  (key-chord-define-global "fj" 'my-leader-command)
+  (key-chord-define-global "  " 'my-leader-command)
   (key-chord-mode 1))
 
 ;;; Binding helper ----------------------------------------------------
@@ -35,6 +35,14 @@ KEY is a string accepted by `kbd'."
 ;; Organized alphabetically by prefix.  Commands from optional modules
 ;; are bound here as symbols; they resolve at call time so loading order
 ;; doesn't matter.
+
+;; b = buffer
+(my-leader-define "b b" #'bury-buffer)
+(my-leader-define "b k" #'kill-current-buffer)
+(my-leader-define "b l" #'ibuffer)
+(my-leader-define "b r" #'rename-buffer)
+(my-leader-define "b s" #'switch-to-buffer)
+(my-leader-define "b v" #'revert-buffer)
 
 ;; c = compile / build
 (my-leader-define "c c" #'compile)
