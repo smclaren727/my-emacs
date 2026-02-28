@@ -1,0 +1,353 @@
+# Emacs Setup Plan
+
+## Design Philosophy
+
+A modular, flag-driven Emacs configuration built for gradual layering.
+Each module can be enabled or disabled independently, supporting
+profiles like dev-only, writing-only, travel, or headless/server mode.
+
+The config is not an editor. It is a programmable personal computing
+environment — editing, knowledge, orchestration, terminal control,
+git, agents, and eventually browser embedding and task automation. But
+we layer this gradually.
+
+---
+
+## Installation
+
+### macOS (Apple Silicon)
+
+Emacs is installed via `emacs-plus`, a community-maintained Homebrew tap
+that provides a native macOS app with extensive build options.
+
+Homebrew must be installed natively at `/opt/homebrew/` (not
+`/usr/local/`, which is the Intel/Rosetta path). Verify with
+`which brew` — it should return `/opt/homebrew/bin/brew`.
+
+```bash
+brew tap d12frosted/emacs-plus
+brew install emacs-plus@30 --with-xwidgets --with-imagemagick --with-mailutils --with-ctags --with-compress-install
+```
+
+Native compilation, tree-sitter, and other core features are included by
+default in `emacs-plus@30`. No `--with-native-comp` flag is needed.
+
+After installation, copy to Applications (the install output will
+confirm the exact paths):
+
+```bash
+cp -r /opt/homebrew/opt/emacs-plus@30/Emacs.app /Applications/
+cp -r "/opt/homebrew/opt/emacs-plus@30/Emacs Client.app" /Applications/
+```
+
+Use `cp -r` rather than symlinks for better Spotlight integration. After
+a `brew upgrade emacs-plus@30`, re-copy to update the apps in
+`/Applications`.
+
+### Linux
+
+To be documented when a Linux environment is set up.
+
+### Windows
+
+To be documented if needed.
+
+---
+
+## Core Structure
+
+The config is logically divided into modules, not tied to a specific
+directory layout:
+
+- **init** — bootstrap only, no logic beyond orchestration
+- **early-init** — startup performance, UI suppression, GC tuning
+- **core** — production-safe defaults and infrastructure
+- **ui** — visual decisions (theme, modeline, fonts)
+- **editing** — completion, minibuffer, undo, pairs
+- **dev** — git, projects, LSP, tree-sitter
+- **notes** — org, capture, agenda, IDs
+- **ai** — reserved, intentionally minimal for now
+- **ops** — async processes, job runners, logging helpers, remote helpers, and orchestration utilities
+- **leader** — custom leader key map (`fj` chord via `key-chord`, `C-c u` as fallback)
+- **os** — platform-specific modules (macOS now, others later)
+
+Each module is loaded conditionally via feature flags.
+
+---
+
+## Feature Flags
+
+All flags live in a single configuration file loaded before anything
+else. This makes it trivial to create alternate profiles by swapping one
+file.
+
+Example flags: `dev`, `org`, `ai`, `writing`, `minimal`.
+
+Example profiles:
+
+- **Default** — core + ui + editing + dev + notes
+- **Travel** — core + ui + editing + notes (no dev tooling)
+- **Headless** — core + dev (no UI modules)
+- **Minimal** — core only
+
+---
+
+## Step 1 — Minimal Bootstrap
+
+The main init file does three things:
+
+1. Sets load-path
+2. Loads the feature flag configuration
+3. Loads modules conditionally based on flags
+
+No logic beyond orchestration. Nothing else belongs here.
+
+---
+
+## Step 2 — Error Resilience
+
+Each optional module load is wrapped so that a broken module does not
+take down the entire config. A simple macro catches errors per-module
+and logs them to a `*startup-errors*` buffer, including the module name
+and error message.
+
+However:
+
+- **The core module must fail hard.** If core infrastructure fails,
+  Emacs should not silently continue in a partially initialized state.
+- Optional modules fail gracefully. Foundational modules do not.
+
+This prevents debugging partial, inconsistent startup states.
+
+---
+
+## Step 3 — Production-Safe Defaults
+
+These are non-negotiable quality-of-life settings applied in the core
+module:
+
+- Centralized backups and autosaves (not scattered across the filesystem)
+- `no-littering` package to keep config and data directories clean
+- Persistent minibuffer history (`savehist-mode`)
+- Recent files tracking (`recentf-mode`)
+- Auto-revert external file changes (`global-auto-revert-mode`)
+- Sensible GC tuning (high threshold during startup, lowered after init)
+- Native compilation enabled in the build (e.g., emacs-plus with native-comp)
+- Buffer name uniquification (`uniquify`)
+- Electric pair mode for auto-closing brackets and quotes
+- Lockfiles disabled (`create-lockfiles nil`) — prevents issues with file watchers
+
+If `no-littering` is enabled early, document clearly where backups,
+caches, and auto-saves are redirected to avoid confusion during
+debugging.
+
+These prevent the majority of long-term config regret. Get them right
+once.
+
+---
+
+## Step 4 — Package Strategy
+
+Start with:
+
+- Built-in `package.el`
+- `use-package` for structured, declarative package configuration
+
+The priority right now is iteration speed, not reproducibility.
+
+Future upgrade path: `elpaca` provides async installation, git-based
+pinning, and reproducible builds without the weight of `straight.el`.
+Switching package managers should be treated as a deliberate migration
+step once the system stabilizes, not something done mid-iteration.
+
+---
+
+## Step 5 — Path A: Development Stack
+
+A modern vanilla completion and development stack:
+
+### Minibuffer and Completion:
+
+- Vertico (minibuffer UI)
+- Orderless (flexible matching)
+- Marginalia (rich annotations)
+- Consult (power commands — search, buffer switching, line jumping)
+- Embark (context actions on completion candidates)
+- Corfu (in-buffer completion popup, auto-complete enabled, 0.2s delay, 2-char prefix)
+- Cape (extra completion-at-point backends — file paths, dabbrev, keywords; plugs directly into Corfu)
+- vundo (visual undo tree on `C-x u` — replaces undo-tree, no persistence corruption risk)
+
+### UI:
+
+- ef-themes (`ef-night` / `ef-day` dark/light pair, switched via `ns-system-appearance-change-functions`)
+- doom-modeline + nerd-icons (modeline; nerd-icons is the successor to all-the-icons)
+
+### Development:
+
+- Magit (git)
+- Eglot (LSP, built-in from Emacs 29+)
+- Native tree-sitter integration
+- `treesit-auto` (automatic grammar installation and major mode remapping)
+- diff-hl (fringe git change indicators, kept in sync via Magit post-refresh hook)
+
+### Language Servers:
+
+Language servers are system tools, not Emacs packages — install manually:
+
+- Python: `pip3 install python-lsp-server`
+- TypeScript: `npm install -g typescript-language-server typescript`
+  (npm global prefix: `~/.npm-global` to avoid permission issues)
+
+Eglot hooks must target `-ts-mode` variants (`python-ts-mode`, `js-ts-mode`, etc.)
+since `treesit-auto` remaps traditional major modes.
+
+Tree-sitter grammar installation should follow a clear policy:
+
+- Grammars are installed intentionally (not implicitly on every machine), or
+- Disabled in minimal/headless profiles.
+
+Avoid hidden network installs or build assumptions across environments.
+
+Keep it minimal. Avoid stacking redundant packages. Every addition
+should solve a concrete problem.
+
+---
+
+## Step 6 — Path B: Knowledge / Org
+
+Design principles:
+
+- A single root variable for all notes (no absolute paths baked in)
+- No external sync assumptions
+- Org is a subsystem, not the entire environment
+
+Core setup:
+
+- Capture templates (todo, contextual note, daily journal)
+- Agenda configuration
+- `org-id` enabled from day one, generating IDs on capture
+- `org-modern` for visual polish (styled bullets, TODO keywords, table rendering)
+
+Define an ID policy early (e.g., IDs added on capture rather than
+retroactively). Retrofitting IDs across hundreds of files is painful.
+
+Choose a **canonical notes format** for capture and linking (likely
+Org). Avoid parallel capture systems across multiple formats.
+
+Journaling strategy can be decided later, but the capture and ID
+scaffolding should not wait.
+
+---
+
+## Step 7 — Path C: AI / Control Layer
+
+We deliberately do not choose packages yet.
+
+### Phase 1 — Investigate
+
+Evaluate existing AI integration packages on:
+
+- Local model support
+- HTTP API flexibility
+- Async handling and streaming support
+- Conversation buffer management
+- Code-aware operations
+- TRAMP compatibility (future)
+- Headless compatibility (future)
+- Minimal UI assumptions
+
+### Phase 2 — Define the Interface
+
+Before integrating any package, define what the AI layer should do:
+
+**Actions:**
+
+- Summarize region
+- Explain error
+- Refactor function
+- Ask about project
+- Run agent task
+
+**Context contract:** What context is passed with each action?
+
+**Display contract:** How are responses shown — buffer, inline,
+overlay, dedicated conversation buffer?
+
+Define these as a small set of Elisp functions with a consistent calling
+convention (always accept region text, buffer context, and a callback).
+This makes backend swapping trivial.
+
+### Phase 3 — Choose and Integrate
+
+Choose the package that best fits the interface defined in Phase 2.
+
+Current leading candidate: `gptel` — supports multiple backends,
+streaming, org-mode integration, and has minimal UI assumptions. It
+aligns closely with the architectural principles below.
+
+### Architectural Principles
+
+The AI layer should:
+
+- Be swappable across backends
+- Support multiple providers simultaneously
+- Not pollute editing modules
+- Not require UI dependencies
+- Work over SSH
+- Be treated as a service adapter, not a feature
+
+---
+
+## Step 8 — OS Specific Layer
+
+Where possible identify settings, packages and key-binding changes
+needed per operating system:
+
+- macOS
+- Linux
+- Windows
+
+Only platform-specific concerns belong here:
+
+- Modifier key behavior: Command = Meta, Option = Super, Fn = Hyper, Right Option = none
+- Clipboard integration
+- Font: JetBrains Mono 14pt (height 140)
+- Smooth scrolling tweaks
+- `exec-path-from-shell` (only when running as a GUI instance, not terminal)
+- `ns-auto-titlebar` for dark mode consistency
+- `frame-resize-pixelwise` set to `t` (prevents gaps when tiling windows)
+
+Nothing else should live in this module.
+
+---
+
+## Long-Term Direction
+
+This config is building toward a programmable personal computing
+environment:
+
+- Editing
+- Knowledge management
+- Orchestration and task automation
+- Terminal control
+- Git
+- AI agents
+- Browser embedding (xwidgets)
+- Remote development (TRAMP)
+
+Each capability is layered in only when the foundation beneath it is
+stable.
+
+---
+
+## The Rules
+
+1. Do not install 30 packages at once
+2. Do not copy someone else's mega-config
+3. Do not use a framework (Doom, Spacemacs) — build understanding first
+4. Do not optimize before stable behavior emerges
+5. Do not hardcode paths
+6. Do not over-automate before you know what you actually need
+7. Every optional module must fail gracefully without taking down the config
+8. Every new package must solve a concrete, identified problem
+9. Track startup time and avoid silent performance regressions
