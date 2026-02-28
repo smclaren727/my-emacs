@@ -1,21 +1,18 @@
 ;;; my-ui.el --- Visual configuration -*- lexical-binding: t; -*-
 
 ;;; Theme -------------------------------------------------------------
-;; ef-themes by Prot — high-quality, accessible, matched dark/light pairs.
-(use-package ef-themes
-  :demand t
-  :config
-  (setq ef-themes-to-toggle '(ef-night ef-day)))
+(use-package color-theme-sanityinc-tomorrow
+  :demand t)
 
 
 ;;; Auto theme switching ----------------------------------------------
 ;; Use the built-in NS hook to follow macOS dark/light mode.
 ;; ns-system-appearance-change-functions fires on every OS toggle.
 (defun my-ui--apply-system-theme (appearance)
-  "Load ef-night for dark, ef-day for light based on APPEARANCE."
+  "Load tomorrow-night for dark, tomorrow-day for light based on APPEARANCE."
   (pcase appearance
-    ('dark  (load-theme 'ef-night t))
-    ('light (load-theme 'ef-day t))))
+    ('dark  (load-theme 'sanityinc-tomorrow-night t))
+    ('light (load-theme 'sanityinc-tomorrow-day t))))
 
 (add-hook 'ns-system-appearance-change-functions #'my-ui--apply-system-theme)
 
@@ -43,19 +40,32 @@
 
 
 ;;; Modeline ----------------------------------------------------------
-;; doom-modeline — polished, informative, icon support.
-;; Requires nerd-icons for file/mode icons in the modeline.
-(use-package nerd-icons
-  :demand t)
-
-(use-package doom-modeline
-  :demand t
+;; minions collapses minor modes into a single menu.
+(use-package minions
   :custom
-  (doom-modeline-height 30)
-  (doom-modeline-bar-width 4)
-  (doom-modeline-buffer-encoding nil)  ; hide UTF-8 — it's always UTF-8
+  (minions-mode-line-lighter "…")
+  (minions-mode-line-delimiters '("" . ""))
   :config
-  (doom-modeline-mode 1))
+  (minions-mode 1))
+
+;; moody provides tabs and ribbons for the mode line.
+(use-package moody
+  :config
+  (setq x-underline-at-descent-line t)
+  (setq-default mode-line-format
+                '(" "
+                  mode-line-front-space
+                  mode-line-client
+                  mode-line-frame-identification
+                  mode-line-buffer-identification
+                  " "
+                  mode-line-position
+                  (vc-mode vc-mode)
+                  " " mode-line-modes
+                  mode-line-misc-info
+                  mode-line-end-spaces))
+  (moody-replace-mode-line-buffer-identification)
+  (moody-replace-vc-mode))
 
 ;; Show clock in modeline (no load average).
 (setq display-time-default-load-average nil)
