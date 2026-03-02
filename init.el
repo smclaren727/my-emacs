@@ -10,6 +10,7 @@
 
 ;;; Load path ---------------------------------------------------------
 (add-to-list 'load-path (expand-file-name "core" user-emacs-directory))
+(add-to-list 'load-path (expand-file-name "elisp" user-emacs-directory))
 (add-to-list 'load-path (expand-file-name "modules" user-emacs-directory))
 
 ;;; Feature flags -----------------------------------------------------

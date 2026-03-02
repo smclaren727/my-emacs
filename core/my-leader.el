@@ -101,6 +101,7 @@ KEY is a string accepted by `kbd'."
 (my-leader-define "o l" #'org-store-link)
 (my-leader-define "o o" #'org-occur)
 (my-leader-define "o r" #'org-refile)
+(my-leader-define "o s" #'org-set-tags-command)
 (my-leader-define "o t" #'org-todo)
 
 ;; p = project

@@ -1,6 +1,8 @@
 
 ;;; my-org-mode.el --- Org-mode knowledge layer -*- lexical-binding: t; -*-
 
+(require 'my-org-tag-transitions)
+
 ;;; Notes root --------------------------------------------------------
 ;; Single variable for all note paths.  Nothing else should hardcode
 ;; paths to notes — always derive from this.
@@ -10,7 +12,8 @@
 ;;; Org setup ---------------------------------------------------------
 (use-package org
   :ensure nil
-  :hook (org-mode . visual-line-mode)
+  :hook ((org-mode . visual-line-mode)
+         (org-mode . my-org-enable-tag-transition-autosave))
   :custom
   ;; Core paths — all derived from my-notes-directory.
   (org-directory my-notes-directory)
@@ -68,6 +71,15 @@
   :config
   ;; Ensure the notes directory exists.
   (make-directory my-notes-directory t)
+
+  ;; Offer source tags in Org tag completion without clobbering
+  ;; any existing persistent tags.
+  (setq org-tag-persistent-alist
+        (delete-dups
+         (append
+          (mapcar (lambda (tag) (list tag))
+                  (my-org-transition-source-tags))
+          org-tag-persistent-alist)))
 
   ;; Refile targets: projects file up to 3 levels deep, inbox up to 2.
   ;; org-refile-use-outline-path shows the full path (file/heading/subheading)
