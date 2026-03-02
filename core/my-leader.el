@@ -54,7 +54,22 @@ KEY is a string accepted by `kbd'."
 
 ;; c = compile / build
 (my-leader-define "c c" #'compile)
+(my-leader-define "c d" #'flymake-show-buffer-diagnostics)
+(my-leader-define "c n" #'flymake-goto-next-error)
+(my-leader-define "c p" #'flymake-goto-prev-error)
 (my-leader-define "c r" #'recompile)
+
+;; d = dired
+(my-leader-define "d c" #'dired-create-directory)
+(my-leader-define "d d" #'dired)
+(my-leader-define "d g" #'revert-buffer)
+(my-leader-define "d j" #'dired-jump)
+(my-leader-define "d m" #'dired-mark)
+(my-leader-define "d n" #'dired-create-empty-file)
+(my-leader-define "d p" #'dired-jump-other-window)
+(my-leader-define "d r" #'wdired-change-to-wdired-mode)
+(my-leader-define "d t" #'dired-toggle-marks)
+(my-leader-define "d u" #'dired-unmark)
 
 ;; e = emacs / evaluate
 (my-leader-define "e b" #'eval-buffer)
@@ -68,33 +83,58 @@ KEY is a string accepted by `kbd'."
 
 ;; g = git
 (my-leader-define "g b" #'magit-blame-addition)
+(my-leader-define "g c" #'magit-commit-create)
 (my-leader-define "g g" #'magit-status)
+(my-leader-define "g l" #'magit-log-current)
+
+;; h = help
+(my-leader-define "h f" #'describe-function)
+(my-leader-define "h k" #'describe-key)
+(my-leader-define "h m" #'describe-mode)
+(my-leader-define "h v" #'describe-variable)
 
 ;; o = org
 (my-leader-define "o a" #'org-agenda)
 (my-leader-define "o c" #'org-capture)
+(my-leader-define "o g" #'org-goto)
+(my-leader-define "o i" #'org-id-get-create)
 (my-leader-define "o l" #'org-store-link)
+(my-leader-define "o o" #'org-occur)
 (my-leader-define "o r" #'org-refile)
+(my-leader-define "o t" #'org-todo)
 
 ;; p = project
-(my-leader-define "p p" #'project-switch-project)
+(my-leader-define "p f" #'project-find-file)
+(my-leader-define "p s" #'project-switch-project)
 
 ;; s = shell
 (my-leader-define "s n" #'my-shell-named)
 (my-leader-define "s s" #'my-shell-here)
 (my-leader-define "s w" #'my-shell-switch)
 
+;; w = window
+(my-leader-define "w b" #'balance-windows)
+(my-leader-define "w d" #'delete-window)
+(my-leader-define "w o" #'delete-other-windows)
+(my-leader-define "w r" #'winner-redo)
+(my-leader-define "w s" #'split-window-below)
+(my-leader-define "w u" #'winner-undo)
+(my-leader-define "w v" #'split-window-right)
+
 ;;; Which-key descriptions --------------------------------------------
 (with-eval-after-load 'which-key
   (which-key-add-keymap-based-replacements my-leader-map
     "b" "buffer"
     "c" "compile"
+    "d" "dired"
     "e" "emacs/eval"
     "f" "files"
     "g" "git"
+    "h" "help"
     "o" "org"
     "p" "project"
-    "s" "shell"))
+    "s" "shell"
+    "w" "window"))
 
 (provide 'my-leader)
 ;;; my-leader.el ends here
