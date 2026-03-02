@@ -4,29 +4,49 @@
 (use-package color-theme-sanityinc-tomorrow
   :demand t)
 
+(defvar my-ui-theme-dark 'sanityinc-tomorrow-night
+  "Theme used when system appearance is dark.")
+
+(defvar my-ui-theme-light 'sanityinc-tomorrow-day
+  "Theme used when system appearance is light.")
 
 ;;; Auto theme switching ----------------------------------------------
-;; Use the built-in NS hook to follow macOS dark/light mode.
-;; ns-system-appearance-change-functions fires on every OS toggle.
-(defun my-ui--apply-system-theme (appearance)
-  "Load tomorrow-night for dark, tomorrow-day for light based on APPEARANCE."
-  (pcase appearance
-    ('dark  (load-theme 'sanityinc-tomorrow-night t))
-    ('light (load-theme 'sanityinc-tomorrow-day t))))
+(defun my-ui--current-appearance ()
+  "Return `dark' or `light' based on system/frame appearance."
+  (cond
+   ((and (eq system-type 'darwin)
+         (boundp 'ns-system-appearance)
+         (memq ns-system-appearance '(dark light)))
+    ns-system-appearance)
+   ((eq (frame-parameter nil 'background-mode) 'dark)
+    'dark)
+   (t
+    'light)))
 
-(add-hook 'ns-system-appearance-change-functions #'my-ui--apply-system-theme)
+(defun my-ui--apply-system-theme (appearance)
+  "Load the light or dark theme for APPEARANCE."
+  (let ((theme (if (eq appearance 'dark) my-ui-theme-dark my-ui-theme-light)))
+    (unless (and (= (length custom-enabled-themes) 1)
+                 (eq (car custom-enabled-themes) theme))
+      (mapc #'disable-theme custom-enabled-themes)
+      (load-theme theme t))))
 
 ;; Apply once at startup.
-(my-ui--apply-system-theme ns-system-appearance)
+(my-ui--apply-system-theme (my-ui--current-appearance))
+
+;; Use NS appearance hooks on macOS when available.
+(when (and (eq system-type 'darwin)
+           (boundp 'ns-system-appearance-change-functions))
+  (add-hook 'ns-system-appearance-change-functions #'my-ui--apply-system-theme))
 
 
 ;;; Font --------------------------------------------------------------
 ;; Try preferred fonts in order — first one found wins.
 ;; Works cross-platform: JetBrains Mono and Fira Code are installable
 ;; anywhere, Menlo is macOS, DejaVu Sans Mono is Linux.
-(defun my-ui--set-font ()
-  "Set monospace font, trying preferred options in order."
-  (when (display-graphic-p)
+(defun my-ui--set-font-for-frame (frame)
+  "Set monospace font on FRAME, trying preferred options in order."
+  (when (display-graphic-p frame)
     (let ((fonts '("JetBrains Mono" "Fira Code" "SF Mono" "Menlo" "DejaVu Sans Mono"))
           (chosen nil))
       (while (and fonts (not chosen))
@@ -34,9 +54,10 @@
           (setq chosen (car fonts)))
         (setq fonts (cdr fonts)))
       (when chosen
-        (set-face-attribute 'default nil :family chosen :height 140)))))
+        (set-face-attribute 'default frame :family chosen :height 140)))))
 
-(my-ui--set-font)
+(my-ui--set-font-for-frame (selected-frame))
+(add-hook 'after-make-frame-functions #'my-ui--set-font-for-frame)
 
 
 ;;; Modeline ----------------------------------------------------------

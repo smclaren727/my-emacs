@@ -44,9 +44,15 @@
 ;;; Optional modules --------------------------------------------------
 ;; Each is guarded by its feature flag and wrapped in error handling.
 ;; A broken module logs to *startup-errors* but does not take down Emacs.
+;; Exactly one OS module is loaded, based on `system-type`.
 
-(when (eq system-type 'darwin)
+(cond
+ ((eq system-type 'darwin)
   (my-load-module os-macos "my-os-macos"))
+ ((eq system-type 'gnu/linux)
+  (my-load-module os-linux "my-os-linux"))
+ ((eq system-type 'windows-nt)
+  (my-load-module os-windows "my-os-windows")))
 
 (when my-flag-ui
   (my-load-module ui "my-ui"))

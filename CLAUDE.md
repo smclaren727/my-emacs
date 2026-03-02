@@ -15,16 +15,18 @@ no Spacemacs).  Every package solves a concrete problem.
 ~/.emacs.d/
   early-init.el          — startup perf, UI suppression, GC tuning (runs before init.el)
   init.el                — orchestration only: load-path → flags → packages → loader → core → leader → modules
-  DECISIONS.md           — log of all architectural and package decisions
+  emacs-decisions-log.md — log of architectural and package decisions
   CLAUDE.md              — this file
   core/
     my-flags.el          — feature flags that toggle modules (provides 'my-flags)
     my-loader.el         — error-resilient module loading macro (provides 'my-loader)
     my-core.el           — production-safe defaults, no-littering, backup/autosave (provides 'my-core)
-    my-leader.el         — leader keymap with key-chord "fj" and C-c u fallback (provides 'my-leader)
+    my-leader.el         — leader keymap with key-chord double-space and C-c u fallback (provides 'my-leader)
   modules/
     my-os-macos.el       — macOS: modifier keys, exec-path-from-shell, clipboard (provides 'my-os-macos)
-    my-ui.el             — ef-themes, auto-dark via ns hook, doom-modeline, fonts (provides 'my-ui)
+    my-os-linux.el       — Linux: clipboard + trash integration (provides 'my-os-linux)
+    my-os-windows.el     — Windows: Super modifiers, clipboard, trash (provides 'my-os-windows)
+    my-ui.el             — sanityinc tomorrow themes, modeline, fonts (provides 'my-ui)
     my-editing.el        — vertico, orderless, marginalia, consult, embark, corfu, cape, vundo, markdown (provides 'my-editing)
     my-dev.el            — magit, eglot, tree-sitter, flymake, diff-hl, compile (provides 'my-dev)
     my-org-mode.el       — org capture, agenda, refile, org-id, org-modern (provides 'my-org-mode)
@@ -63,7 +65,7 @@ no Spacemacs).  Every package solves a concrete problem.
 
 ## Keybinding Architecture
 
-- All personal bindings live in `my-leader-map`, accessible via `fj` chord or `C-c u`
+- All personal bindings live in `my-leader-map`, accessible via double-space chord or `C-c u`
 - Leader sub-prefixes: `b` buffer, `c` compile, `e` emacs/eval, `f` files, `g` git, `o` org, `p` project, `s` shell
 - Use `my-leader-define` to add leader bindings
 - Mode-local bindings (`:map some-mode-map`) stay in their respective module files
@@ -79,9 +81,9 @@ no Spacemacs).  Every package solves a concrete problem.
 
 ## Platform
 
-- Primary: macOS (Apple Silicon, Homebrew emacs-plus with native-comp)
-- `my-os-macos.el` loaded via `(eq system-type 'darwin)`, not a flag
-- Future: `my-os-linux.el`, `my-os-windows.el` as needed
+- Supported platforms: macOS, Linux, and Windows via OS-specific modules
+- `my-os-macos.el`, `my-os-linux.el`, or `my-os-windows.el` is loaded by `system-type` (not a flag)
+- Primary daily driver: macOS (Apple Silicon, Homebrew emacs-plus with native-comp)
 - Shell: zsh
 - Python LSP: `pylsp` via pip3 (`~/Library/Python/3.9/bin/`)
 - TypeScript LSP: `typescript-language-server` via npm (`~/.npm-global/bin/`)
@@ -89,10 +91,9 @@ no Spacemacs).  Every package solves a concrete problem.
 
 ## Theme System
 
-- `ef-themes` by Prot (ef-night dark, ef-day light)
-- Auto-switches via built-in `ns-system-appearance-change-functions` hook
-- `auto-dark` package was tried and removed — didn't detect reliably
-- `doom-modeline` with `nerd-icons` for the modeline
+- `color-theme-sanityinc-tomorrow` (`sanityinc-tomorrow-night` / `sanityinc-tomorrow-day`)
+- On macOS, auto-switches via `ns-system-appearance-change-functions`; on other OSes, uses frame background mode at startup
+- `minions` + `moody` for modeline behavior and cleanup
 
 ## Notes / Org System
 

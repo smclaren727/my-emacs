@@ -69,10 +69,12 @@
 (use-package hl-todo
   :hook (prog-mode . hl-todo-mode))
 
-(add-hook 'before-save-hook
-          (lambda ()
-            (when (derived-mode-p 'prog-mode)
-              (delete-trailing-whitespace))))
+(defun my-dev--delete-trailing-whitespace ()
+  "Delete trailing whitespace in programming buffers."
+  (when (derived-mode-p 'prog-mode)
+    (delete-trailing-whitespace)))
+
+(add-hook 'before-save-hook #'my-dev--delete-trailing-whitespace)
 
 (provide 'my-dev)
 ;;; my-dev.el ends here

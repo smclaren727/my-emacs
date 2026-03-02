@@ -95,6 +95,36 @@
 (when (file-exists-p custom-file)
   (load custom-file 'noerror))
 
+;;; Cross-platform file manager integration ---------------------------
+(defun my-reveal-in-file-manager ()
+  "Reveal current file or directory in the OS file manager."
+  (interactive)
+  (let* ((path (expand-file-name (or (buffer-file-name) default-directory)))
+         (existing (if (file-exists-p path)
+                       path
+                     (file-name-directory path)))
+         (dir (if (file-directory-p existing)
+                  existing
+                (file-name-directory existing))))
+    (pcase system-type
+      ('darwin
+       (start-process "my-reveal" nil "open" "-R" existing))
+      ('windows-nt
+       (start-process
+        "my-reveal" nil "explorer.exe"
+        (if (file-directory-p existing)
+            (subst-char-in-string ?/ ?\\ existing)
+          (concat "/select," (subst-char-in-string ?/ ?\\ existing)))))
+      (_
+       (cond
+        ((executable-find "xdg-open")
+         (start-process "my-reveal" nil "xdg-open" dir))
+        ((executable-find "gio")
+         (start-process "my-reveal" nil "gio" "open" dir))
+        (t
+         (user-error
+          "No supported file manager opener found (tried xdg-open and gio)")))))))
+
 ;;; Keybinding discovery ----------------------------------------------
 ;; Shows available keybindings after a prefix key is pressed.
 ;; Built-in from Emacs 30; package for Emacs 29.

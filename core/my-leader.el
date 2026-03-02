@@ -1,7 +1,7 @@
 ;;; my-leader.el --- Personal leader key -*- lexical-binding: t; -*-
 
 ;; Provides a unified leader keymap accessible via:
-;;   - "fj" chord (ergonomic, requires key-chord)
+;;   - double-space chord (ergonomic, requires key-chord)
 ;;   - C-c u     (fallback, works everywhere including terminal/SSH)
 ;;
 ;; All personal bindings go in `my-leader-map'.  Both entry points
@@ -19,11 +19,19 @@
 (global-set-key (kbd "C-c u") 'my-leader-command)
 
 ;; Ergonomic chord via key-chord.
-(use-package key-chord
-  :config
-  (setq key-chord-two-keys-delay 0.05)
-  (key-chord-define-global "  " 'my-leader-command)
-  (key-chord-mode 1))
+(condition-case err
+    (use-package key-chord
+      :demand t
+      :config
+      (setq key-chord-two-keys-delay 0.05)
+      (key-chord-define-global "  " 'my-leader-command)
+      (key-chord-mode 1))
+  (error
+   (display-warning
+    'my-leader
+    (format "key-chord unavailable; using C-c u only: %s"
+            (error-message-string err))
+    :warning)))
 
 ;;; Binding helper ----------------------------------------------------
 (defun my-leader-define (key command)
@@ -56,7 +64,7 @@ KEY is a string accepted by `kbd'."
 ;; f = files / search
 (my-leader-define "f f" #'project-find-file)
 (my-leader-define "f g" #'consult-ripgrep)
-(my-leader-define "f r" #'my-os-macos-reveal-in-finder) ; macOS only
+(my-leader-define "f r" #'my-reveal-in-file-manager)
 
 ;; g = git
 (my-leader-define "g b" #'magit-blame-addition)

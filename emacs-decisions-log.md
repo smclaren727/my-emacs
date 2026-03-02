@@ -5,6 +5,18 @@ configuration. Each entry captures what was chosen, why, and what the
 alternatives were. This serves as a reference for future changes and
 as onboarding documentation.
 
+## Current State Overrides (2026-03-02)
+
+These entries supersede older sections below where they conflict.
+
+- Leader trigger is `key-chord` double-space (`"  "`), with `C-c u` as fallback.
+- `key-chord` is treated as optional at startup; failure falls back to `C-c u`.
+- Theme stack uses `color-theme-sanityinc-tomorrow`
+  (`sanityinc-tomorrow-night` / `sanityinc-tomorrow-day`).
+- Modeline stack uses `moody` and `minions` (not `doom-modeline` / `nerd-icons`).
+- OS modules now exist for macOS, Linux, and Windows and are loaded by `system-type`.
+- File-manager reveal is cross-platform via `my-reveal-in-file-manager`.
+
 ---
 
 ## Architecture

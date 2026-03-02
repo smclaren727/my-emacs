@@ -68,8 +68,8 @@ directory layout:
 - **notes** — org, capture, agenda, IDs
 - **ai** — reserved, intentionally minimal for now
 - **ops** — async processes, job runners, logging helpers, remote helpers, and orchestration utilities
-- **leader** — custom leader key map (`fj` chord via `key-chord`, `C-c u` as fallback)
-- **os** — platform-specific modules (macOS now, others later)
+- **leader** — custom leader key map (double-space chord via `key-chord`, `C-c u` as fallback)
+- **os** — platform-specific modules (macOS, Linux, Windows)
 
 Each module is loaded conditionally via feature flags.
 
@@ -179,8 +179,8 @@ A modern vanilla completion and development stack:
 
 ### UI:
 
-- ef-themes (`ef-night` / `ef-day` dark/light pair, switched via `ns-system-appearance-change-functions`)
-- doom-modeline + nerd-icons (modeline; nerd-icons is the successor to all-the-icons)
+- color-theme-sanityinc-tomorrow (`sanityinc-tomorrow-night` / `sanityinc-tomorrow-day`)
+- moody + minions (custom modeline + minor-mode collapse)
 
 ### Development:
 

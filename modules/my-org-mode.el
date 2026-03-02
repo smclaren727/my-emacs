@@ -83,7 +83,8 @@
         org-refile-allow-creating-parent-nodes 'confirm)
 
   ;; Auto-save all org files after refile so the move is persisted immediately.
-  (advice-add 'org-refile :after #'org-save-all-org-buffers)
+  (unless (advice-member-p #'org-save-all-org-buffers 'org-refile)
+    (advice-add 'org-refile :after #'org-save-all-org-buffers))
 
   ;; --- Capture templates ---
   ;; C-c u c then press the key in parentheses to select a template.
