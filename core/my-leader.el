@@ -113,7 +113,8 @@ KEY is a string accepted by `kbd'."
 (my-leader-define "r b" #'my-tramp-cleanup-all-buffers)
 (my-leader-define "r c" #'my-tramp-cleanup-current-connection)
 (my-leader-define "r d" #'my-tramp-open-nixos-directory)
-(my-leader-define "r n" #'my-tramp-open-nixos-config)
+(my-leader-define "r f" #'my-tramp-open-nixos-config)
+(my-leader-define "r n" #'my-tramp-open-nixos-modules)
 (my-leader-define "r s" #'my-tramp-sudo-edit-current-file)
 (my-leader-define "r t" #'my-tramp-open-shell)
 

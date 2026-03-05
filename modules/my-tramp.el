@@ -5,9 +5,15 @@
 ;;; Core TRAMP behavior -----------------------------------------------
 (use-package tramp
   :ensure nil
-  :custom
-  (tramp-default-method "ssh")
+  :demand t
+  :init
+  (setq tramp-default-method "ssh"
+        tramp-verbose 1
+        auto-revert-remote-files nil)
   :config
+  ;; Avoid expensive VC probes on remote paths.
+  (setq vc-ignore-dir-regexp
+        (concat vc-ignore-dir-regexp "\\|" tramp-file-name-regexp))
   ;; Nix often installs tools outside standard remote PATH defaults.
   (dolist (path '("/run/current-system/sw/bin"
                   "/nix/var/nix/profiles/default/bin"))
@@ -17,11 +23,17 @@
 (defvar my-tramp-default-host "nixnode"
   "Default SSH alias used by TRAMP helper commands.")
 
-(defvar my-tramp-nixos-config-file "/etc/nixos/configuration.nix"
-  "Path to the main NixOS configuration file on remote hosts.")
+(defvar my-tramp-nixos-config-candidates
+  '("/etc/nixos/flake.nix"
+    "/etc/nixos/configuration.nix"
+    "/etc/nixos/loxley.nix")
+  "Candidate paths for the main NixOS configuration file.")
 
 (defvar my-tramp-nixos-directory "/etc/nixos/"
   "Directory containing NixOS configuration files on remote hosts.")
+
+(defvar my-tramp-nixos-modules-directory "/etc/nixos/modules/"
+  "Directory containing NixOS module files on remote hosts.")
 
 (defun my-tramp--read-host (&optional prompt-host)
   "Return remote host alias, prompting when PROMPT-HOST is non-nil."
@@ -39,11 +51,35 @@ When SUDO-P is non-nil, use a sudo hop as root."
         (format "/ssh:%s|sudo:root@%s:%s" host host absolute-path)
       (format "/ssh:%s:%s" host absolute-path))))
 
+(defun my-tramp--resolve-nixos-config-file (host)
+  "Return best-available NixOS config path for HOST.
+Falls back to prompting for a path when none of the candidates exist."
+  (or (seq-find
+       (lambda (path)
+         (file-exists-p (my-tramp--remote-file host path)))
+       my-tramp-nixos-config-candidates)
+      (read-string
+       (format "NixOS config path on %s: " host)
+       "/etc/nixos/")))
+
 (defun my-tramp-open-nixos-config (&optional prompt-host)
   "Open NixOS config on a remote host.  With prefix, prompt for host."
   (interactive "P")
-  (let ((host (my-tramp--read-host prompt-host)))
-    (find-file (my-tramp--remote-file host my-tramp-nixos-config-file))))
+  (let* ((host (my-tramp--read-host prompt-host))
+         (config-path (my-tramp--resolve-nixos-config-file host)))
+    (find-file (my-tramp--remote-file host config-path))))
+
+(defun my-tramp-open-nixos-modules (&optional prompt-host)
+  "Open remote NixOS modules directory.  With prefix, prompt for host.
+Falls back to `my-tramp-nixos-directory' when modules dir is missing."
+  (interactive "P")
+  (let* ((host (my-tramp--read-host prompt-host))
+         (modules-dir (my-tramp--remote-file host my-tramp-nixos-modules-directory))
+         (fallback-dir (my-tramp--remote-file host my-tramp-nixos-directory)))
+    (if (file-directory-p modules-dir)
+        (dired modules-dir)
+      (message "Modules dir missing on %s; opening %s" host my-tramp-nixos-directory)
+      (dired fallback-dir))))
 
 (defun my-tramp-open-nixos-directory (&optional prompt-host)
   "Open remote `/etc/nixos/` in Dired.  With prefix, prompt for host."
