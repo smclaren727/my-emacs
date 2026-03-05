@@ -73,6 +73,9 @@
 (when my-flag-ops
   (my-load-module ops "my-ops"))
 
+(when my-flag-tramp
+  (my-load-module tramp "my-tramp"))
+
 (when my-flag-shells
   (my-load-module shells "my-shells"))
 

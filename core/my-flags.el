@@ -19,7 +19,10 @@
   "Load ops module (async processes, job runners, orchestration).")
 
 (defvar my-flag-shells t
-  "Load shell management module (quick commands, git, TRAMP).")
+  "Load shell management module (quick commands and shell buffers).")
+
+(defvar my-flag-tramp t
+  "Load remote access module (TRAMP helpers and Nix host shortcuts).")
 
 (provide 'my-flags)
 ;;; my-flags.el ends here

@@ -108,6 +108,15 @@ KEY is a string accepted by `kbd'."
 (my-leader-define "p f" #'project-find-file)
 (my-leader-define "p s" #'project-switch-project)
 
+;; r = remote / TRAMP
+(my-leader-define "r a" #'my-tramp-cleanup-all-connections)
+(my-leader-define "r b" #'my-tramp-cleanup-all-buffers)
+(my-leader-define "r c" #'my-tramp-cleanup-current-connection)
+(my-leader-define "r d" #'my-tramp-open-nixos-directory)
+(my-leader-define "r n" #'my-tramp-open-nixos-config)
+(my-leader-define "r s" #'my-tramp-sudo-edit-current-file)
+(my-leader-define "r t" #'my-tramp-open-shell)
+
 ;; s = shell
 (my-leader-define "s n" #'my-shell-named)
 (my-leader-define "s s" #'my-shell-here)
@@ -134,6 +143,7 @@ KEY is a string accepted by `kbd'."
     "h" "help"
     "o" "org"
     "p" "project"
+    "r" "remote"
     "s" "shell"
     "w" "window"))
 
