@@ -1,0 +1,15 @@
+# Example SSH config for TRAMP remote workflows.
+# Copy this file to ~/.ssh/config on each machine and customize as needed.
+#
+# Required:
+# - The Host alias (`nixnode`) should match `my-tramp-default-host`.
+# - Keep real secrets/keys out of this repository.
+
+Host nixnode
+  HostName 100.127.210.84
+  User sean
+  IdentitiesOnly yes
+  # IdentityFile ~/.ssh/id_ed25519
+  ServerAliveInterval 30
+  ServerAliveCountMax 3
+

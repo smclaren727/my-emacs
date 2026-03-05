@@ -88,6 +88,7 @@ no Spacemacs).  Every package solves a concrete problem.
 - Python LSP: `pylsp` via pip3 (`~/Library/Python/3.9/bin/`)
 - TypeScript LSP: `typescript-language-server` via npm (`~/.npm-global/bin/`)
 - Tools: ripgrep, pandoc, multimarkdown
+- Remote/TRAMP host aliases are documented in `etc/ssh-config.example` (copy to `~/.ssh/config` per machine)
 
 ## Theme System
 
