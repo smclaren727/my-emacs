@@ -1,5 +1,10 @@
 ;;; my-tramp.el --- TRAMP helpers for remote workflows -*- lexical-binding: t; -*-
 
+;; TRAMP configuration and remote host helpers.  Optimizes
+;; remote performance (disables VC probes, adds Nix paths),
+;; and provides interactive commands for SSH/sudo workflows
+;; targeted at NixOS hosts.
+
 (require 'subr-x)
 
 ;;; Core TRAMP behavior -----------------------------------------------
@@ -88,14 +93,16 @@ Falls back to `my-tramp-nixos-directory' when modules dir is missing."
     (dired (my-tramp--remote-file host my-tramp-nixos-directory))))
 
 (defun my-tramp-open-shell (&optional prompt-host)
-  "Open a shell at remote home directory.  With prefix, prompt for host."
+  "Open an Eshell at remote home directory.  With prefix, prompt for host."
   (interactive "P")
   (let* ((host (my-tramp--read-host prompt-host))
          (default-directory (my-tramp--remote-file host "~/"))
-         (buffer-name (format "*shell:%s*" host)))
+         (buffer-name (format "*eshell:%s*" host)))
     (if (get-buffer buffer-name)
         (pop-to-buffer buffer-name)
-      (shell buffer-name))))
+      (progn
+        (eshell t)
+        (rename-buffer buffer-name t)))))
 
 (defun my-tramp-sudo-edit-current-file ()
   "Reopen current remote file as root using a sudo TRAMP hop."

@@ -1,13 +1,12 @@
 
 ;;; my-org-mode.el --- Org-mode knowledge layer -*- lexical-binding: t; -*-
 
-(require 'my-org-tag-transitions)
+;; Org-mode knowledge layer: capture templates, agenda, refile
+;; targets, org-id for stable linking, and org-modern for visual
+;; polish.  All note files live under `my-notes-directory'.
+;; Tag transition engine loaded from elisp/my-org-tag-transitions.el.
 
-;;; Notes root --------------------------------------------------------
-;; Single variable for all note paths.  Nothing else should hardcode
-;; paths to notes — always derive from this.
-(defvar my-notes-directory "~/Notes/"
-  "Root directory for all notes and org files.")
+(require 'my-org-tag-transitions)
 
 ;;; Org setup ---------------------------------------------------------
 (use-package org

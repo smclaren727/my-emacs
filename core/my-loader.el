@@ -1,5 +1,10 @@
 ;;; my-loader.el --- Error-resilient module loader -*- lexical-binding: t; -*-
 
+;; Provides the `my-load-module' macro used by init.el to load
+;; optional modules.  Errors are caught and logged to the
+;; *startup-errors* buffer so one broken module can't take
+;; down the rest of the configuration.
+
 (defmacro my-load-module (name file)
   "Load FILE as module NAME, catching errors gracefully.
 NAME is an unquoted symbol for logging.  FILE is a string passed to `load'."

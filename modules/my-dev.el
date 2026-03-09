@@ -1,5 +1,10 @@
 ;;; my-dev.el --- Development tools -*- lexical-binding: t; -*-
 
+;; Development tools: project management, compilation, git (magit +
+;; diff-hl), tree-sitter grammars, LSP via eglot, syntax checking
+;; (flymake), and code hygiene (hl-todo, trailing whitespace).
+;; Language servers must be installed separately.
+
 ;;; Project management ------------------------------------------------
 (use-package project
   :ensure nil)

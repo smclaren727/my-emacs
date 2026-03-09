@@ -31,6 +31,7 @@ no Spacemacs).  Every package solves a concrete problem.
     my-dev.el            — magit, eglot, tree-sitter, flymake, diff-hl, compile (provides 'my-dev)
     my-org-mode.el       — org capture, agenda, refile, org-id, org-modern (provides 'my-org-mode)
     my-shells.el         — project-aware shell management (provides 'my-shells)
+    my-feeds.el          — elfeed RSS reader, elfeed-org, article saving (provides 'my-feeds)
     my-ai.el             — placeholder, flag disabled (provides 'my-ai)
     my-ops.el            — placeholder, flag disabled (provides 'my-ops)
 ```
@@ -66,7 +67,7 @@ no Spacemacs).  Every package solves a concrete problem.
 ## Keybinding Architecture
 
 - All personal bindings live in `my-leader-map`, accessible via double-space chord or `C-c u`
-- Leader sub-prefixes: `b` buffer, `c` compile, `e` emacs/eval, `f` files, `g` git, `o` org, `p` project, `s` shell
+- Leader sub-prefixes: `b` buffer, `c` compile, `e` emacs/eval, `f` files, `g` git, `n` news/feeds, `o` org, `p` project, `s` shell
 - Use `my-leader-define` to add leader bindings
 - Mode-local bindings (`:map some-mode-map`) stay in their respective module files
 - Don't shadow core Emacs bindings without strong justification

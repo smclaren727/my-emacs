@@ -1,5 +1,9 @@
 ;;; my-shells.el --- Shell configuration -*- lexical-binding: t; -*-
 
+;; Project-aware shell management.  Opens named shell buffers
+;; rooted in the current project directory, reuses existing
+;; buffers, and preserves shell history across sessions.
+
 ;;; Core settings -----------------------------------------------------
 ;; Configure comint (the engine behind M-x shell) for comfortable use.
 (use-package shell

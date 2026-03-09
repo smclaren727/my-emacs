@@ -1,5 +1,10 @@
 ;;; my-editing.el --- Completion and editing enhancements -*- lexical-binding: t; -*-
 
+;; Completion and text editing enhancements.  Minibuffer narrowing
+;; (vertico + orderless + marginalia + consult + embark), in-buffer
+;; completion (corfu + cape), visual undo (vundo), and markdown
+;; support.  No development-specific or org-specific config here.
+
 ;;; Minibuffer completion ---------------------------------------------
 
 (use-package vertico

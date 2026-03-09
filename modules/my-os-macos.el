@@ -1,5 +1,9 @@
 ;;; my-os-macos.el --- macOS-specific settings -*- lexical-binding: t; -*-
 
+;; macOS-specific configuration: modifier key mapping (Cmd → Meta,
+;; Opt → Super, Fn → Hyper), shell PATH inheritance for GUI Emacs,
+;; clipboard, trash, titlebar appearance, and file manager integration.
+
 ;;; Modifier keys -----------------------------------------------------
 (setq mac-command-modifier 'meta
       mac-option-modifier 'super
@@ -43,12 +47,17 @@
                     (font-spec :family "Apple Color Emoji") nil 'prepend)
   (set-fontset-font t nil "SF Pro Display" nil 'append))
 
-;;; Reveal in Finder --------------------------------------------------
-(defun my-os-macos-reveal-in-finder ()
-  "Reveal the current file or directory in Finder."
+;;; Dired — use GNU ls -------------------------------------------------
+;; BSD ls lacks --dired; use Homebrew coreutils gls when available.
+(when-let* ((gls (executable-find "gls")))
+  (setq insert-directory-program gls))
+
+;;; File manager integration -------------------------------------------
+(defun my-reveal-in-file-manager ()
+  "Reveal current file or directory in Finder."
   (interactive)
-  (let ((path (or (buffer-file-name) default-directory)))
-    (call-process "open" nil 0 nil "-R" (expand-file-name path))))
+  (let ((path (expand-file-name (or (buffer-file-name) default-directory))))
+    (start-process "my-reveal" nil "open" "-R" path)))
 
 (provide 'my-os-macos)
 ;;; my-os-macos.el ends here

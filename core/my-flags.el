@@ -1,5 +1,9 @@
 ;;; my-flags.el --- Feature flags for module loading -*- lexical-binding: t; -*-
 
+;; Feature flags that control which modules load at startup.
+;; Set a flag to nil to disable a module without removing any code.
+;; Flags are checked in init.el before each my-load-module call.
+
 (defvar my-flag-ui t
   "Load UI module (theme, modeline, fonts).")
 
@@ -23,6 +27,12 @@
 
 (defvar my-flag-tramp t
   "Load remote access module (TRAMP helpers and Nix host shortcuts).")
+
+(defvar my-flag-contacts t
+  "Load contact management module (EBDB addressbook).")
+
+(defvar my-flag-feeds t
+  "Load feeds module (elfeed RSS reader).")
 
 (provide 'my-flags)
 ;;; my-flags.el ends here

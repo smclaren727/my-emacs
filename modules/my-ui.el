@@ -1,5 +1,10 @@
 ;;; my-ui.el --- Visual configuration -*- lexical-binding: t; -*-
 
+;; Visual layer: theme (sanityinc-tomorrow with auto dark/light
+;; switching), font selection, modeline (moody + minions), line
+;; numbers, smooth scrolling, and window layout history.
+;; No editing or keybinding logic belongs here.
+
 ;;; Theme -------------------------------------------------------------
 (use-package color-theme-sanityinc-tomorrow
   :demand t)

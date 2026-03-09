@@ -44,6 +44,13 @@ KEY is a string accepted by `kbd'."
 ;; are bound here as symbols; they resolve at call time so loading order
 ;; doesn't matter.
 
+;; a = addressbook
+(my-leader-define "a a" #'ebdb-display-all-records)
+(my-leader-define "a c" #'ebdb-create-record)
+(my-leader-define "a m" #'ebdb-mail)
+(my-leader-define "a s" #'ebdb)
+(my-leader-define "a t" #'ebdb-search-tags)
+
 ;; b = buffer
 (my-leader-define "b b" #'bury-buffer)
 (my-leader-define "b k" #'kill-current-buffer)
@@ -93,6 +100,14 @@ KEY is a string accepted by `kbd'."
 (my-leader-define "h m" #'describe-mode)
 (my-leader-define "h v" #'describe-variable)
 
+;; n = news / feeds
+(my-leader-define "n b" #'my-feeds-browse-article)
+(my-leader-define "n d" #'my-feeds-save-article)
+(my-leader-define "n f" #'my-feeds-open-feed-file)
+(my-leader-define "n n" #'elfeed)
+(my-leader-define "n s" #'my-feeds-show-starred)
+(my-leader-define "n u" #'elfeed-update)
+
 ;; o = org
 (my-leader-define "o a" #'org-agenda)
 (my-leader-define "o c" #'org-capture)
@@ -135,6 +150,7 @@ KEY is a string accepted by `kbd'."
 ;;; Which-key descriptions --------------------------------------------
 (with-eval-after-load 'which-key
   (which-key-add-keymap-based-replacements my-leader-map
+    "a" "addressbook"
     "b" "buffer"
     "c" "compile"
     "d" "dired"
@@ -142,6 +158,7 @@ KEY is a string accepted by `kbd'."
     "f" "files"
     "g" "git"
     "h" "help"
+    "n" "news/feeds"
     "o" "org"
     "p" "project"
     "r" "remote"
