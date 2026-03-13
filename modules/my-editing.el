@@ -83,5 +83,8 @@
   (markdown-header-scaling t)
   (markdown-enable-math t))
 
+(use-package markdown-indent-mode
+  :hook (markdown-mode . markdown-indent-mode))
+
 (provide 'my-editing)
 ;;; my-editing.el ends here

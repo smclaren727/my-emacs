@@ -85,4 +85,7 @@
 (when my-flag-feeds
   (my-load-module feeds "my-feeds"))
 
+(when my-flag-roam
+  (my-load-module roam "my-roam"))
+
 ;;; init.el ends here

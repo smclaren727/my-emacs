@@ -12,7 +12,9 @@
   (ebdb-default-record-class 'ebdb-record-person)
   (ebdb-complete-mail 'capf)
   (ebdb-save-on-exit t)
-  (ebdb-auto-revert t))
+  (ebdb-auto-revert t)
+  :config
+  (ebdb-load))
 
 ;;; Interactive commands -----------------------------------------------
 (use-package ebdb-com

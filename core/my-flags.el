@@ -34,5 +34,8 @@
 (defvar my-flag-feeds t
   "Load feeds module (elfeed RSS reader).")
 
+(defvar my-flag-roam t
+  "Load org-roam module (networked notes, backlinks, knowledge graph).")
+
 (provide 'my-flags)
 ;;; my-flags.el ends here
