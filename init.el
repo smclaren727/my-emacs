@@ -79,9 +79,6 @@
 (when my-flag-shells
   (my-load-module shells "my-shells"))
 
-(when my-flag-contacts
-  (my-load-module contacts "my-contacts"))
-
 (when my-flag-feeds
   (my-load-module feeds "my-feeds"))
 
