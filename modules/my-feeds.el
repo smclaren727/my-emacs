@@ -10,7 +10,7 @@
 ;;; Variables -----------------------------------------------------------
 
 (defvar my-feeds-directory
-  (expand-file-name "saved-articles/" my-notes-directory)
+  (expand-file-name "Saved-Articles/" my-notes-directory)
   "Directory for downloaded article markdown files.")
 
 (defvar my-feeds-org-file
@@ -32,7 +32,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   ;; Wider title column so long titles aren't truncated.
   (elfeed-search-title-max-width 100)
   :config
-  ;; Ensure saved-articles directory exists.
+  ;; Ensure Saved-Articles directory exists.
   (make-directory my-feeds-directory t)
   :hook
   ;; Wrap long lines in article view.
