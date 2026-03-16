@@ -1,0 +1,9 @@
+#!/bin/bash
+# Open a bookmark from the running Emacs instance via emacsclient.
+# Creates a dedicated minibuffer frame for the completion picker.
+# Requires: Emacs server running (server-start or emacs --daemon).
+#
+# Usage: ./bookmark-open
+# Wire to Raycast/Alfred/global hotkey for system-wide access.
+
+emacsclient --eval '(my-bookmarks-open-frame)'

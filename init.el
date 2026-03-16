@@ -85,4 +85,7 @@
 (when my-flag-roam
   (my-load-module roam "my-roam"))
 
+(when my-flag-bookmarks
+  (my-load-module bookmarks "my-bookmarks"))
+
 ;;; init.el ends here

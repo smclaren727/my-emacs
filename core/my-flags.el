@@ -34,5 +34,8 @@
 (defvar my-flag-roam t
   "Load org-roam module (networked notes, backlinks, knowledge graph).")
 
+(defvar my-flag-bookmarks t
+  "Load bookmarks module (org-based bookmark manager).")
+
 (provide 'my-flags)
 ;;; my-flags.el ends here

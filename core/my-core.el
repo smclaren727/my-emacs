@@ -129,6 +129,12 @@
 
 (add-hook 'emacs-startup-hook #'my-core--check-external-tools)
 
+;;; Server mode --------------------------------------------------------
+;; Allow emacsclient connections (e.g. scripts/bookmark-open).
+;; Safe to call even when Emacs is started as --daemon — server-start
+;; is a no-op if a server is already running.
+(add-hook 'after-init-hook #'server-start)
+
 ;;; Keybinding discovery ----------------------------------------------
 ;; Shows available keybindings after a prefix key is pressed.
 ;; Built-in from Emacs 30; package for Emacs 29.
