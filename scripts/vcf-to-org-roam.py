@@ -18,6 +18,33 @@ import uuid
 from pathlib import Path
 
 
+def _extract_type(key_part):
+    """Extract a human-readable type label from vCard parameters.
+
+    e.g., 'TEL;type=CELL;type=VOICE;type=pref' -> 'cell'
+          'EMAIL;type=INTERNET;type=WORK'       -> 'work'
+    Prefers meaningful labels (home, work, cell, mobile) over
+    generic ones (voice, internet, pref).
+    """
+    params = key_part.upper().split(";")[1:]
+    # Collect all type= values
+    types = []
+    for param in params:
+        if param.startswith("TYPE="):
+            types.append(param[5:].lower())
+        elif "=" not in param:
+            # Bare parameter like TEL;CELL:value (older vCard style)
+            types.append(param.lower())
+
+    # Prefer meaningful labels over generic ones
+    meaningful = {"home", "work", "cell", "mobile", "main", "fax",
+                  "iphone", "other", "school"}
+    for t in types:
+        if t in meaningful:
+            return t
+    return ""
+
+
 def parse_vcards(vcf_path):
     """Parse a .vcf file into a list of dicts, one per contact."""
     contacts = []
@@ -62,12 +89,11 @@ def parse_vcards(vcf_path):
                 current_key = None
                 continue
 
-            # Handle multi-value fields (multiple emails, phones)
+            # Handle multi-value fields — store as list of (type_label, value)
             if base_key in ("TEL", "EMAIL", "ADR"):
+                type_label = _extract_type(key_part)
                 existing = current.get(base_key, [])
-                if isinstance(existing, str):
-                    existing = [existing]
-                existing.append(value)
+                existing.append((type_label, value))
                 current[base_key] = existing
             else:
                 current[base_key] = value
@@ -164,23 +190,17 @@ def build_org_note(contact, org_id, vcard_uid, existing_body=None):
     if vcard_uid:
         props.append(f":VCARD_UID: {vcard_uid}")
 
-    # Email(s)
+    # Email(s) — stored as (type_label, value) tuples
     emails = contact.get("EMAIL", [])
-    if isinstance(emails, str):
-        emails = [emails]
-    if emails:
-        props.append(f":EMAIL:    {emails[0]}")
-        for i, email in enumerate(emails[1:], 2):
-            props.append(f":EMAIL_{i}:  {email}")
+    for i, (label, value) in enumerate(emails):
+        suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
+        props.append(f":EMAIL{suffix}: {value}")
 
-    # Phone(s)
+    # Phone(s) — stored as (type_label, value) tuples
     phones = contact.get("TEL", [])
-    if isinstance(phones, str):
-        phones = [phones]
-    if phones:
-        props.append(f":PHONE:    {format_phone(phones[0])}")
-        for i, phone in enumerate(phones[1:], 2):
-            props.append(f":PHONE_{i}:  {format_phone(phone)}")
+    for i, (label, value) in enumerate(phones):
+        suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
+        props.append(f":PHONE{suffix}: {format_phone(value)}")
 
     # Organization
     org = contact.get("ORG", "")
@@ -195,14 +215,13 @@ def build_org_note(contact, org_id, vcard_uid, existing_body=None):
     if title:
         props.append(f":ROLE:     {title}")
 
-    # Address(es)
+    # Address(es) — stored as (type_label, value) tuples
     addrs = contact.get("ADR", [])
-    if isinstance(addrs, str):
-        addrs = [addrs]
-    if addrs:
-        formatted = format_address(addrs[0])
+    for i, (label, value) in enumerate(addrs):
+        formatted = format_address(value)
         if formatted:
-            props.append(f":ADDRESS:  {formatted}")
+            suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
+            props.append(f":ADDRESS{suffix}: {formatted}")
 
     # Birthday
     bday = format_birthday(contact.get("BDAY", ""))

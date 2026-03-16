@@ -3,6 +3,8 @@ elpa/
 
 # Runtime and cache files
 var/
+__pycache__/
+*.pyc
 
 # Tree-sitter compiled grammars
 tree-sitter/
