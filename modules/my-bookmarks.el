@@ -70,20 +70,41 @@ PROMPT is the minibuffer prompt string."
 
 ;;; Frame launcher for emacsclient --------------------------------------
 
-(defun my-bookmarks-open-frame ()
-  "Open a bookmark from a dedicated frame.
-Intended for use via emacsclient from outside Emacs:
-  emacsclient --eval \\='(my-bookmarks-open-frame)\\='
-Creates a small frame, runs the bookmark picker, then cleans up."
+(defun my-bookmarks-open-client-frame ()
+  "Open a bookmark in the selected graphical client frame.
+Intended for use via `emacsclient -n -c -F ... -e' from outside
+Emacs.  The client frame is deleted after opening a bookmark or
+cancelling the prompt."
   (interactive)
-  (let ((frame (make-frame '((name . "Bookmarks")
-                              (width . 80)
-                              (height . 20)
-                              (minibuffer . only)))))
-    (unwind-protect
-        (with-selected-frame frame
-          (my-bookmarks-open))
-      (delete-frame frame))))
+  (unless (display-graphic-p (selected-frame))
+    (user-error "Bookmark launcher requires a graphical client frame"))
+  (let ((frame (selected-frame)))
+    (condition-case nil
+        (unwind-protect
+            (my-bookmarks-open)
+          (when (frame-live-p frame)
+            (delete-frame frame)))
+      (quit
+       (when (frame-live-p frame)
+         (delete-frame frame))))))
+
+(defun my-bookmarks-open-frame ()
+  "Backward-compatible launcher entry point.
+This command expects the frame to have been created by
+`emacsclient -c'.  It schedules the picker on that frame and
+returns immediately so external launchers do not block."
+  (interactive)
+  (unless (display-graphic-p (selected-frame))
+    (user-error "Bookmark launcher requires a graphical client frame"))
+  (let ((frame (selected-frame)))
+    (run-at-time
+     0 nil
+     (lambda (launcher-frame)
+       (when (frame-live-p launcher-frame)
+         (with-selected-frame launcher-frame
+           (select-frame-set-input-focus launcher-frame)
+           (my-bookmarks-open-client-frame))))
+     frame)))
 
 ;;; Capture template ----------------------------------------------------
 

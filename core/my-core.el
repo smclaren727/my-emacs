@@ -133,6 +133,14 @@
 ;; Allow emacsclient connections (e.g. scripts/bookmark-open).
 ;; Safe to call even when Emacs is started as --daemon — server-start
 ;; is a no-op if a server is already running.
+(require 'server)
+(let ((server-dir (no-littering-expand-var-file-name "server/")))
+  (make-directory server-dir t)
+  ;; Emacs refuses to place server sockets in directories that are
+  ;; accessible by other users.
+  (set-file-modes server-dir #o700)
+  (setq server-socket-dir server-dir
+        server-auth-dir server-dir))
 (add-hook 'after-init-hook #'server-start)
 
 ;;; Keybinding discovery ----------------------------------------------
