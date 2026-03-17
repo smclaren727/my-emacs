@@ -42,10 +42,8 @@
 ;; Provides the leader keymap that modules bind into.
 (require 'my-leader)
 
-;;; Optional modules --------------------------------------------------
-;; Each is guarded by its feature flag and wrapped in error handling.
-;; A broken module logs to *startup-errors* but does not take down Emacs.
-;; Exactly one OS module is loaded, based on `system-type`.
+;;; Platform module ---------------------------------------------------
+;; OS integration is selected automatically from `system-type`.
 
 (cond
  ((eq system-type 'darwin)
@@ -54,6 +52,11 @@
   (my-load-module os-linux "my-os-linux"))
  ((eq system-type 'windows-nt)
   (my-load-module os-windows "my-os-windows")))
+
+;;; Optional modules --------------------------------------------------
+;; Each is guarded by its feature flag and wrapped in error handling.
+;; A broken module logs to *startup-errors* but does not take down Emacs.
+;; Feature flags are for optional subsystems, not OS detection.
 
 (when my-flag-ui
   (my-load-module ui "my-ui"))

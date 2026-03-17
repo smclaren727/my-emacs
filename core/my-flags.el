@@ -1,8 +1,9 @@
 ;;; my-flags.el --- Feature flags for module loading -*- lexical-binding: t; -*-
 
-;; Feature flags that control which modules load at startup.
-;; Set a flag to nil to disable a module without removing any code.
-;; Flags are checked in init.el before each my-load-module call.
+;; Feature flags that control optional module loading at startup.
+;; Platform modules are selected automatically via `system-type' in init.el.
+;; Set a flag to nil to disable a subsystem without removing any code.
+;; Flags are checked in init.el before each `my-load-module' call.
 
 (defvar my-flag-ui t
   "Load UI module (theme, modeline, fonts).")

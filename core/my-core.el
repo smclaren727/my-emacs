@@ -131,17 +131,39 @@
 
 ;;; Server mode --------------------------------------------------------
 ;; Allow emacsclient connections (e.g. scripts/bookmark-open).
-;; Safe to call even when Emacs is started as --daemon — server-start
-;; is a no-op if a server is already running.
+;; Platform-specific socket compatibility belongs in OS modules.
 (require 'server)
-(let ((server-dir (no-littering-expand-var-file-name "server/")))
-  (make-directory server-dir t)
+
+(defconst my-core-server-dir
+  (no-littering-expand-var-file-name "server/")
+  "Stable directory for the primary Emacs server socket.")
+
+(defvar my-core-after-server-ready-hook nil
+  "Hook run after `my-core--ensure-server' verifies server access.")
+
+(defun my-core--local-server-sockets-supported-p ()
+  "Return non-nil when this Emacs build supports local server sockets."
+  (featurep 'make-network-process '(:family local)))
+
+(defun my-core--ensure-server ()
+  "Start the Emacs server if needed and run post-start hooks."
+  (make-directory my-core-server-dir t)
   ;; Emacs refuses to place server sockets in directories that are
   ;; accessible by other users.
-  (set-file-modes server-dir #o700)
-  (setq server-socket-dir server-dir
-        server-auth-dir server-dir))
-(add-hook 'after-init-hook #'server-start)
+  (set-file-modes my-core-server-dir #o700)
+  (setq server-auth-dir my-core-server-dir)
+  (if (my-core--local-server-sockets-supported-p)
+      (setq server-use-tcp nil
+            server-socket-dir my-core-server-dir)
+    (setq server-use-tcp t))
+  (let ((server-state (server-running-p server-name)))
+    (when (null server-state)
+      (server-start)
+      (setq server-state t))
+    (when server-state
+      (run-hooks 'my-core-after-server-ready-hook))))
+
+(add-hook 'after-init-hook #'my-core--ensure-server)
 
 ;;; Keybinding discovery ----------------------------------------------
 ;; Shows available keybindings after a prefix key is pressed.

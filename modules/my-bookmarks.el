@@ -11,6 +11,9 @@
   (expand-file-name "bookmarks.org" my-notes-directory)
   "Org file containing bookmarks.")
 
+(defvar my-bookmarks-launcher-vertico-count 14
+  "Number of completion candidates to show in the bookmark launcher.")
+
 ;;; Internal helpers ----------------------------------------------------
 
 (defun my-bookmarks--collect ()
@@ -81,7 +84,8 @@ cancelling the prompt."
   (let ((frame (selected-frame)))
     (condition-case nil
         (unwind-protect
-            (my-bookmarks-open)
+            (let ((vertico-count my-bookmarks-launcher-vertico-count))
+              (my-bookmarks-open))
           (when (frame-live-p frame)
             (delete-frame frame)))
       (quit

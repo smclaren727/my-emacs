@@ -17,6 +17,43 @@
   :config
   (exec-path-from-shell-initialize))
 
+;;; Emacs server compatibility ----------------------------------------
+;; Keep plain `emacsclient` working by mirroring the stable socket into
+;; the default macOS temp directory path that emacsclient probes.
+(defun my-os-macos--default-server-socket ()
+  "Return the default macOS emacsclient socket path for `server-name'."
+  (expand-file-name
+   server-name
+   (expand-file-name (format "emacs%d/" (user-uid))
+                     temporary-file-directory)))
+
+(defun my-os-macos--link-default-server-socket (&rest _)
+  "Expose the stable server socket at the default macOS client path."
+  (when-let* (((not server-use-tcp))
+              (server-dir server-socket-dir)
+              (stable-socket (expand-file-name server-name server-dir))
+              (default-socket (my-os-macos--default-server-socket)))
+    (make-directory (file-name-directory default-socket) t)
+    (let ((existing-link (file-symlink-p default-socket)))
+      (cond
+       ((and existing-link
+             (string= existing-link stable-socket)))
+       ((file-symlink-p default-socket)
+        (delete-file default-socket)
+        (make-symbolic-link stable-socket default-socket))
+       ((file-exists-p default-socket)
+        (display-warning
+         'server
+         (format "Leaving existing default emacsclient socket in place: %s"
+                 default-socket)
+         :warning))
+       (t
+        (make-symbolic-link stable-socket default-socket))))))
+
+(add-hook 'my-core-after-server-ready-hook #'my-os-macos--link-default-server-socket)
+(unless (advice-member-p #'my-os-macos--link-default-server-socket 'server-start)
+  (advice-add 'server-start :after #'my-os-macos--link-default-server-socket))
+
 ;;; Clipboard ---------------------------------------------------------
 (setq select-enable-clipboard t
       select-enable-primary nil)

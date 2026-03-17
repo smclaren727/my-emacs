@@ -16,14 +16,14 @@ STABLE_SOCKET="$HOME/.emacs.d/var/server/server"
 LEGACY_SOCKET="$(getconf DARWIN_USER_TEMP_DIR)emacs$(id -u)/server"
 FRAME_PARAMS='((auto-raise . t)
                (fullscreen . nil)
-               (height . 20)
-               (width . 110)
+               (height . 18)
+               (width . 104)
                (top . 200)
                (left . 0.33)
-               (internal-border-width . 20)
+               (internal-border-width . 14)
                (left-fringe . 0)
                (right-fringe . 0)
-               (line-spacing . 3)
+               (line-spacing . 2)
                (menu-bar-lines . 0)
                (minibuffer . only)
                (tool-bar-lines . 0)
@@ -31,13 +31,26 @@ FRAME_PARAMS='((auto-raise . t)
                (unsplittable . t)
                (vertical-scroll-bars . nil))'
 
-if [[ -S "$STABLE_SOCKET" ]]; then
-  SOCKET="$STABLE_SOCKET"
-elif [[ -S "$LEGACY_SOCKET" ]]; then
-  SOCKET="$LEGACY_SOCKET"
-else
-  echo "No Emacs server socket found." >&2
-  echo "Restart the Emacs daemon once so it recreates the socket, then run this shortcut again." >&2
+socket_is_live() {
+  local socket="$1"
+  [[ -S "$socket" ]] || return 1
+  "$EMACSCLIENT" -s "$socket" -e '(emacs-pid)' >/dev/null 2>&1
+}
+
+pick_socket() {
+  local socket
+  for socket in "$STABLE_SOCKET" "$LEGACY_SOCKET"; do
+    if socket_is_live "$socket"; then
+      printf '%s\n' "$socket"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if ! SOCKET="$(pick_socket)"; then
+  echo "No live Emacs server socket found." >&2
+  echo "Restart the Emacs daemon or run M-x server-start, then run this shortcut again." >&2
   exit 1
 fi
 
