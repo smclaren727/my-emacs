@@ -85,8 +85,8 @@
 (when my-flag-feeds
   (my-load-module feeds "my-feeds"))
 
-(when my-flag-roam
-  (my-load-module roam "my-roam"))
+(when my-flag-nodes
+  (my-load-module nodes "my-nodes"))
 
 (when my-flag-bookmarks
   (my-load-module bookmarks "my-bookmarks"))

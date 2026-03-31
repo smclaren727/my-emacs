@@ -32,8 +32,8 @@
 (defvar my-flag-feeds t
   "Load feeds module (elfeed RSS reader).")
 
-(defvar my-flag-roam t
-  "Load org-roam module (networked notes, backlinks, knowledge graph).")
+(defvar my-flag-nodes t
+  "Load org-node module (networked notes, backlinks, node search).")
 
 (defvar my-flag-bookmarks t
   "Load bookmarks module (org-based bookmark manager).")
