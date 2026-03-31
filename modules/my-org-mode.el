@@ -194,11 +194,13 @@ doesn't already exist."
 (use-package org-id
   :ensure nil
   :after org
+  :demand t
   :custom
   (org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
   (org-id-locations-file
    (expand-file-name "var/org-id-locations" user-emacs-directory))
   :config
+  (org-id-locations-load)
   (add-hook 'org-capture-prepare-finalize-hook #'org-id-get-create))
 
 ;;; Org appearance ----------------------------------------------------

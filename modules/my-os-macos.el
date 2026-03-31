@@ -1,7 +1,7 @@
 ;;; my-os-macos.el --- macOS-specific settings -*- lexical-binding: t; -*-
 
 ;; macOS-specific configuration: modifier key mapping (Cmd → Meta,
-;; Opt → Super, Fn → Hyper), shell PATH inheritance for GUI Emacs,
+;; Opt → Super, Fn → Hyper), shell PATH inheritance for GUI and daemon Emacs,
 ;; clipboard, trash, titlebar appearance, and file manager integration.
 
 ;;; Modifier keys -----------------------------------------------------
@@ -11,9 +11,8 @@
       mac-right-option-modifier 'none)
 
 ;;; Shell PATH --------------------------------------------------------
-;; GUI Emacs on macOS doesn't inherit the terminal's $PATH.
+;; launchd-started Emacs on macOS doesn't inherit the shell's environment.
 (use-package exec-path-from-shell
-  :if (display-graphic-p)
   :config
   (exec-path-from-shell-initialize))
 

@@ -28,10 +28,33 @@
 (setq package-enable-at-startup nil)
 
 ;;; Native compilation ------------------------------------------------
+(defun my-early--homebrew-gcc-runtime-dir ()
+  "Return the Homebrew GCC runtime directory containing `libemutls_w.a'."
+  (let ((match
+         (car (file-expand-wildcards
+               "/opt/homebrew/lib/gcc/current/gcc/*/*/libemutls_w.a"))))
+    (when match
+      (directory-file-name (file-name-directory match)))))
+
 ;; Silence compiler warnings during async native compilation.
 ;; We assume native-comp is available (emacs-plus build).
 (when (featurep 'native-compile)
-  (setq native-comp-async-report-warnings-errors 'silent))
+  (require 'comp)
+  (setq native-comp-async-report-warnings-errors 'silent)
+  (let ((gcc-runtime-dir (my-early--homebrew-gcc-runtime-dir)))
+    (when gcc-runtime-dir
+      (let ((existing-library-path (getenv "LIBRARY_PATH")))
+        (setenv "LIBRARY_PATH"
+                (if (and existing-library-path
+                         (> (length existing-library-path) 0))
+                    (concat gcc-runtime-dir ":" existing-library-path)
+                  gcc-runtime-dir)))
+      ;; Async native-comp workers need an explicit search path on macOS
+      ;; so the linker can find Homebrew's GCC runtime libraries.
+      (setq native-comp-driver-options
+            (delete-dups
+             (append native-comp-driver-options
+                     (list (concat "-L" gcc-runtime-dir))))))))
 
 ;; Suppress byte-compile warnings from third-party packages.
 (setq byte-compile-warnings '(not docstrings free-vars))
