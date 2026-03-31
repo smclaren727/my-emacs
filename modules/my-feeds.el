@@ -9,14 +9,16 @@
 
 ;;; Variables -----------------------------------------------------------
 
-(defvar my-feeds-directory
-  (expand-file-name "Saved-Articles/" my-notes-directory)
+(defvar my-feeds-directory nil
   "Directory for downloaded article markdown files.")
+(setq my-feeds-directory
+      (expand-file-name "50-Resources/Saved-Articles/" my-notes-directory))
 
-(defvar my-feeds-org-file
-  (expand-file-name "feeds.org" my-notes-directory)
+(defvar my-feeds-org-file nil
   "Org file containing elfeed feed subscriptions.
 Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
+(setq my-feeds-org-file
+      (expand-file-name "50-Resources/feeds.org" my-notes-directory))
 
 ;;; Elfeed — feed reader engine -----------------------------------------
 
@@ -40,7 +42,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 
 ;;; elfeed-org — manage feeds in an org file ----------------------------
 
-;; Feeds live in ~/Notes/feeds.org as org headings with :elfeed: tag.
+;; Feeds live in ~/All-The-Things/50-Resources/feeds.org as org headings with :elfeed: tag.
 ;; Tags on parent headings inherit downward — no need to tag every feed.
 (use-package elfeed-org
   :after elfeed

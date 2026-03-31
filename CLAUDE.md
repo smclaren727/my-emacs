@@ -32,6 +32,7 @@ no Spacemacs).  Every package solves a concrete problem.
     my-org-mode.el       — org capture, agenda, refile, org-id, org-modern (provides 'my-org-mode)
     my-shells.el         — project-aware shell management (provides 'my-shells)
     my-feeds.el          — elfeed RSS reader, elfeed-org, article saving (provides 'my-feeds)
+    my-nodes.el          — org-node networked notes, backlinks, node search (provides 'my-nodes)
     my-ai.el             — placeholder, flag disabled (provides 'my-ai)
     my-ops.el            — placeholder, flag disabled (provides 'my-ops)
 ```
@@ -97,14 +98,22 @@ no Spacemacs).  Every package solves a concrete problem.
 - On macOS, auto-switches via `ns-system-appearance-change-functions`; on other OSes, uses frame background mode at startup
 - `minions` + `moody` for modeline behavior and cleanup
 
-## Notes / Org System
+## Notes / Org System (PARA)
 
-- Root: `~/Notes/` (controlled by `my-notes-directory`)
-- Files: `inbox.org`, `projects.org`, `areas.org`, `interests.org`, `journal.org`
+- Root: `~/All-The-Things/` (controlled by `my-notes-directory`)
+- Structure follows PARA methodology:
+  - `00-Capture/` — inbox.org, journal.org, newly captured items awaiting refile
+  - `10-Projects/` — one .org file per project (e.g. `refinance-home-mortgage.org`)
+  - `20-Areas/` — areas.org (ongoing responsibilities)
+  - `30-Interests/` — interests.org
+  - `40-Knowledge/` — knowledge.org
+  - `50-Resources/` — bookmarks.org, feeds.org, Saved-Articles/, Contacts/
+  - `60-Archive/` — archive.org
 - Capture templates: todo (`t`), note (`n`), journal (`j`), project (`p`)
+- Project capture creates a new file in `10-Projects/` via `my-org-capture-project-file`
 - Journal uses `file+olp+datetree` with `:tree-type day` (Year → Month → Day)
 - `org-id` enabled from day one — IDs generated on every capture
-- Refile targets span projects, inbox, areas, interests
+- Refile targets: all project files, inbox, areas, interests
 - Auto-save after refile via advice on `org-refile`
 
 ## Testing Changes

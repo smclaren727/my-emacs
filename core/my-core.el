@@ -49,7 +49,7 @@
 ;;; Shared paths -------------------------------------------------------
 ;; Used by multiple modules (org-mode, feeds).  Defined here so no
 ;; module needs to defensively re-declare it.
-(defvar my-notes-directory "~/Notes/"
+(defvar my-notes-directory "~/All-The-Things/"
   "Root directory for all notes and org files.")
 
 ;;; History and state -------------------------------------------------

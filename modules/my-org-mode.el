@@ -12,16 +12,20 @@
 (use-package org
   :ensure nil
   :hook ((org-mode . visual-line-mode)
-         (org-mode . my-org-enable-tag-transition-autosave))
+         (org-mode . my-org-enable-tag-transition-autosave)
+         (org-mode . my-org-enable-updated-property-autosave))
   :custom
   ;; Core paths — all derived from my-notes-directory.
   (org-directory my-notes-directory)
-  (org-default-notes-file (expand-file-name "inbox.org" my-notes-directory))
+  (org-default-notes-file (expand-file-name "00-Capture/inbox.org" my-notes-directory))
   ;; RET on a link opens it instead of inserting a newline.
   (org-return-follows-link t)
 
-  ;; Agenda pulls from these files.
-  (org-agenda-files (list my-notes-directory))
+  ;; Agenda pulls from all PARA subdirectories.
+  (org-agenda-files (list (expand-file-name "00-Capture/" my-notes-directory)
+                          (expand-file-name "10-Projects/" my-notes-directory)
+                          (expand-file-name "20-Areas/" my-notes-directory)
+                          (expand-file-name "30-Interests/" my-notes-directory)))
 
   ;; TODO workflow.
   ;; PROJECT = non-actionable container heading (never "do" a project, do its tasks).
@@ -67,6 +71,12 @@
   ;; Hide markup characters (*bold*, /italic/) and show formatted text.
   (org-hide-emphasis-markers t)
 
+  ;; Archive to a single file in 60-Archive/, filed under a heading
+  ;; matching the source file name.
+  (org-archive-location
+   (concat (expand-file-name "60-Archive/archive.org" my-notes-directory)
+           "::* From %s"))
+
   :config
   ;; Ensure the notes directory exists.
   (make-directory my-notes-directory t)
@@ -80,15 +90,20 @@
                   (my-org-transition-source-tags))
           org-tag-persistent-alist)))
 
-  ;; Refile targets: projects file up to 3 levels deep, inbox up to 2.
+  ;; Refile targets: project files up to 2 levels deep, inbox up to 2.
   ;; org-refile-use-outline-path shows the full path (file/heading/subheading)
   ;; so you can distinguish headings with the same name in different files.
   ;; Completing in one step (not nil) is faster with Vertico/Consult.
   (setq org-refile-targets
-        `((,(expand-file-name "projects.org" my-notes-directory)  :maxlevel . 3)
-          (,(expand-file-name "inbox.org" my-notes-directory)     :maxlevel . 2)
-          (,(expand-file-name "areas.org" my-notes-directory)     :maxlevel . 3)
-          (,(expand-file-name "interests.org" my-notes-directory) :maxlevel . 2))
+        `((,(file-expand-wildcards
+             (expand-file-name "10-Projects/*.org" my-notes-directory))
+           :maxlevel . 2)
+          (,(file-expand-wildcards
+             (expand-file-name "20-Areas/*.org" my-notes-directory))
+           :maxlevel . 3)
+          (,(file-expand-wildcards
+             (expand-file-name "30-Interests/*.org" my-notes-directory))
+           :maxlevel . 2))
         org-refile-use-outline-path 'file
         org-outline-path-complete-in-steps nil
         org-refile-allow-creating-parent-nodes 'confirm)
@@ -96,6 +111,58 @@
   ;; Auto-save all org files after refile so the move is persisted immediately.
   (unless (advice-member-p #'org-save-all-org-buffers 'org-refile)
     (advice-add 'org-refile :after #'org-save-all-org-buffers))
+
+  ;; Update a top-level UPDATED property automatically when present.
+  ;; This keeps document-level metadata honest without forcing every Org file
+  ;; into the same property convention.
+  (defun my-org--document-updated-property-heading-position ()
+    "Return the first top-level heading with an UPDATED property, or nil."
+    (save-excursion
+      (goto-char (point-min))
+      (catch 'match
+        (while (re-search-forward org-heading-regexp nil t)
+          (when (and (= (org-outline-level) 1)
+                     (org-entry-get (point) "UPDATED"))
+            (throw 'match (point))))
+        nil)))
+
+  (defun my-org-touch-updated-property-before-save ()
+    "Refresh a document-level UPDATED property before saving the current buffer."
+    (when (derived-mode-p 'org-mode)
+      (when-let ((position (my-org--document-updated-property-heading-position)))
+        (save-excursion
+          (goto-char position)
+          (org-entry-put (point)
+                         "UPDATED"
+                         (format-time-string "[%Y-%m-%d %a %H:%M]"))))))
+
+  (defun my-org-enable-updated-property-autosave ()
+    "Enable automatic UPDATED-property refreshes for the current Org buffer."
+    (add-hook 'before-save-hook #'my-org-touch-updated-property-before-save nil t))
+
+  ;; --- Project capture helper ---
+  ;; Prompts for a project name, creates a new file in 10-Projects/
+  ;; with title and properties, returns the file path for capture.
+  (defun my-org-capture-project-file ()
+    "Prompt for a project name and return its file in 10-Projects/.
+Creates the file with #+TITLE and a :PROPERTIES: drawer if it
+doesn't already exist."
+    (let* ((name (read-string "Project name: "))
+           (slug (downcase (replace-regexp-in-string "[^a-z0-9]+" "-"
+                            (downcase name))))
+           (slug (replace-regexp-in-string "^-\\|-$" "" slug))
+           (file (expand-file-name (concat "10-Projects/" slug ".org")
+                                   my-notes-directory)))
+      (unless (file-exists-p file)
+        (with-temp-file file
+          (insert (format "#+TITLE: %s\n" name))
+          (insert ":PROPERTIES:\n")
+          (insert (format ":CREATED: %s\n"
+                          (format-time-string "[%Y-%m-%d %a %H:%M]")))
+          (insert (format ":GOAL:    \n"))
+          (insert (format ":ID:       %s\n" (org-id-new)))
+          (insert ":END:\n\n")))
+      file))
 
   ;; --- Capture templates ---
   ;; C-c u c then press the key in parentheses to select a template.
@@ -106,21 +173,21 @@
   ;; %i  = active region (selected text), if any
   (setq org-capture-templates
         `(("t" "Todo" entry
-           (file ,(expand-file-name "inbox.org" my-notes-directory))
+           (file ,(expand-file-name "00-Capture/inbox.org" my-notes-directory))
            "* TODO %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n"
            :empty-lines 1)
           ("n" "Note" entry
-           (file ,(expand-file-name "inbox.org" my-notes-directory))
+           (file ,(expand-file-name "00-Capture/inbox.org" my-notes-directory))
            "* %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n%a\n%i"
            :empty-lines 1)
           ("j" "Journal" entry
-           (file+olp+datetree ,(expand-file-name "journal.org" my-notes-directory))
+           (file+olp+datetree ,(expand-file-name "00-Capture/journal.org" my-notes-directory))
            "* %?\n%U\n"
            :tree-type day
            :empty-lines 1)
           ("p" "Project" entry
-           (file ,(expand-file-name "projects.org" my-notes-directory))
-           "* PROJECT %^{Project name}\n:PROPERTIES:\n:CREATED: %U\n:GOAL:    %?\n:END:\n\n** NEXT Define first action\n"
+           (file my-org-capture-project-file)
+           "* NEXT Define first action\n"
            :empty-lines 1))))
 
 ;;; Org IDs -----------------------------------------------------------

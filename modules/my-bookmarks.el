@@ -1,15 +1,16 @@
 ;;; my-bookmarks.el --- Org-based bookmark manager -*- lexical-binding: t; -*-
 
 ;; Plaintext bookmark management using org-mode.  Bookmarks are stored
-;; as org headlines with links in ~/Notes/bookmarks.org, searchable via
+;; as org headlines with links in ~/All-The-Things/50-Resources/bookmarks.org, searchable via
 ;; completing-read (vertico/orderless).  An emacsclient-friendly frame
 ;; launcher enables system-wide access from Raycast/Alfred/hotkeys.
 
 ;;; Variables -----------------------------------------------------------
 
-(defvar my-bookmarks-file
-  (expand-file-name "bookmarks.org" my-notes-directory)
+(defvar my-bookmarks-file nil
   "Org file containing bookmarks.")
+(setq my-bookmarks-file
+      (expand-file-name "50-Resources/bookmarks.org" my-notes-directory))
 
 (defvar my-bookmarks-launcher-vertico-count 14
   "Number of completion candidates to show in the bookmark launcher.")
