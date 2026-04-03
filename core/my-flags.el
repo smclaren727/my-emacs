@@ -17,8 +17,8 @@
 (defvar my-flag-org t
   "Load notes/org module (capture, agenda, IDs).")
 
-(defvar my-flag-ai nil
-  "Load AI module. Disabled until Phase 2 design is done.")
+(defvar my-flag-ai t
+  "Load AI module.")
 
 (defvar my-flag-ops nil
   "Load ops module (async processes, job runners, orchestration).")

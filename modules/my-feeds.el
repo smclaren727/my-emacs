@@ -87,39 +87,29 @@ Downcase, replace non-alphanumeric runs with hyphens, trim edges."
    ((derived-mode-p 'elfeed-search-mode)
     (elfeed-search-selected :single))))
 
-(defun my-feeds--article-to-markdown (url title &optional author date tags)
-  "Fetch URL content, convert to markdown, and save to `my-feeds-directory'.
-TITLE is used for the filename and front-matter.  Optional AUTHOR,
-DATE, and TAGS are included in YAML front-matter."
+(defun my-feeds--article-to-org (url title &optional author date tags)
+  "Fetch URL content and save as org to `my-feeds-directory'.
+TITLE is used for the filename and header.  Optional AUTHOR,
+DATE, and TAGS are included as org metadata."
   (let* ((slug (my-feeds--slugify title))
-         (filename (concat slug ".md"))
+         (filename (concat slug ".org"))
          (filepath (expand-file-name filename my-feeds-directory))
-         ;; Fetch readable HTML and convert to org via pandoc.
-         (org-content (org-web-tools--url-as-readable-org url))
-         ;; Convert org to markdown via pandoc.
-         (md-content (when org-content
-                       (with-temp-buffer
-                         (insert org-content)
-                         (call-process-region
-                          (point-min) (point-max)
-                          "pandoc" t t nil
-                          "-f" "org" "-t" "markdown" "--wrap=none")
-                         (buffer-string)))))
-    (unless md-content
+         (org-content (progn
+                        (require 'org-web-tools)
+                        (org-web-tools--url-as-readable-org url))))
+    (unless org-content
       (user-error "Failed to fetch article content from %s" url))
-    ;; Build the file with YAML front-matter.
     (with-temp-file filepath
-      (insert "---\n")
-      (insert (format "title: \"%s\"\n" (string-replace "\"" "\\\"" title)))
+      (insert (format "#+title: %s\n" title))
       (when author
-        (insert (format "author: \"%s\"\n" author)))
-      (insert (format "date: %s\n" (or date (format-time-string "%Y-%m-%d"))))
-      (insert (format "source: %s\n" url))
+        (insert (format "#+author: %s\n" author)))
+      (insert (format "#+date: %s\n" (or date (format-time-string "%Y-%m-%d"))))
+      (insert (format "#+source: %s\n" url))
       (when tags
-        (insert (format "tags: [%s]\n"
-                        (mapconcat (lambda (tag) (format "\"%s\"" tag)) tags ", "))))
-      (insert "---\n\n")
-      (insert md-content))
+        (insert (format "#+filetags: :%s:\n"
+                        (mapconcat #'identity tags ":"))))
+      (insert "\n")
+      (insert org-content))
     (message "Saved article to %s" filepath)
     filepath))
 
@@ -173,7 +163,7 @@ containing title, author, date, source URL, and tags."
            (tag-strs (mapcar #'symbol-name tags)))
       (message "Downloading article: %s..." title)
       (condition-case err
-          (my-feeds--article-to-markdown url title author-str date tag-strs)
+          (my-feeds--article-to-org url title author-str date tag-strs)
         (error
          (user-error "Article download failed: %s" (error-message-string err)))))))
 

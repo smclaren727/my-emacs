@@ -73,6 +73,11 @@
   :custom
   (vundo-glyph-alist vundo-unicode-symbols))
 
+;;; Navigation -------------------------------------------------------
+
+(use-package avy
+  :bind ("M-j" . avy-goto-char-timer))
+
 ;;; Markdown ----------------------------------------------------------
 
 (use-package markdown-mode
