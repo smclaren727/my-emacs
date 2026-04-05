@@ -70,6 +70,9 @@
 (when my-flag-org
   (my-load-module org-mode "my-org-mode"))
 
+(when my-flag-mail
+  (my-load-module mail "my-mail"))
+
 (when my-flag-ai
   (my-load-module ai "my-ai"))
 

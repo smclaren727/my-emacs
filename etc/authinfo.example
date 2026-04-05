@@ -1,0 +1,8 @@
+# Copy the entries you need into ~/.authinfo.gpg or ~/.authinfo.
+# Gmail and iCloud both expect app passwords instead of your normal account
+# password. Remove spaces from provider UI formatting before saving.
+
+machine imap.gmail.com login smclaren727@gmail.com password REPLACE_WITH_GMAIL_APP_PASSWORD port 993
+machine smtp.gmail.com login smclaren727@gmail.com password REPLACE_WITH_GMAIL_APP_PASSWORD port 587
+machine imap.mail.me.com login smclaren727@icloud.com password REPLACE_WITH_ICLOUD_APP_PASSWORD port 993
+machine smtp.mail.me.com login smclaren727@icloud.com password REPLACE_WITH_ICLOUD_APP_PASSWORD port 587

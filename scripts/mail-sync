@@ -1,0 +1,49 @@
+#!/bin/bash
+
+set -euo pipefail
+
+PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH
+
+MAILDIR_ROOT="$HOME/Mail"
+MBSYNCRC="$HOME/.mbsyncrc"
+AUTHINFO_GPG="$HOME/.authinfo.gpg"
+AUTHINFO_PLAIN="$HOME/.authinfo"
+
+log() {
+  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
+}
+
+if ! command -v mbsync >/dev/null 2>&1; then
+  log "Skipping mail sync because mbsync is not installed."
+  exit 0
+fi
+
+if ! command -v mu >/dev/null 2>&1; then
+  log "Skipping mail sync because mu is not installed."
+  exit 0
+fi
+
+if [[ ! -f "$MBSYNCRC" ]]; then
+  log "Skipping mail sync because $MBSYNCRC is missing."
+  exit 0
+fi
+
+if [[ ! -f "$AUTHINFO_GPG" && ! -f "$AUTHINFO_PLAIN" ]]; then
+  log "Skipping mail sync because neither $AUTHINFO_GPG nor $AUTHINFO_PLAIN exists."
+  exit 0
+fi
+
+mkdir -p "$MAILDIR_ROOT" "$HOME/Library/Logs"
+
+log "Running mbsync..."
+mbsync -a
+
+if ! mu info >/dev/null 2>&1; then
+  log "mbsync completed, but mu is not initialized yet. Run mu init once, then rerun mail-sync."
+  exit 0
+fi
+
+log "Running mu index..."
+mu index
+log "Mail sync completed."

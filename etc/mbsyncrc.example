@@ -1,0 +1,55 @@
+# ~/.mbsyncrc
+#
+# Generated from ~/.emacs.d/etc/mbsyncrc.example.
+# Gmail and iCloud both expect app passwords in ~/.authinfo or ~/.authinfo.gpg.
+# Remove spaces from provider UI formatting before saving passwords.
+
+# ---------- Gmail ----------
+IMAPAccount gmail
+Host imap.gmail.com
+User smclaren727@gmail.com
+PassCmd "~/bin/mail-auth-value imap.gmail.com smclaren727@gmail.com"
+AuthMechs PLAIN
+TLSType IMAPS
+CertificateFile /etc/ssl/cert.pem
+
+IMAPStore gmail-remote
+Account gmail
+
+MaildirStore gmail-local
+SubFolders Verbatim
+Path ~/Mail/gmail/
+Inbox ~/Mail/gmail/INBOX
+
+Channel gmail
+Far :gmail-remote:
+Near :gmail-local:
+Patterns * !"[Gmail]/All Mail" !"[Gmail]/Important"
+Create Both
+Expunge Both
+SyncState *
+
+# ---------- iCloud ----------
+IMAPAccount icloud
+Host imap.mail.me.com
+User smclaren727@icloud.com
+PassCmd "~/bin/mail-auth-value imap.mail.me.com smclaren727@icloud.com"
+AuthMechs PLAIN
+TLSType IMAPS
+CertificateFile /etc/ssl/cert.pem
+
+IMAPStore icloud-remote
+Account icloud
+
+MaildirStore icloud-local
+SubFolders Verbatim
+Path ~/Mail/icloud/
+Inbox ~/Mail/icloud/INBOX
+
+Channel icloud
+Far :icloud-remote:
+Near :icloud-local:
+Patterns *
+Create Both
+Expunge Both
+SyncState *

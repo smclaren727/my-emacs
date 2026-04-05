@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Import Apple Contacts vCard export into org-roam contact notes.
+"""Import Apple Contacts vCard export into plain Org contact notes.
 
 Usage:
-    python3 vcf-to-org-roam.py <input.vcf> [output-dir]
+    python3 vcf-to-org-contacts.py <input.vcf> [output-dir]
 
-Output directory defaults to ~/Notes/Contacts/.
+Output directory defaults to ~/All-The-Things/50-Resources/Contacts/.
 
 On re-import, matches contacts by vCard UID.  Updates properties and
 title but preserves any body text (backlinks, notes) you've added
@@ -138,7 +138,7 @@ def sanitize_filename(name):
 
 
 def find_existing_note(output_dir, vcard_uid):
-    """Find an existing org-roam note matching a vCard UID."""
+    """Find an existing contact note matching a vCard UID."""
     if not vcard_uid or not output_dir.exists():
         return None
     for org_file in output_dir.glob("*.org"):
@@ -180,7 +180,7 @@ def extract_body(filepath):
 
 
 def build_org_note(contact, org_id, vcard_uid, existing_body=None):
-    """Build the org-roam note content for a contact."""
+    """Build the Org note content for a contact."""
     fn = contact.get("FN", "Unknown")
 
     # Build properties
@@ -258,7 +258,11 @@ def main():
         sys.exit(1)
 
     vcf_path = Path(sys.argv[1])
-    output_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else Path.home() / "Notes" / "Contacts"
+    output_dir = (
+        Path(sys.argv[2])
+        if len(sys.argv) > 2
+        else Path.home() / "All-The-Things" / "50-Resources" / "Contacts"
+    )
 
     if not vcf_path.exists():
         print(f"Error: {vcf_path} not found")
@@ -315,7 +319,7 @@ def main():
 
     print(f"Done: {created} created, {updated} updated, {skipped} skipped")
     print(f"Output: {output_dir}")
-    print("Run M-x org-roam-db-sync in Emacs to index the new notes.")
+    print("Notes use plain Org IDs and should appear once org-node refreshes its cache.")
 
 
 if __name__ == "__main__":

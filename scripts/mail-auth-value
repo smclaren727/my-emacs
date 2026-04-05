@@ -1,0 +1,45 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if [[ "$#" -ne 2 ]]; then
+  echo "usage: mail-auth-value MACHINE LOGIN" >&2
+  exit 64
+fi
+
+machine="$1"
+login="$2"
+
+authinfo_gpg="$HOME/.authinfo.gpg"
+authinfo_plain="$HOME/.authinfo"
+
+if [[ -f "$authinfo_gpg" ]]; then
+  auth_stream_cmd=(gpg --quiet --batch --decrypt "$authinfo_gpg")
+elif [[ -f "$authinfo_plain" ]]; then
+  auth_stream_cmd=(cat "$authinfo_plain")
+else
+  echo "No authinfo file found" >&2
+  exit 1
+fi
+
+"${auth_stream_cmd[@]}" | awk -v machine="$machine" -v login="$login" '
+  $1 == "machine" && $2 == machine {
+    machine_ok = 1
+    login_ok = 0
+    password = ""
+
+    for (i = 1; i <= NF; i++) {
+      if ($i == "login" && (i + 1) <= NF && $(i + 1) == login) {
+        login_ok = 1
+      }
+      if ($i == "password" && (i + 1) <= NF) {
+        password = $(i + 1)
+      }
+    }
+
+    if (machine_ok && login_ok && password != "") {
+      print password
+      exit
+    }
+  }
+'

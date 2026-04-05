@@ -20,6 +20,7 @@ tree-sitter/
 
 # Emacs Custom (machine-generated, varies per machine)
 etc/custom.el
+etc/mail-accounts.el
 
 # Backup and auto-save files
 *~

@@ -17,6 +17,9 @@
 (defvar my-flag-org t
   "Load notes/org module (capture, agenda, IDs).")
 
+(defvar my-flag-mail t
+  "Load mail module (mu4e, mbsync, msmtp, and Org mail capture).")
+
 (defvar my-flag-ai t
   "Load AI module.")
 

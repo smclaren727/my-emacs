@@ -1,0 +1,22 @@
+defaults
+auth           on
+tls            on
+tls_starttls   on
+tls_trust_file /etc/ssl/cert.pem
+logfile        ~/Library/Logs/msmtp.log
+
+account gmail
+host           smtp.gmail.com
+port           587
+from           smclaren727@gmail.com
+user           smclaren727@gmail.com
+passwordeval   "~/bin/mail-auth-value smtp.gmail.com smclaren727@gmail.com"
+
+account icloud
+host           smtp.mail.me.com
+port           587
+from           smclaren727@icloud.com
+user           smclaren727@icloud.com
+passwordeval   "~/bin/mail-auth-value smtp.mail.me.com smclaren727@icloud.com"
+
+account default : gmail
