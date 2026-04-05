@@ -37,7 +37,6 @@ Examples from this config:
 - `recentf`
 - `savehist`
 - `var/org-id-locations`
-- `var/org-roam.db`
 - `var/elfeed/db/`
 - Possibly `etc/custom.el` if it picks up machine-specific values
 
@@ -127,7 +126,7 @@ If a future cross-machine setup behaves strangely, first suspects are:
 - native compilation cache
 - server/auth files
 - history files
-- org-roam database
+- package-specific note graph caches or databases
 - org-id locations
 - elfeed database
 

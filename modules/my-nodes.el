@@ -91,10 +91,10 @@ electric-pair-mode which inserts ]] immediately after [[."
             (add-to-list 'completion-at-point-functions
                          #'my-org-node-link-capf nil #'eq)))
 
-;;; Use ALIASES property instead of ROAM_ALIASES ------------------------
+;;; Use ALIASES property through compatibility hooks --------------------
 
-;; Cleaner property drawers and better portability to non-Roam tools.
-;; Override org-mem's reader and org-node's writer to use ALIASES.
+;; Keep the vault on the cleaner ALIASES property while preserving the
+;; compatibility entry points that org-node/org-mem still name with "roam".
 
 (with-eval-after-load 'org-mem
   (defun org-mem-entry-roam-aliases (entry)

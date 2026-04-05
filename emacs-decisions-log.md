@@ -601,23 +601,30 @@ gracefully rather than blocking startup.
 
 ---
 
-## `my-ai.el` (deferred)
+## `my-ai.el` (implemented)
 
-### No package chosen yet
+### gptel + agent-shell
 
-**Status:** Intentionally deferred. Phase 1 (investigation) and Phase 2
-(interface design) must complete before any package is integrated.
+**Status:** Implemented. gptel chosen as the primary LLM package. agent-shell
+added for interactive Claude Code and Codex sessions.
 
-**Leading candidate:** `gptel` — supports multiple backends, streaming,
-org-mode integration, minimal UI assumptions.
+**gptel** — installed via `:vc` from GitHub. Four backends auto-registered
+when API keys are available: OpenAI, Anthropic Claude, OpenRouter
+(openai-compatible), and Ollama (local). Auth uses env vars with
+auth-source fallback. Streaming enabled on all backends.
 
-**Evaluation criteria:** local model support, HTTP API flexibility, async
-and streaming, conversation buffer management, code-aware operations,
-TRAMP compatibility, headless compatibility.
+**agent-shell** — installed for interactive coding-agent sessions. Provides
+`my-ai-claude` (Claude Code via ACP) and `my-ai-codex` (Codex via ACP).
+Auth delegates to each CLI tool's native login flow.
 
-**Architectural constraint:** The AI layer must be swappable across
-backends, support multiple providers simultaneously, and not pollute
-editing modules or require UI dependencies.
+**Architectural constraint met:** The AI layer is swappable across backends,
+supports multiple providers simultaneously, and does not pollute editing
+modules or require UI dependencies. All config lives in `my-ai.el`.
+
+**Emacs-Harness integration:** gptel also serves as a provider type inside
+Emacs-Harness via `eh-model-providers-gptel.el`. The harness retains prompt
+construction, decision validation, policy, and routing. gptel handles LLM
+transport only.
 
 ---
 
@@ -644,7 +651,7 @@ editing modules or require UI dependencies.
 
 | Topic | Status |
 |-------|--------|
-| `my-ai.el` | Waiting for Phase 2 interface design. Leading candidate: `gptel`. |
+| `my-ai.el` | Implemented. gptel + agent-shell. See decision above. |
 | `my-ops.el` | No concrete need identified yet. |
 | Journaling workflow | Capture and ID scaffolding in place. Specific workflows deferred. |
 | elpaca migration | Future upgrade path from `package.el` once config stabilizes. |

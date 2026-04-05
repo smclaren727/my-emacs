@@ -239,62 +239,33 @@ scaffolding should not wait.
 
 ---
 
-## Step 7 — Path C: AI / Control Layer
+## Step 7 — Path C: AI / Control Layer (complete)
 
-We deliberately do not choose packages yet.
+### Implementation
 
-### Phase 1 — Investigate
+`my-ai.el` provides two packages:
 
-Evaluate existing AI integration packages on:
+**gptel** (LLM conversations):
+- Installed via `:vc` from `karthink/gptel`
+- Backends auto-registered: OpenAI, Anthropic Claude, OpenRouter, Ollama
+- Auth: env var with auth-source fallback (`my-ai--env-or-auth-source-secret`)
+- Streaming enabled, curl transport
+- Interactive entry: `my-ai-chat`
 
-- Local model support
-- HTTP API flexibility
-- Async handling and streaming support
-- Conversation buffer management
-- Code-aware operations
-- TRAMP compatibility (future)
-- Headless compatibility (future)
-- Minimal UI assumptions
+**agent-shell** (CLI coding agents):
+- Claude Code via `my-ai-claude` (spawns `claude-agent-acp`)
+- Codex via `my-ai-codex` (spawns `codex-acp`)
+- Auth delegated to each CLI tool's native login
 
-### Phase 2 — Define the Interface
+### Architectural Principles (preserved)
 
-Before integrating any package, define what the AI layer should do:
-
-**Actions:**
-
-- Summarize region
-- Explain error
-- Refactor function
-- Ask about project
-- Run agent task
-
-**Context contract:** What context is passed with each action?
-
-**Display contract:** How are responses shown — buffer, inline,
-overlay, dedicated conversation buffer?
-
-Define these as a small set of Elisp functions with a consistent calling
-convention (always accept region text, buffer context, and a callback).
-This makes backend swapping trivial.
-
-### Phase 3 — Choose and Integrate
-
-Choose the package that best fits the interface defined in Phase 2.
-
-Current leading candidate: `gptel` — supports multiple backends,
-streaming, org-mode integration, and has minimal UI assumptions. It
-aligns closely with the architectural principles below.
-
-### Architectural Principles
-
-The AI layer should:
-
-- Be swappable across backends
-- Support multiple providers simultaneously
-- Not pollute editing modules
-- Not require UI dependencies
-- Work over SSH
-- Be treated as a service adapter, not a feature
+The AI layer:
+- Is swappable across backends
+- Supports multiple providers simultaneously
+- Does not pollute editing modules
+- Does not require UI dependencies
+- Works over SSH (gptel uses curl, agent-shell uses CLI tools)
+- Is treated as a service adapter, not a feature
 
 ---
 

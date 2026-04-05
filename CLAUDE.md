@@ -17,6 +17,12 @@ no Spacemacs).  Every package solves a concrete problem.
   init.el                — orchestration only: load-path → flags → packages → loader → core → leader → modules
   emacs-decisions-log.md — log of architectural and package decisions
   CLAUDE.md              — this file
+  etc/
+    authinfo.example       — tracked mail auth example copied into ~/.authinfo.gpg or ~/.authinfo
+    custom.el              — package-generated custom variables (gitignored/runtime)
+    mail-accounts.example.el — example override for mu4e/mail account data
+    mbsyncrc.example       — tracked local mbsync template with Gmail-safe IMAP defaults
+    msmtprc.example        — tracked local msmtp template
   core/
     my-flags.el          — feature flags that toggle modules (provides 'my-flags)
     my-loader.el         — error-resilient module loading macro (provides 'my-loader)
@@ -33,8 +39,12 @@ no Spacemacs).  Every package solves a concrete problem.
     my-shells.el         — project-aware shell management (provides 'my-shells)
     my-feeds.el          — elfeed RSS reader, elfeed-org, article saving (provides 'my-feeds)
     my-nodes.el          — org-node networked notes, backlinks, node search (provides 'my-nodes)
-    my-ai.el             — placeholder, flag disabled (provides 'my-ai)
+    my-ai.el             — gptel + agent-shell: LLM chat, Claude Code, Codex (provides 'my-ai)
+    my-mail.el           — mu4e, mbsync, msmtp, org mail capture (provides 'my-mail)
     my-ops.el            — placeholder, flag disabled (provides 'my-ops)
+  scripts/
+    bootstrap-mail-config.sh — idempotent local mail bootstrap helper
+    mail-auth-value      — authinfo reader for mbsync/msmtp password helpers
 ```
 
 ## Load Order
@@ -104,9 +114,9 @@ no Spacemacs).  Every package solves a concrete problem.
 - Structure follows PARA methodology:
   - `00-Capture/` — inbox.org, journal.org, newly captured items awaiting refile
   - `10-Projects/` — one .org file per project (e.g. `refinance-home-mortgage.org`)
-  - `20-Areas/` — areas.org (ongoing responsibilities)
-  - `30-Interests/` — interests.org
-  - `40-Knowledge/` — knowledge.org
+  - `20-Areas/` — one .org file per area (e.g. `household.org`, `pc-sarasota.org`)
+  - `30-Interests/` — currently `interests.org`
+  - `40-Knowledge/` — currently `knowledge.org`
   - `50-Resources/` — bookmarks.org, feeds.org, Saved-Articles/, Contacts/
   - `60-Archive/` — archive.org
 - Capture templates: todo (`t`), note (`n`), journal (`j`), project (`p`)
