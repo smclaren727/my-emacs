@@ -68,6 +68,16 @@
   ;; Indent content under headings visually (no hard tabs).
   (org-startup-indented t)
 
+  ;; Add a blank line before new headings, but not before list items.
+  (org-blank-before-new-entry '((heading . always)
+                                (plain-list-item . nil)))
+
+  ;; Show one blank line between headings when the outline is folded.
+  (org-cycle-separator-lines 1)
+
+  ;; Replace the default "..." fold indicator with a down-arrow.
+  (org-ellipsis " ▼")
+
   ;; Hide markup characters (*bold*, /italic/) and show formatted text.
   (org-hide-emphasis-markers t)
 
@@ -80,6 +90,32 @@
   :config
   ;; Ensure the notes directory exists.
   (make-directory my-notes-directory t)
+
+  (defun my-org-refresh-ellipsis ()
+    "Apply `org-ellipsis' to Org fold specs in the current buffer."
+    (when (and (stringp org-ellipsis)
+               (not (string-empty-p org-ellipsis))
+               (boundp 'org-fold-core--specs)
+               (fboundp 'org-fold-core-set-folding-spec-property))
+      (unless buffer-display-table
+        (setq buffer-display-table (make-display-table)))
+      (set-display-table-slot
+       buffer-display-table 4
+       (vconcat (mapcar (lambda (c) (make-glyph-code c 'org-ellipsis))
+                         org-ellipsis)))
+      (dolist (spec '(outline org-fold-outline
+                      org-hide-block org-fold-block
+                      org-hide-drawer org-fold-drawer))
+        (when (assq spec org-fold-core--specs)
+          (setq buffer-invisibility-spec
+                (cl-remove-if
+                 (lambda (entry)
+                   (or (eq entry spec)
+                       (and (consp entry) (eq (car entry) spec))))
+                 buffer-invisibility-spec))
+          (org-fold-core-set-folding-spec-property
+           spec :ellipsis org-ellipsis t)))))
+  (add-hook 'org-mode-hook #'my-org-refresh-ellipsis)
 
   ;; Offer source tags in Org tag completion without clobbering
   ;; any existing persistent tags.
@@ -208,7 +244,10 @@ doesn't already exist."
   :hook ((org-mode . org-modern-mode)
          (org-agenda-finalize . org-modern-agenda))
   :custom
-  (org-modern-star '("◉" "○" "◈" "◇" "▸")))
+  ;; Keep org-modern responsible only for headline bullets.  Org's own
+  ;; `org-ellipsis' handles the end-of-line folded-subtree indicator.
+  (org-modern-star 'replace)
+  (org-modern-replace-stars '("◉" "○" "◈" "◇" "▸")))
 
 (provide 'my-org-mode)
 ;;; my-org-mode.el ends here

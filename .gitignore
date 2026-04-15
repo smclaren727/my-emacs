@@ -3,6 +3,7 @@ elpa/
 
 # Runtime and cache files
 var/
+agent/
 __pycache__/
 *.pyc
 

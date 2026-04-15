@@ -4,7 +4,7 @@
 ;; - mbsync handles transport
 ;; - mu/mu4e handle indexing and the UI
 ;; - msmtp handles sending
-;; - Org captures and org-contacts hold durable task/context data
+;; - Org captures and org contact files hold durable task/context data
 ;; - ~/.emacs.d/scripts/bootstrap-mail-config.sh installs tracked local
 ;;   templates for ~/.mbsyncrc, ~/.msmtprc, and ~/.authinfo.example
 
@@ -26,9 +26,20 @@
   (expand-file-name "50-Resources/email-notes.org" my-notes-directory)
   "Org file that stores reference notes captured from mail.")
 
-(defvar my-mail-org-contacts-directory
+(defvar my-mail-contacts-directory
   (expand-file-name "50-Resources/Contacts/" my-notes-directory)
-  "Directory containing curated org-contacts entries.")
+  "Directory containing curated org contact entries.")
+
+(defvaralias 'my-mail-org-contacts-directory 'my-mail-contacts-directory)
+
+(defvar my-mail-contact-candidates-cache nil
+  "Cached contact completion candidates built from org contact files.")
+
+(defvar my-mail-contact-candidates-cache-key nil
+  "Cache key for `my-mail-contact-candidates-cache`.")
+
+(defvar my-mail-address-headers '("bcc" "cc" "from" "reply-to" "to")
+  "Headers where contact completion should be offered.")
 
 (defvar my-mail-accounts
   '((:name "gmail"
@@ -168,11 +179,140 @@ See etc/mail-accounts.example.el for an override example.")
        :query "flag:flagged"
        :key ?f))))
 
-(defun my-mail--contacts-files ()
-  "Return the org-contact files under `my-mail-org-contacts-directory'."
-  (if (file-directory-p my-mail-org-contacts-directory)
-      (directory-files-recursively my-mail-org-contacts-directory "\\.org\\'")
+(defun my-mail--contact-files ()
+  "Return the org contact files under `my-mail-contacts-directory'."
+  (if (file-directory-p my-mail-contacts-directory)
+      (directory-files-recursively my-mail-contacts-directory "\\.org\\'")
     nil))
+
+(defun my-mail--contact-file-cache-key ()
+  "Return a stable cache key for the current org contact files."
+  (mapcar (lambda (file)
+            (let ((attributes (file-attributes file 'string)))
+              (list file
+                    (file-attribute-size attributes)
+                    (file-attribute-modification-time attributes))))
+          (sort (my-mail--contact-files) #'string<)))
+
+(defun my-mail--parse-contact-file (file)
+  "Return completion entries parsed from contact FILE."
+  (let ((case-fold-search t)
+        title
+        emails)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (when (re-search-forward "^#\\+title:[ \t]*\\(.+\\)$" nil t)
+        (setq title (string-trim (match-string-no-properties 1))))
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^[ \t]*:EMAIL\\(?:_[[:alnum:]_]+\\)?:[ \t]*\\(.+\\)$"
+              nil t)
+        (let ((email (string-trim (match-string-no-properties 1))))
+          (unless (string-empty-p email)
+            (push email emails)))))
+    (cl-loop for email in (delete-dups (nreverse emails))
+             collect (list :candidate (if (and title (not (string-empty-p title)))
+                                          (format "%s <%s>" title email)
+                                        email)
+                           :name title
+                           :email email
+                           :file file))))
+
+(defun my-mail--contact-candidates ()
+  "Return cached completion entries parsed from org contact files."
+  (let ((cache-key (my-mail--contact-file-cache-key)))
+    (unless (equal cache-key my-mail-contact-candidates-cache-key)
+      (setq my-mail-contact-candidates-cache-key cache-key
+            my-mail-contact-candidates-cache
+            (cl-delete-duplicates
+             (cl-mapcan #'my-mail--parse-contact-file (my-mail--contact-files))
+             :test (lambda (left right)
+                     (string-equal (plist-get left :candidate)
+                                   (plist-get right :candidate))))))
+    my-mail-contact-candidates-cache))
+
+(defun my-mail--contact-match-p (input entry)
+  "Return non-nil when INPUT matches contact ENTRY."
+  (let* ((tokens (split-string (downcase (string-trim input)) "[[:space:]]+" t))
+         (fields (delq nil
+                       (mapcar (lambda (field)
+                                 (when field
+                                   (downcase field)))
+                               (list (plist-get entry :candidate)
+                                     (plist-get entry :name)
+                                     (plist-get entry :email))))))
+    (or (null tokens)
+        (cl-every (lambda (token)
+                    (cl-some (lambda (field)
+                               (string-match-p (regexp-quote token) field))
+                             fields))
+                  tokens))))
+
+(defun my-mail--contact-completion-table (string pred action)
+  "Completion table for contact candidates matching STRING, PRED, and ACTION."
+  (if (eq action 'metadata)
+      '(metadata (category . email-address))
+    (complete-with-action
+     action
+     (cl-loop for entry in (my-mail--contact-candidates)
+              when (my-mail--contact-match-p string entry)
+              collect (plist-get entry :candidate))
+     string
+     pred)))
+
+(defun my-mail--current-message-header-name ()
+  "Return the current message header name, lower-cased."
+  (when (and (derived-mode-p 'message-mode)
+             (fboundp 'message-point-in-header-p)
+             (message-point-in-header-p))
+    (save-excursion
+      (beginning-of-line)
+      (while (and (not (bobp))
+                  (looking-at-p "^[ \t]"))
+        (forward-line -1)
+        (beginning-of-line))
+      (when (looking-at "^\\([^: \t\n]+\\):")
+        (downcase (match-string-no-properties 1))))))
+
+(defun my-mail--current-message-header-value-start ()
+  "Return the start position of the current message header value."
+  (when (my-mail--current-message-header-name)
+    (save-excursion
+      (beginning-of-line)
+      (while (and (not (bobp))
+                  (looking-at-p "^[ \t]"))
+        (forward-line -1)
+        (beginning-of-line))
+      (when (re-search-forward "^[^: \t\n]+:[ \t]*" (line-end-position) t)
+        (point)))))
+
+(defun my-mail--contact-capf-bounds ()
+  "Return completion bounds for the current address at point."
+  (when-let ((header-name (my-mail--current-message-header-name)))
+    (when (member header-name my-mail-address-headers)
+      (let ((end (point))
+            (value-start (my-mail--current-message-header-value-start)))
+        (when value-start
+          (save-excursion
+            (if (re-search-backward "," value-start t)
+                (progn
+                  (forward-char 1)
+                  (skip-chars-forward " \t\n"))
+              (goto-char value-start))
+            (cons (point) end)))))))
+
+(defun my-mail-contact-capf ()
+  "Complete org contact addresses while composing email."
+  (when-let ((bounds (my-mail--contact-capf-bounds)))
+    (list (car bounds)
+          (cdr bounds)
+          #'my-mail--contact-completion-table
+          :exclusive 'no)))
+
+(defun my-mail--enable-contact-capf ()
+  "Add org contact completion to the current mail composition buffer."
+  (add-hook 'completion-at-point-functions #'my-mail-contact-capf nil t))
 
 (defun my-mail--ensure-org-file (path contents)
   "Create PATH with CONTENTS when it does not already exist."
@@ -238,6 +378,7 @@ See etc/mail-accounts.example.el for an override example.")
        :warning))))
 
 (add-hook 'emacs-startup-hook #'my-mail--warn-about-missing-tools)
+(add-hook 'message-mode-hook #'my-mail--enable-contact-capf)
 
 (let ((msmtp (my-mail--find-executable "msmtp" "/opt/homebrew/bin/msmtp")))
   (when msmtp
@@ -249,11 +390,6 @@ See etc/mail-accounts.example.el for an override example.")
 
 (with-eval-after-load 'org
   (my-mail--install-capture-templates))
-
-(use-package org-contacts
-  :after org
-  :custom
-  (org-contacts-files (my-mail--contacts-files)))
 
 (when (locate-library "mu4e")
   (use-package mu4e

@@ -62,6 +62,25 @@
         ("M-p" . flymake-goto-prev-error)
         ("C-c u e" . flymake-show-buffer-diagnostics)))
 
+(defun my-dev--scratch-buffer-p ()
+  "Return non-nil when the current buffer is the scratch buffer."
+  (and (derived-mode-p 'lisp-interaction-mode)
+       (string= (buffer-name) "*scratch*")))
+
+(defun my-dev--flymake-enable-request-p (arg)
+  "Return non-nil when ARG requests enabling Flymake."
+  (or (null arg)
+      (and (numberp arg)
+           (> arg 0))))
+
+(defun my-dev--inhibit-flymake-in-scratch (orig-fn &optional arg)
+  "Keep Flymake disabled in `*scratch*' while delegating to ORIG-FN."
+  (unless (and (my-dev--scratch-buffer-p)
+               (my-dev--flymake-enable-request-p arg))
+    (funcall orig-fn arg)))
+
+(advice-add 'flymake-mode :around #'my-dev--inhibit-flymake-in-scratch)
+
 ;;; Misc dev quality of life ------------------------------------------
 
 (use-package paren
