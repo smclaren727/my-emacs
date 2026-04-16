@@ -21,6 +21,13 @@
 (declare-function elfeed-tag "elfeed-db" (entry &rest tags))
 (declare-function elfeed-tagged-p "elfeed-db" (tag entry))
 (declare-function elfeed-untag "elfeed-db" (entry &rest tags))
+(declare-function elfeed-update "elfeed")
+(declare-function elfeed-goodies/setup "elfeed-goodies")
+(declare-function elfeed-tube-fetch "elfeed-tube" (&optional video-id update-p))
+(declare-function elfeed-tube-mpv-follow-mode "elfeed-tube-mpv")
+(declare-function elfeed-tube-mpv-where "elfeed-tube-mpv")
+(declare-function elfeed-tube-save "elfeed-tube")
+(declare-function elfeed-tube-setup "elfeed-tube")
 (declare-function org-web-tools--url-as-readable-org "org-web-tools" (url))
 
 ;;; Variables -----------------------------------------------------------
@@ -35,6 +42,12 @@
 Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 (setq my-feeds-org-file
       (expand-file-name "50-Resources/feeds.org" my-notes-directory))
+
+(defvar my-feeds-update-interval (* 6 60 60)
+  "Seconds between automatic Elfeed updates.")
+
+(defvar my-feeds-update-timer nil
+  "Timer used for automatic Elfeed updates.")
 
 ;;; Elfeed — feed reader engine -----------------------------------------
 
@@ -55,6 +68,49 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   :hook
   ;; Wrap long lines in article view.
   (elfeed-show-mode . visual-line-mode))
+
+(defun my-feeds-start-auto-update ()
+  "Start automatic Elfeed updates, replacing any existing timer."
+  (interactive)
+  (when (timerp my-feeds-update-timer)
+    (cancel-timer my-feeds-update-timer))
+  (setq my-feeds-update-timer
+        (run-at-time nil my-feeds-update-interval #'elfeed-update)))
+
+(unless noninteractive
+  (my-feeds-start-auto-update))
+
+;;; elfeed-goodies — visual enhancements -------------------------------
+
+(use-package elfeed-goodies
+  :after elfeed
+  :config
+  (elfeed-goodies/setup))
+
+;;; elfeed-tube — richer YouTube entries --------------------------------
+
+(use-package elfeed-tube
+  :after elfeed
+  :demand t
+  :custom
+  ;; Prefer yt-dlp for richer metadata now that Invidious API access is spotty.
+  (elfeed-tube-backend 'yt-dlp)
+  :config
+  (elfeed-tube-setup)
+  :bind (:map elfeed-show-mode-map
+              ("F" . elfeed-tube-fetch)
+              ([remap save-buffer] . elfeed-tube-save)
+              :map elfeed-search-mode-map
+              ("F" . elfeed-tube-fetch)
+              ([remap save-buffer] . elfeed-tube-save)))
+
+;;; elfeed-tube-mpv — live transcript playback -------------------------
+
+(use-package elfeed-tube-mpv
+  :after elfeed-tube
+  :bind (:map elfeed-show-mode-map
+              ("C-c C-f" . elfeed-tube-mpv-follow-mode)
+              ("C-c C-w" . elfeed-tube-mpv-where)))
 
 ;;; elfeed-org — manage feeds in an org file ----------------------------
 
