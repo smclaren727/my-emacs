@@ -6,6 +6,16 @@
 
 ;;; Org-node setup -------------------------------------------------------
 
+(defvar el-job-ng-max-cores)
+(defvar org-mem-do-look-everywhere)
+(defvar org-mem-watch-dirs)
+
+(defvar my-org-node-startup-idle-delay 5
+  "Seconds of idle time before warming the org-node cache.")
+
+(defvar my-org-node--startup-timer nil
+  "Idle timer used to start org-node cache modes.")
+
 (defun my-org-node--ensure-org-id-locations ()
   "Load Org ID locations before initializing org-node."
   (require 'org-id)
@@ -15,8 +25,9 @@
   "Suppress org-mem's transient empty-cache startup tip."
   nil)
 
-(defun my-org-node--enable-modes ()
-  "Start org-node and org-mem in the intended order for startup."
+(defun my-org-node--enable-modes-now ()
+  "Start org-node and org-mem in the intended order."
+  (setq my-org-node--startup-timer nil)
   (require 'org-mem-updater)
   (advice-add 'org-mem-tip-if-empty :override #'my-org-node--ignore-empty-tip)
   (unwind-protect
@@ -25,13 +36,25 @@
   (org-mem-updater-mode 1)
   (org-node-backlink-mode 1))
 
+(defun my-org-node--enable-modes ()
+  "Warm org-node after startup instead of during init."
+  (when (timerp my-org-node--startup-timer)
+    (cancel-timer my-org-node--startup-timer))
+  (setq my-org-node--startup-timer
+        (run-with-idle-timer my-org-node-startup-idle-delay
+                             nil
+                             #'my-org-node--enable-modes-now)))
+
 (use-package org-node
   :after org-id
   :custom
   (org-node-filter-fn #'org-node-filter-no-roam-exclude-p)
   :init
-  ;; Tell org-mem where to scan for org files with IDs.
-  (setq org-mem-watch-dirs (list my-notes-directory))
+  ;; Keep org-mem focused and gentle: only scan the notes tree, not every
+  ;; directory inferred from recentf/agenda/org-id, and avoid saturating CPUs.
+  (setq org-mem-watch-dirs (list my-notes-directory)
+        org-mem-do-look-everywhere nil
+        el-job-ng-max-cores 2)
   (my-org-node--ensure-org-id-locations)
   :config
   (my-org-node--enable-modes)

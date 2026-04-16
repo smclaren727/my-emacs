@@ -4,14 +4,16 @@
 ;; Org-mode knowledge layer: capture templates, agenda, refile
 ;; targets, org-id for stable linking, and org-modern for visual
 ;; polish.  All note files live under `my-notes-directory'.
-;; Tag transition engine loaded from elisp/my-org-tag-transitions.el.
+;; Small Org helpers loaded from elisp/.
 
+(require 'my-org-property-drawers)
 (require 'my-org-tag-transitions)
 
 ;;; Org setup ---------------------------------------------------------
 (use-package org
   :ensure nil
   :hook ((org-mode . visual-line-mode)
+         (org-mode . my-org-property-drawers-mode)
          (org-mode . my-org-enable-tag-transition-autosave)
          (org-mode . my-org-enable-updated-property-autosave))
   :custom
@@ -67,6 +69,9 @@
 
   ;; Indent content under headings visually (no hard tabs).
   (org-startup-indented t)
+
+  ;; Open Org files in overview mode: top-level headings only.
+  (org-startup-folded 'overview)
 
   ;; Add a blank line before new headings, but not before list items.
   (org-blank-before-new-entry '((heading . always)

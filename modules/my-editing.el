@@ -2,8 +2,9 @@
 
 ;; Completion and text editing enhancements.  Minibuffer narrowing
 ;; (vertico + orderless + marginalia + consult + embark), in-buffer
-;; completion (corfu + cape), visual undo (vundo), and markdown
-;; support.  No development-specific or org-specific config here.
+;; completion (corfu + cape), modifier-free editing (devil), visual undo
+;; (vundo), and markdown support.  No development-specific or org-specific
+;; config here.
 
 ;;; Minibuffer completion ---------------------------------------------
 
@@ -43,6 +44,16 @@
 (use-package embark-consult
   :after (embark consult)
   :hook (embark-collect-mode . consult-preview-at-point-mode))
+
+;;; Modifier-free key entry ------------------------------------------
+
+(use-package devil
+  :demand t
+  :config
+  ;; Use semicolon as the activation key so default Emacs bindings can be
+  ;; learned without physically holding Ctrl for every chord.
+  (devil-set-key ";")
+  (global-devil-mode 1))
 
 ;;; In-buffer completion ----------------------------------------------
 

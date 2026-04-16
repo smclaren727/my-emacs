@@ -7,6 +7,22 @@
 (require 'subr-x)
 (require 'cl-lib)
 
+(declare-function elfeed "elfeed")
+(declare-function elfeed-entry-date "elfeed-db" (entry))
+(declare-function elfeed-entry-link "elfeed-db" (entry))
+(declare-function elfeed-entry-tags "elfeed-db" (entry))
+(declare-function elfeed-entry-title "elfeed-db" (entry))
+(declare-function elfeed-meta "elfeed-db" (entry prop &optional default))
+(declare-function elfeed-search-buffer "elfeed-search")
+(declare-function elfeed-search-selected "elfeed-search" (&optional ignore-region-p))
+(declare-function elfeed-search-set-filter "elfeed-search" (filter))
+(declare-function elfeed-search-update--force "elfeed-search")
+(declare-function elfeed-search-update-entry "elfeed-search" (entry))
+(declare-function elfeed-tag "elfeed-db" (entry &rest tags))
+(declare-function elfeed-tagged-p "elfeed-db" (tag entry))
+(declare-function elfeed-untag "elfeed-db" (entry &rest tags))
+(declare-function org-web-tools--url-as-readable-org "org-web-tools" (url))
+
 ;;; Variables -----------------------------------------------------------
 
 (defvar my-feeds-directory nil
@@ -86,6 +102,36 @@ Downcase, replace non-alphanumeric runs with hyphens, trim edges."
     elfeed-show-entry)
    ((derived-mode-p 'elfeed-search-mode)
     (elfeed-search-selected :single))))
+
+(defun my-feeds--selected-entries ()
+  "Return selected elfeed entries for the current buffer."
+  (cond
+   ((derived-mode-p 'elfeed-search-mode)
+    (elfeed-search-selected))
+   ((derived-mode-p 'elfeed-show-mode)
+    (when elfeed-show-entry
+      (list elfeed-show-entry)))))
+
+(defun my-feeds--browse-url-background (url)
+  "Open URL in the system browser without focusing it."
+  (pcase system-type
+    ('darwin
+     (unless (executable-find "open")
+       (user-error "macOS open command not found"))
+     (start-process (format "open background %s" url)
+                    nil "open" "--background" url))
+    (_
+     (user-error "Background browser opening is only configured for macOS"))))
+
+(defun my-feeds--mark-entry-read (entry)
+  "Mark ENTRY read and refresh visible elfeed buffers."
+  (elfeed-untag entry 'unread)
+  (when (derived-mode-p 'elfeed-search-mode)
+    (elfeed-search-update-entry entry))
+  (when-let ((search-buffer (and (fboundp 'elfeed-search-buffer)
+                                 (get-buffer (elfeed-search-buffer)))))
+    (with-current-buffer search-buffer
+      (elfeed-search-update-entry entry))))
 
 (defun my-feeds--article-to-org (url title &optional author date tags)
   "Fetch URL content and save as org to `my-feeds-directory'.
@@ -180,6 +226,24 @@ containing title, author, date, source URL, and tags."
       (user-error "No elfeed entry at point"))
     (browse-url url)))
 
+(defun my-feeds-browse-background-article ()
+  "Open current or selected elfeed articles without focusing the browser.
+In `elfeed-search-mode', open all selected entries.  In
+`elfeed-show-mode', open the displayed entry."
+  (interactive)
+  (let ((buffer (current-buffer))
+        (entries (my-feeds--selected-entries)))
+    (unless entries
+      (user-error "No elfeed entry at point"))
+    (dolist (entry entries)
+      (when-let ((url (elfeed-entry-link entry)))
+        (my-feeds--browse-url-background url)
+        (my-feeds--mark-entry-read entry)))
+    (when (derived-mode-p 'elfeed-search-mode)
+      (with-current-buffer buffer
+        (unless (or elfeed-search-remain-on-entry (use-region-p))
+          (forward-line))))))
+
 ;;; Mode-local keybindings ----------------------------------------------
 
 ;; Bind inside elfeed buffers for quick access.
@@ -187,10 +251,12 @@ containing title, author, date, source URL, and tags."
   ;; Search mode — starring from the list.
   (define-key elfeed-search-mode-map (kbd "m") #'my-feeds-star)
   (define-key elfeed-search-mode-map (kbd "b") #'my-feeds-browse-article)
+  (define-key elfeed-search-mode-map (kbd "B") #'my-feeds-browse-background-article)
   ;; Show mode — article-level actions.
   (define-key elfeed-show-mode-map (kbd "m") #'my-feeds-star)
   (define-key elfeed-show-mode-map (kbd "d") #'my-feeds-save-article)
-  (define-key elfeed-show-mode-map (kbd "b") #'my-feeds-browse-article))
+  (define-key elfeed-show-mode-map (kbd "b") #'my-feeds-browse-article)
+  (define-key elfeed-show-mode-map (kbd "B") #'my-feeds-browse-background-article))
 
 (provide 'my-feeds)
 ;;; my-feeds.el ends here
