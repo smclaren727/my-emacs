@@ -132,10 +132,10 @@
   "Set mono and variable-pitch fonts on FRAME."
   (when (display-graphic-p frame)
     (when-let ((mono (my-ui--first-available-font my-ui-monospace-fonts)))
-      (set-face-attribute 'default frame :family mono :height 140)
-      (set-face-attribute 'fixed-pitch frame :family mono :height 140))
+      (set-face-attribute 'default frame :family mono :height 160)
+      (set-face-attribute 'fixed-pitch frame :family mono :height 160))
     (when-let ((variable (my-ui--first-available-font my-ui-variable-pitch-fonts)))
-      (set-face-attribute 'variable-pitch frame :family variable :height 150))))
+      (set-face-attribute 'variable-pitch frame :family variable :height 170))))
 
 (my-ui--set-font-for-frame (selected-frame))
 (add-hook 'after-make-frame-functions #'my-ui--set-font-for-frame)
@@ -204,21 +204,29 @@
 
 ;;; Prose layout ------------------------------------------------------
 
+(defvar my-ui-prose-margin-width 3
+  "Number of columns to use as side margins in prose buffers.")
+
+(defun my-ui--apply-prose-margins (&rest _)
+  "Apply small side margins to visible windows showing the current buffer."
+  (setq-local left-margin-width my-ui-prose-margin-width
+              right-margin-width my-ui-prose-margin-width)
+  (dolist (window (get-buffer-window-list (current-buffer) nil t))
+    (set-window-margins window
+                        my-ui-prose-margin-width
+                        my-ui-prose-margin-width)))
+
 (defun my-ui-enable-prose-layout ()
-  "Use comfortable typography and width for prose buffers."
+  "Use comfortable typography and light side margins for prose buffers."
   (setq-local line-spacing 0.18)
   (variable-pitch-mode 1)
-  (when (fboundp 'olivetti-mode)
-    (olivetti-mode 1)))
+  (my-ui--apply-prose-margins)
+  (add-hook 'window-configuration-change-hook
+            #'my-ui--apply-prose-margins nil t))
 
-(use-package olivetti
-  :commands olivetti-mode
-  :hook ((org-mode markdown-mode gfm-mode) . my-ui-enable-prose-layout)
-  :custom
-  (olivetti-body-width 0.72)
-  (olivetti-minimum-body-width 82)
-  (olivetti-recall-visual-line-mode-entry-state t)
-  (olivetti-lighter nil))
+(add-hook 'org-mode-hook #'my-ui-enable-prose-layout)
+(add-hook 'markdown-mode-hook #'my-ui-enable-prose-layout)
+(add-hook 'gfm-mode-hook #'my-ui-enable-prose-layout)
 
 ;;; Line numbers ------------------------------------------------------
 ;; Show line numbers in programming buffers only.
