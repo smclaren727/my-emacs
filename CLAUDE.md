@@ -32,7 +32,7 @@ no Spacemacs).  Every package solves a concrete problem.
     my-os-macos.el       — macOS: modifier keys, exec-path-from-shell, clipboard (provides 'my-os-macos)
     my-os-linux.el       — Linux: clipboard + trash integration (provides 'my-os-linux)
     my-os-windows.el     — Windows: Super modifiers, clipboard, trash (provides 'my-os-windows)
-    my-ui.el             — sanityinc tomorrow themes, modeline, fonts (provides 'my-ui)
+    my-ui.el             — ef-themes, modeline, fonts, visual spacing (provides 'my-ui)
     my-editing.el        — vertico, orderless, marginalia, consult, embark, corfu, cape, vundo, markdown (provides 'my-editing)
     my-dev.el            — magit, eglot, tree-sitter, flymake, diff-hl, compile (provides 'my-dev)
     my-org-mode.el       — org capture, agenda, refile, org-id, org-modern (provides 'my-org-mode)
@@ -104,7 +104,7 @@ no Spacemacs).  Every package solves a concrete problem.
 
 ## Theme System
 
-- `color-theme-sanityinc-tomorrow` (`sanityinc-tomorrow-night` / `sanityinc-tomorrow-day`)
+- `ef-themes` (`ef-dark` / `ef-light`)
 - On macOS, auto-switches via `ns-system-appearance-change-functions`; on other OSes, uses frame background mode at startup
 - `minions` + `moody` for modeline behavior and cleanup
 

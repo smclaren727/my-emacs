@@ -44,7 +44,6 @@
 (defvar elfeed-search-date-format)
 (defvar elfeed-search-header-function)
 (defvar elfeed-search-print-entry-function)
-(defvar elfeed-search-title-min-width)
 (defvar powerline-default-separator-dir)
 
 ;;; Variables -----------------------------------------------------------
@@ -72,8 +71,8 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 (defvar my-feeds-search-line-spacing 0.36
   "Buffer-local line spacing used in the Elfeed search buffer.")
 
-(defvar my-feeds-search-subject-column-width 112
-  "Column width used for article subjects in the Elfeed search buffer.")
+(defvar my-feeds-search-date-extra-width 2
+  "Extra padding after dates in the Elfeed search buffer.")
 
 (defvar-local my-feeds-search--font-remap-cookie nil
   "Face-remap cookie for Elfeed search font scaling.")
@@ -116,26 +115,8 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 
 (defun my-feeds--search-date-column-width ()
   "Return the configured Elfeed search date column width."
-  (or (cadr elfeed-search-date-format) 10))
-
-(defun my-feeds--search-subject-column-width ()
-  "Return a subject width that leaves room for the feed column."
-  (let* ((date-width (my-feeds--search-date-column-width))
-         (tag-width elfeed-goodies/tag-column-width)
-         (feed-width elfeed-goodies/feed-source-column-width)
-         (available (- (window-width)
-                       date-width tag-width feed-width 4)))
-    (max elfeed-search-title-min-width
-         (min my-feeds-search-subject-column-width available))))
-
-(defun my-feeds--search-feed-header-width ()
-  "Return the width of the Feed Source header region."
-  (let* ((date-width (my-feeds--search-date-column-width))
-         (tag-width elfeed-goodies/tag-column-width)
-         (title-width (my-feeds--search-subject-column-width))
-         (available (- (window-width)
-                       date-width tag-width title-width 3)))
-    (max elfeed-goodies/feed-source-column-width available)))
+  (+ (or (cadr elfeed-search-date-format) 10)
+     my-feeds-search-date-extra-width))
 
 (defun my-feeds--center-header-label (label width)
   "Return LABEL centered in a header column WIDTH characters wide."
@@ -146,6 +127,11 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
     (concat (make-string left-padding ?\s)
             label
             (make-string right-padding ?\s))))
+
+(defun my-feeds--search-subject-header-width (date-width tag-width feed-width)
+  "Return the visible width left for the Subject header."
+  (max (string-width "Subject")
+       (- (window-width) date-width tag-width feed-width 6)))
 
 (defun my-feeds--powerline-separator (face1 face2)
   "Return a Powerline separator from FACE1 to FACE2."
@@ -159,8 +145,9 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   "Draw the Elfeed search header with the preferred column order."
   (let* ((date-width (my-feeds--search-date-column-width))
          (tag-width elfeed-goodies/tag-column-width)
-         (feed-header-width (my-feeds--search-feed-header-width))
-         (title-width (my-feeds--search-subject-column-width))
+         (feed-width elfeed-goodies/feed-source-column-width)
+         (subject-width (my-feeds--search-subject-header-width
+                         date-width tag-width feed-width))
          (segments
           (list
            (powerline-raw (my-feeds--center-header-label "Date" date-width)
@@ -169,19 +156,19 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
            (powerline-raw (my-feeds--center-header-label "Tags" tag-width)
                           'powerline-active2 'l)
            (my-feeds--powerline-separator 'powerline-active2 'mode-line)
-           (powerline-raw (my-feeds--center-header-label "Subject" title-width)
+           (powerline-raw (my-feeds--center-header-label "Feed Source" feed-width)
                           'mode-line 'l)
            (my-feeds--powerline-separator 'mode-line 'powerline-active2)
-           (powerline-raw (my-feeds--center-header-label "Feed Source" feed-header-width)
-                          'powerline-active2 'l))))
+           (powerline-raw (my-feeds--center-header-label "Subject" subject-width)
+                          'powerline-active2 'l)
+           (powerline-fill 'powerline-active2 0))))
     (powerline-render segments)))
 
 (defun my-feeds-search-entry-line-draw (entry)
-  "Print ENTRY using Date, Tags, Subject, Feed columns."
+  "Print ENTRY using Date, Tags, Feed Source, Subject columns."
   (let* ((date-width (my-feeds--search-date-column-width))
          (tag-width elfeed-goodies/tag-column-width)
          (feed-width elfeed-goodies/feed-source-column-width)
-         (title-width (my-feeds--search-subject-column-width))
          (date (elfeed-search-format-date (elfeed-entry-date entry)))
          (title (or (elfeed-meta entry :title) (elfeed-entry-title entry) ""))
          (title-faces (elfeed-search--faces (elfeed-entry-tags entry)))
@@ -193,12 +180,11 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
          (tags-str (concat "[" (mapconcat #'identity tags ",") "]"))
          (date-column (elfeed-format-column date date-width :left))
          (tag-column (elfeed-format-column tags-str tag-width :left))
-         (title-column (elfeed-format-column title title-width :left))
          (feed-column (elfeed-format-column feed-title feed-width :left)))
     (insert (propertize date-column 'face 'elfeed-search-date-face) " ")
     (insert (propertize tag-column 'face 'elfeed-search-tag-face) " ")
-    (insert (propertize title-column 'face title-faces 'kbd-help title) " ")
-    (insert (propertize feed-column 'face 'elfeed-search-feed-face))))
+    (insert (propertize feed-column 'face 'elfeed-search-feed-face) " ")
+    (insert (propertize title 'face title-faces 'kbd-help title))))
 
 (unless noninteractive
   (my-feeds-start-auto-update))
@@ -210,7 +196,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   :demand t
   :custom
   ;; Give long source names like "Hacker News - Front Page" room to breathe.
-  (elfeed-goodies/feed-source-column-width 24)
+  (elfeed-goodies/feed-source-column-width 48)
   :config
   (elfeed-goodies/setup)
   (setq elfeed-search-header-function #'my-feeds-search-header-draw

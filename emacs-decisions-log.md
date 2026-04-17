@@ -5,17 +5,18 @@ configuration. Each entry captures what was chosen, why, and what the
 alternatives were. This serves as a reference for future changes and
 as onboarding documentation.
 
-## Current State Overrides (2026-03-02)
+## Current State Overrides (2026-04-17)
 
 These entries supersede older sections below where they conflict.
 
 - Leader trigger is `key-chord` double-space (`"  "`), with `C-c u` as fallback.
 - `key-chord` is treated as optional at startup; failure falls back to `C-c u`.
-- Theme stack uses `color-theme-sanityinc-tomorrow`
-  (`sanityinc-tomorrow-night` / `sanityinc-tomorrow-day`).
+- Theme stack uses `ef-themes` (`ef-dark` / `ef-light`).
 - Modeline stack uses `moody` and `minions` (not `doom-modeline` / `nerd-icons`).
 - OS modules now exist for macOS, Linux, and Windows and are loaded by `system-type`.
 - File-manager reveal is cross-platform via `my-reveal-in-file-manager`.
+- Elfeed search layout uses fixed `Date`, `Tags`, and `Feed Source`
+  columns with `Subject` as the flexible final column.
 
 ---
 
@@ -257,7 +258,7 @@ Without it, a dark theme has a jarring light titlebar.
 
 ## `my-ui.el`
 
-### ef-themes (`ef-night` / `ef-day`)
+### ef-themes (`ef-dark` / `ef-light`)
 
 **Chosen:** ef-themes by Protesilaos Stavrou.
 
@@ -286,16 +287,20 @@ is a direct NS-port callback — instant, no polling, no extra dependency.
 
 ---
 
-### `doom-modeline` with `nerd-icons`
+### `moody` with `minions`
 
-**Chosen:** `doom-modeline` for the modeline, `nerd-icons` for glyphs.
+**Chosen:** `moody` for the modeline structure, with `minions` to collapse
+minor modes into a compact menu.
 
-**Why:** Polished, informative, widely used. `nerd-icons` is the
-successor to `all-the-icons` with more reliable cross-platform glyph
-support.
+**Why:** Moody gives the modeline a clean ribbon/tab treatment without
+requiring icon fonts or a large modeline framework. Minions keeps minor
+modes available without letting them dominate the mode line.
 
 **Alternatives considered:**
-- mood-line — minimal and lightweight, but less informative.
+- doom-modeline with nerd-icons — polished, but heavier and more dependent
+  on icon/font rendering.
+- mood-line — minimal and lightweight, but less visually aligned with the
+  ribbon-style UI.
 - Built-in modeline — functional but visually basic.
 
 ---
@@ -508,6 +513,31 @@ bulk-generating IDs for every heading.
 
 **Why:** Styled bullets, cleaner TODO keywords, better table rendering.
 Minimal configuration required.
+
+---
+
+## `my-feeds.el`
+
+### Elfeed search layout
+
+**Chosen:** A custom `elfeed-goodies` search renderer with fixed-width
+`Date`, `Tags`, and `Feed Source` columns, followed by an open-ended
+`Subject` column.
+
+**Why:** Elfeed renders into an Emacs character matrix, not a browser-style
+responsive layout engine. Keeping metadata columns stable makes scanning
+predictable, while letting the title column absorb remaining width avoids
+fragile right-edge alignment and display-property hacks. In narrow split
+windows, `Subject` truncates first; that is preferable to compressing every
+column and making dates, tags, or source names unstable.
+
+**Alternatives considered:**
+- Proportional column compression — more "responsive" in theory, but noisy
+  in a character-grid UI and likely to make all columns less readable.
+- Right-aligning feed sources against the window edge — worked poorly across
+  frame sizes and introduced fragile display-property behavior.
+- Putting `Subject` before `Feed Source` — looked good at full width, but
+  made the feed source column chase the right edge when the window changed.
 
 ---
 
