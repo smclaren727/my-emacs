@@ -30,6 +30,10 @@
   (expand-file-name "50-Resources/Contacts/" my-notes-directory)
   "Directory containing curated org contact entries.")
 
+(defvar my-mail-sync-channels '("gmail")
+  "mbsync channels to sync when refreshing mail.
+Set to nil to run all configured channels.")
+
 (defvaralias 'my-mail-org-contacts-directory 'my-mail-contacts-directory)
 
 (defvar my-mail-contact-candidates-cache nil
@@ -111,8 +115,16 @@ See etc/mail-accounts.example.el for an override example.")
   "Return the shell command used for manual sync/index refreshes."
   (when-let ((mbsync (my-mail--find-executable "mbsync" "/opt/homebrew/bin/mbsync"))
              (mu (my-mail--find-executable "mu" "/opt/homebrew/bin/mu")))
-    (format "%s -a && %s index"
-            (shell-quote-argument mbsync)
+    (format "%s && %s index"
+            (if my-mail-sync-channels
+                (mapconcat
+                 (lambda (channel)
+                   (format "%s %s"
+                           (shell-quote-argument mbsync)
+                           (shell-quote-argument channel)))
+                 my-mail-sync-channels
+                 " && ")
+              (format "%s -a" (shell-quote-argument mbsync)))
             (shell-quote-argument mu))))
 
 (defun my-mail-sync-now ()

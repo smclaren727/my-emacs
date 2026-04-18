@@ -13,6 +13,32 @@ login="$2"
 authinfo_gpg="$HOME/.authinfo.gpg"
 authinfo_plain="$HOME/.authinfo"
 
+if [[ "$(uname -s)" == "Darwin" ]] && command -v security >/dev/null 2>&1; then
+  if password="$(security find-generic-password \
+    -s "mail-auth:$machine" \
+    -a "$login" \
+    -w 2>/dev/null)"; then
+    printf '%s\n' "$password"
+    exit 0
+  fi
+
+  if password="$(security find-generic-password \
+    -s "$machine" \
+    -a "$login" \
+    -w 2>/dev/null)"; then
+    printf '%s\n' "$password"
+    exit 0
+  fi
+
+  if password="$(security find-internet-password \
+    -s "$machine" \
+    -a "$login" \
+    -w 2>/dev/null)"; then
+    printf '%s\n' "$password"
+    exit 0
+  fi
+fi
+
 if [[ -f "$authinfo_gpg" ]]; then
   auth_stream_cmd=(gpg --quiet --batch --decrypt "$authinfo_gpg")
 elif [[ -f "$authinfo_plain" ]]; then

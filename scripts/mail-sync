@@ -9,6 +9,7 @@ MAILDIR_ROOT="$HOME/Mail"
 MBSYNCRC="$HOME/.mbsyncrc"
 AUTHINFO_GPG="$HOME/.authinfo.gpg"
 AUTHINFO_PLAIN="$HOME/.authinfo"
+MAIL_SYNC_CHANNELS="${MAIL_SYNC_CHANNELS:-gmail}"
 
 log() {
   printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
@@ -36,8 +37,12 @@ fi
 
 mkdir -p "$MAILDIR_ROOT" "$HOME/Library/Logs"
 
-log "Running mbsync..."
-mbsync -a
+read -r -a channels <<< "$MAIL_SYNC_CHANNELS"
+
+for channel in "${channels[@]}"; do
+  log "Running mbsync $channel..."
+  mbsync "$channel"
+done
 
 if ! mu info >/dev/null 2>&1; then
   log "mbsync completed, but mu is not initialized yet. Run mu init once, then rerun mail-sync."

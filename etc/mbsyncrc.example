@@ -1,8 +1,12 @@
 # ~/.mbsyncrc
 #
 # Generated from ~/.emacs.d/etc/mbsyncrc.example.
-# Gmail and iCloud both expect app passwords in ~/.authinfo or ~/.authinfo.gpg.
-# Remove spaces from provider UI formatting before saving passwords.
+# Gmail and iCloud both expect app passwords.  For launchd background syncs,
+# prefer macOS Keychain entries read by ~/bin/mail-auth-value:
+# security add-generic-password -U -s mail-auth:imap.gmail.com -a USER -w APP_PASSWORD
+# ~/.authinfo.gpg and ~/.authinfo remain supported fallbacks.
+# The managed mail-sync script syncs the gmail channel by default; set
+# MAIL_SYNC_CHANNELS if you want launchd to sync additional channels.
 
 # ---------- Gmail ----------
 IMAPAccount gmail

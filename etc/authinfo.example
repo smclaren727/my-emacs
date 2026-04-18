@@ -1,4 +1,5 @@
-# Copy the entries you need into ~/.authinfo.gpg or ~/.authinfo.
+# Copy the entries you need into ~/.authinfo.gpg or ~/.authinfo, or store
+# them in macOS Keychain with service names like mail-auth:imap.gmail.com.
 # Gmail and iCloud both expect app passwords instead of your normal account
 # password. Remove spaces from provider UI formatting before saving.
 

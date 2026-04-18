@@ -74,8 +74,12 @@ fi
 cat <<'EOF'
 
 Next steps:
-1. Create ~/.authinfo.gpg or ~/.authinfo from ~/.authinfo.example.
-2. Use app passwords for Gmail and iCloud, with no spaces in the saved value.
-3. Run `mbsync gmail && mu index` to finish the first Gmail sync.
-4. Once Gmail is healthy, come back for iCloud if you still want it.
+1. Use app passwords for Gmail and iCloud, with no spaces in the saved value.
+2. For launchd background syncs on macOS, prefer Keychain:
+   security add-generic-password -U -s mail-auth:imap.gmail.com -a smclaren727@gmail.com -w APP_PASSWORD
+   security add-generic-password -U -s mail-auth:smtp.gmail.com -a smclaren727@gmail.com -w APP_PASSWORD
+3. ~/.authinfo.gpg and ~/.authinfo from ~/.authinfo.example remain supported fallbacks.
+4. The managed mail-sync script syncs the gmail channel by default.
+5. Run `mbsync gmail && mu index` to finish the first Gmail sync.
+6. Once Gmail is healthy, come back for iCloud if you still want it.
 EOF
