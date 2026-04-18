@@ -23,6 +23,9 @@
 (setq package-archives
       '(("gnu"   . "https://elpa.gnu.org/packages/")
         ("melpa" . "https://melpa.org/packages/")))
+;; mu4e is provided by the system package manager, not ELPA.  Mark it as
+;; built in so package-vc packages can declare a mu4e dependency cleanly.
+(add-to-list 'package--builtin-versions (cons 'mu4e (version-to-list "0")))
 (package-initialize)
 
 ;; use-package is built-in from Emacs 29+.

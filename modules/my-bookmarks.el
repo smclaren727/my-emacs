@@ -135,7 +135,7 @@ returns immediately so external launchers do not block."
 
 (with-eval-after-load 'which-key
   (which-key-add-keymap-based-replacements my-leader-map
-    "m" "bookmarks"))
+    "m" "mail/bookmarks"))
 
 (provide 'my-bookmarks)
 ;;; my-bookmarks.el ends here

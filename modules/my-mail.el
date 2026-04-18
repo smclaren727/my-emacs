@@ -11,6 +11,18 @@
 (require 'cl-lib)
 (require 'subr-x)
 
+(declare-function mu4e-dashboard "mu4e-dashboard")
+(declare-function mu4e-dashboard-expand-bookmarks-in-query "mu4e-dashboard")
+(declare-function mu4e-dashboard-update-link "mu4e-dashboard")
+(declare-function mu4e-search "mu4e-search")
+(declare-function org-element-context "org-element")
+(declare-function org-link-set-parameters "ol")
+(defvar mu4e-dashboard-file)
+(defvar mu4e-dashboard-link-name)
+(defvar mu4e-dashboard-mu-program)
+(defvar mu4e-dashboard-propagate-keymap)
+(defvar mu4e-search-results-limit)
+
 (defvar my-mail-root (expand-file-name "~/Mail/")
   "Root Maildir path shared by mu and mbsync.")
 
@@ -29,6 +41,13 @@
 (defvar my-mail-contacts-directory
   (expand-file-name "50-Resources/Contacts/" my-notes-directory)
   "Directory containing curated org contact entries.")
+
+(defvar my-mail-dashboard-file
+  (expand-file-name "etc/mu4e-dashboard.org" user-emacs-directory)
+  "Org dashboard file used by mu4e-dashboard.")
+
+(defvar my-mail-dashboard-sidebar-width 40
+  "Width of the left mail dashboard window.")
 
 (defvar my-mail-sync-channels '("gmail")
   "mbsync channels to sync when refreshing mail.
@@ -133,6 +152,83 @@ See etc/mail-accounts.example.el for an override example.")
   (if-let ((command (my-mail--sync-command)))
       (async-shell-command command "*mail-sync*")
     (user-error "mbsync or mu is not installed yet")))
+
+(defun my-mail-dashboard-visual-setup ()
+  "Use fixed-width, edge-to-edge layout in the mail dashboard."
+  (setq-local truncate-lines t
+              line-spacing 0.08
+              left-margin-width 0
+              right-margin-width 0)
+  (variable-pitch-mode -1)
+  (when (fboundp 'my-ui--apply-prose-margins)
+    (remove-hook 'window-configuration-change-hook
+                 #'my-ui--apply-prose-margins t))
+  (dolist (window (get-buffer-window-list (current-buffer) nil t))
+    (set-window-margins window 0 0)))
+
+(defun my-mail-dashboard ()
+  "Open the mu4e dashboard with mail configuration loaded."
+  (interactive)
+  (require 'mu4e)
+  (require 'mu4e-dashboard)
+  (mu4e-dashboard))
+
+(defun my-mail-dashboard--mail-window ()
+  "Return the preferred mu4e window for dashboard link searches."
+  (or (cl-find-if (lambda (window)
+                    (window-parameter window 'my-mail-dashboard-mail-window))
+                  (window-list nil 'no-minibuf))
+      (get-buffer-window "*mu4e-headers*" t)))
+
+(defun my-mail-dashboard--search (query &optional limit)
+  "Run mu4e QUERY in the dashboard's mail window.
+When LIMIT is non-nil, temporarily limit the number of results."
+  (require 'mu4e)
+  (with-selected-window (or (my-mail-dashboard--mail-window)
+                            (selected-window))
+    (when-let ((command-window (selected-window)))
+      (set-window-parameter command-window
+                            'my-mail-dashboard-mail-window t))
+    (if limit
+        (let ((mu4e-search-results-limit limit))
+          (mu4e-search query))
+      (mu4e-search query))))
+
+(defun my-mail-dashboard-follow-link (path)
+  "Follow a mu4e-dashboard link without replacing the dashboard window."
+  (let* ((link (org-element-context))
+         (parts (split-string path "|"))
+         (query-name (string-trim (nth 0 parts)))
+         (query (mu4e-dashboard-expand-bookmarks-in-query query-name))
+         (fmt (nth 1 parts))
+         (count (nth 2 parts)))
+    (cond
+     ((and count (> (length count) 0))
+      (my-mail-dashboard--search query (string-to-number count)))
+     ((and fmt (> (length fmt) 0))
+      (mu4e-dashboard-update-link link))
+     (t
+      (message "%s" query)
+      (my-mail-dashboard--search query)))))
+
+(defun my-mail-dashboard-sidebar ()
+  "Open the mu4e dashboard beside a live mu4e search window."
+  (interactive)
+  (require 'mu4e)
+  (require 'mu4e-dashboard)
+  (delete-other-windows)
+  (let* ((dashboard-window (selected-window))
+         (mail-window (split-window-right my-mail-dashboard-sidebar-width)))
+    (with-selected-window dashboard-window
+      (mu4e-dashboard)
+      (setq-local window-size-fixed 'width)
+      (set-window-parameter dashboard-window
+                            'my-mail-dashboard-sidebar-window t))
+    (with-selected-window mail-window
+      (set-window-parameter mail-window 'my-mail-dashboard-mail-window t)
+      (mu4e t)
+      (my-mail-dashboard--search (my-mail--all-inboxes-query)))
+    (select-window mail-window)))
 
 (defun my-mail--signature-for-account (account)
   "Return a default signature string for ACCOUNT."
@@ -408,6 +504,16 @@ See etc/mail-accounts.example.el for an override example.")
     :ensure nil
     :commands (mu4e mu4e-update-mail-and-index)
     :defer 20
+    :init
+    (my-leader-define "o e" nil)
+    (my-leader-define "o r" nil)
+    (my-leader-define "m e" #'mu4e)
+    (my-leader-define "m r" #'my-mail-sync-now)
+    (with-eval-after-load 'which-key
+      (which-key-add-keymap-based-replacements my-leader-map
+        "m" "mail/bookmarks"
+        "m e" "mu4e"
+        "m r" "sync mail"))
     :config
     (setq mail-user-agent 'mu4e-user-agent
           mu4e-maildir my-mail-root
@@ -423,16 +529,36 @@ See etc/mail-accounts.example.el for an override example.")
           mu4e-contexts (mapcar #'my-mail--make-context my-mail-accounts)
           mu4e-context-policy 'pick-first
           mu4e-compose-context-policy 'ask-if-none
-          mu4e-bookmarks (my-mail--bookmarks))
-
-    (my-leader-define "o e" #'mu4e)
-    (my-leader-define "o r" #'my-mail-sync-now))
+          mu4e-bookmarks (my-mail--bookmarks)))
 
   (use-package mu4e-org
     :ensure nil
     :after (mu4e org)
     :config
-    (require 'mu4e-org)))
+    (require 'mu4e-org))
+
+  (use-package mu4e-dashboard
+    :vc (:url "https://github.com/rougier/mu4e-dashboard")
+    :commands (mu4e-dashboard mu4e-dashboard-mode)
+    :init
+    (setq mu4e-dashboard-file my-mail-dashboard-file
+          mu4e-dashboard-mu-program
+          (or (my-mail--find-executable "mu" "/opt/homebrew/bin/mu") "mu")
+          ;; Keep dashboard-local shortcuts from leaking into mu4e headers.
+          mu4e-dashboard-propagate-keymap nil)
+    (my-leader-define "o d" nil)
+    (my-leader-define "m d" #'my-mail-dashboard-sidebar)
+    (my-leader-define "m D" #'my-mail-dashboard)
+    (with-eval-after-load 'which-key
+      (which-key-add-keymap-based-replacements my-leader-map
+        "m" "mail/bookmarks"
+        "m d" "mail dashboard"
+        "m D" "dashboard only"))
+    :config
+    (org-link-set-parameters mu4e-dashboard-link-name
+                             :follow #'my-mail-dashboard-follow-link)
+    :hook
+    (mu4e-dashboard-mode . my-mail-dashboard-visual-setup)))
 
 (provide 'my-mail)
 ;;; my-mail.el ends here

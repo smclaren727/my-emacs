@@ -1,0 +1,40 @@
+#+TITLE: Mail Dashboard
+#+STARTUP: showall showstars indent
+
+* Mail
+
+/[i]/ [[mu:maildir:/gmail/INBOX][Inbox]] /................../ /[[mu:maildir:/gmail/INBOX|%3d][---]]/
+/[u]/ [[mu:bm:Unread][Unread]] /................./ /[[mu:bm:Unread|%3d][---]]/
+/[t]/ [[mu:bm:Today][Today]] /................../ /[[mu:bm:Today|%3d][---]]/
+/[w]/ [[mu:bm:Week][This week]] /................/ /[[mu:bm:Week|%3d][---]]/
+/[f]/ [[mu:bm:Flagged][Flagged]] /.............../ /[[mu:bm:Flagged|%3d][---]]/
+
+* Gmail folders
+
+/[d]/ [[mu:flag:draft][Drafts]] /................./ /[[mu:flag:draft|%3d][---]]/
+/[s]/ [[mu:flag:sent][Sent]] /.................../ /[[mu:flag:sent|%3d][---]]/
+/[r]/ [[mu:flag:trashed][Trash]] /................./ /[[mu:flag:trashed|%3d][---]]/
+
+* Quick views
+
+[[mu:flag:attach][Attachments]] /............../ /[[mu:flag:attach|%4d][----]]/
+[[mu:date:2d..today and not date:today..now][Yesterday]] /.............../ /[[mu:date:2d..today and not date:today..now|%3d][---]]/
+[[mu:date:4w..now][Last month]] /............./ /[[mu:date:4w..now|%4d][----]]/
+
+* Configuration
+:PROPERTIES:
+:VISIBILITY: hideall
+:END:
+
+#+KEYMAP: i | mu4e-search "maildir:/gmail/INBOX"
+#+KEYMAP: u | mu4e-search "flag:unread AND NOT flag:trashed"
+#+KEYMAP: t | mu4e-search "date:today..now"
+#+KEYMAP: w | mu4e-search "date:7d..now"
+#+KEYMAP: f | mu4e-search "flag:flagged"
+#+KEYMAP: d | mu4e-search "flag:draft"
+#+KEYMAP: s | mu4e-search "flag:sent"
+#+KEYMAP: r | mu4e-search "flag:trashed"
+#+KEYMAP: C | mu4e-compose-new
+#+KEYMAP: g | mu4e-dashboard-update
+#+KEYMAP: U | my-mail-sync-now
+#+KEYMAP: q | kill-current-buffer
