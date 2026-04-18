@@ -5,6 +5,10 @@
 ;; completing-read (vertico/orderless).  An emacsclient-friendly frame
 ;; launcher enables system-wide access from Raycast/Alfred/hotkeys.
 
+(require 'org)
+(require 'org-element)
+(defvar vertico-count)
+
 ;;; Variables -----------------------------------------------------------
 
 (defvar my-bookmarks-file nil

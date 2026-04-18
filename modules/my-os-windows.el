@@ -4,6 +4,9 @@
 ;; Windows keys, clipboard, trash/Recycle Bin integration, and
 ;; file manager integration via explorer.exe.
 
+(defvar w32-lwindow-modifier)
+(defvar w32-rwindow-modifier)
+
 ;;; Modifiers ---------------------------------------------------------
 ;; Keep both Windows keys available as Super modifiers.
 (setq w32-lwindow-modifier 'super

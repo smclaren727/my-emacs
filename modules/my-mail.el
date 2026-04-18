@@ -14,7 +14,9 @@
 (declare-function mu4e-dashboard "mu4e-dashboard")
 (declare-function mu4e-dashboard-expand-bookmarks-in-query "mu4e-dashboard")
 (declare-function mu4e-dashboard-update-link "mu4e-dashboard")
+(declare-function make-mu4e-context "mu4e-context")
 (declare-function mu4e-search "mu4e-search")
+(declare-function mu4e-message-field "mu4e-message")
 (declare-function org-element-context "org-element")
 (declare-function org-link-set-parameters "ol")
 (defvar mu4e-dashboard-file)
@@ -38,6 +40,8 @@
   (expand-file-name "50-Resources/email-notes.org" my-notes-directory)
   "Org file that stores reference notes captured from mail.")
 
+(defvaralias 'my-mail-org-contacts-directory 'my-mail-contacts-directory)
+
 (defvar my-mail-contacts-directory
   (expand-file-name "50-Resources/Contacts/" my-notes-directory)
   "Directory containing curated org contact entries.")
@@ -52,8 +56,6 @@
 (defvar my-mail-sync-channels '("gmail")
   "mbsync channels to sync when refreshing mail.
 Set to nil to run all configured channels.")
-
-(defvaralias 'my-mail-org-contacts-directory 'my-mail-contacts-directory)
 
 (defvar my-mail-contact-candidates-cache nil
   "Cached contact completion candidates built from org contact files.")
@@ -516,11 +518,9 @@ When LIMIT is non-nil, temporarily limit the number of results."
         "m e" "mu4e"
         "m r" "sync mail"))
     :config
-    (setq mu4e-maildir my-mail-root
+    (setq mu4e-root-maildir my-mail-root
           mu4e-change-filenames-when-moving t
           mu4e-compose-format-flowed t
-          mu4e-view-show-images t
-          mu4e-view-prefer-html nil
           mu4e-completing-read-function #'completing-read
           mu4e-index-update-in-background t
           mu4e-update-interval nil

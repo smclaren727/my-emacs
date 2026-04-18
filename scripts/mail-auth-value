@@ -64,8 +64,16 @@ fi
     }
 
     if (machine_ok && login_ok && password != "") {
+      found = 1
       print password
       exit
+    }
+  }
+
+  END {
+    if (!found) {
+      printf "No credential found for machine %s login %s\n", machine, login > "/dev/stderr"
+      exit 1
     }
   }
 '

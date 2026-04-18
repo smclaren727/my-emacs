@@ -27,6 +27,8 @@
 (declare-function elfeed-tagged-p "elfeed-db" (tag entry))
 (declare-function elfeed-untag "elfeed-db" (entry &rest tags))
 (declare-function elfeed-update "elfeed")
+(declare-function face-remap-add-relative "face-remap" (face &rest specs))
+(declare-function face-remap-remove-relative "face-remap" (cookie))
 (declare-function elfeed-goodies/setup "elfeed-goodies")
 (declare-function elfeed-tube-fetch "elfeed-tube" (&optional video-id update-p))
 (declare-function elfeed-tube-mpv-follow-mode "elfeed-tube-mpv")
@@ -49,7 +51,7 @@
 ;;; Variables -----------------------------------------------------------
 
 (defvar my-feeds-directory nil
-  "Directory for downloaded article markdown files.")
+  "Directory for downloaded article Org files.")
 (setq my-feeds-directory
       (expand-file-name "50-Resources/Saved-Articles/" my-notes-directory))
 
@@ -356,9 +358,9 @@ DATE, and TAGS are included as org metadata."
   (elfeed-search-set-filter "+star"))
 
 (defun my-feeds-save-article ()
-  "Download the current elfeed article and save as markdown.
-The file is saved to `my-feeds-directory' with YAML front-matter
-containing title, author, date, source URL, and tags."
+  "Download the current elfeed article and save it as an Org file.
+The file is saved to `my-feeds-directory' with title, author, date,
+source URL, and file tags."
   (interactive)
   (let ((entry (my-feeds--entry-at-point)))
     (unless entry

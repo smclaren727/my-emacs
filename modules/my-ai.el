@@ -7,24 +7,38 @@
 
 (require 'subr-x)
 (require 'auth-source nil t)
+(defvar gptel-backend)
+
+(defvar my-ai--auth-source-disabled nil
+  "Non-nil when auth-source failed and should be skipped this session.")
 
 ;;; Auth helpers ------------------------------------------------------
 
 (defun my-ai--auth-source-secret (host user &optional port)
   "Return the first auth-source secret for HOST, USER, and optional PORT."
-  (when (featurep 'auth-source)
-    (let* ((search-args (append (list :max 1
-                                      :host host
-                                      :user user
-                                      :require '(:secret))
-                               (when (and port (not (string-empty-p port)))
-                                 (list :port port))))
-           (match (car (apply #'auth-source-search search-args)))
-           (secret (plist-get match :secret)))
-      (cond
-       ((stringp secret) secret)
-       ((functionp secret) (funcall secret))
-       (t nil)))))
+  (when (and (featurep 'auth-source)
+             (not my-ai--auth-source-disabled))
+    (condition-case nil
+        (let* ((search-args (append (list :max 1
+                                          :host host
+                                          :user user
+                                          :require '(:secret))
+                                   (when (and port (not (string-empty-p port)))
+                                     (list :port port))))
+               (match (car (apply #'auth-source-search search-args)))
+               (secret (plist-get match :secret)))
+          (cond
+           ((stringp secret) secret)
+           ((functionp secret)
+            (condition-case nil
+                (funcall secret)
+              (error
+               (setq my-ai--auth-source-disabled t)
+               nil)))
+           (t nil)))
+      (error
+       (setq my-ai--auth-source-disabled t)
+       nil))))
 
 (defun my-ai--env-or-auth-source-secret (env-var host &optional user port)
   "Return a secret from ENV-VAR or auth-source for HOST, USER, and PORT."

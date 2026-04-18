@@ -56,6 +56,7 @@ install_copy_if_missing "$etc_dir/mbsyncrc.example" "$HOME/.mbsyncrc" 600
 install_copy_if_missing "$etc_dir/msmtprc.example" "$HOME/.msmtprc" 600
 install_copy_if_missing "$etc_dir/authinfo.example" "$HOME/.authinfo.example" 600
 ensure_symlink "$scripts_dir/mail-auth-value" "$bin_dir/mail-auth-value"
+ensure_symlink "$scripts_dir/mail-sync" "$bin_dir/mail-sync"
 
 if command -v mu >/dev/null 2>&1; then
   if ! mu info >/dev/null 2>&1; then

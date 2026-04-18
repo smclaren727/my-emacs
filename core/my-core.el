@@ -5,6 +5,8 @@
 ;; no-littering paths, backup/autosave, history, and shared
 ;; variables that multiple modules depend on.
 
+(defvar my-early--file-name-handler-alist)
+
 ;;; Startup timer -----------------------------------------------------
 (add-hook 'emacs-startup-hook
           (lambda ()

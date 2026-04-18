@@ -1,4 +1,3 @@
-
 ;;; my-org-mode.el --- Org-mode knowledge layer -*- lexical-binding: t; -*-
 
 ;; Org-mode knowledge layer: capture templates, agenda, refile
