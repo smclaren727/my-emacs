@@ -140,6 +140,11 @@
 (my-ui--set-font-for-frame (selected-frame))
 (add-hook 'after-make-frame-functions #'my-ui--set-font-for-frame)
 
+;;; Icons -------------------------------------------------------------
+
+(use-package nerd-icons
+  :defer t)
+
 ;; Give text a little more air without making code feel too loose.
 (setq-default line-spacing 0.08)
 (with-eval-after-load 'org

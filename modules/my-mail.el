@@ -505,6 +505,7 @@ When LIMIT is non-nil, temporarily limit the number of results."
     :commands (mu4e mu4e-update-mail-and-index)
     :defer 20
     :init
+    (setq mail-user-agent 'mu4e-user-agent)
     (my-leader-define "o e" nil)
     (my-leader-define "o r" nil)
     (my-leader-define "m e" #'mu4e)
@@ -515,8 +516,7 @@ When LIMIT is non-nil, temporarily limit the number of results."
         "m e" "mu4e"
         "m r" "sync mail"))
     :config
-    (setq mail-user-agent 'mu4e-user-agent
-          mu4e-maildir my-mail-root
+    (setq mu4e-maildir my-mail-root
           mu4e-change-filenames-when-moving t
           mu4e-compose-format-flowed t
           mu4e-view-show-images t
@@ -525,6 +525,7 @@ When LIMIT is non-nil, temporarily limit the number of results."
           mu4e-index-update-in-background t
           mu4e-update-interval nil
           mu4e-get-mail-command (my-mail--sync-command)
+          mu4e-search-threads t
           mu4e-sent-messages-behavior 'delete
           mu4e-contexts (mapcar #'my-mail--make-context my-mail-accounts)
           mu4e-context-policy 'pick-first
@@ -536,6 +537,19 @@ When LIMIT is non-nil, temporarily limit the number of results."
     :after (mu4e org)
     :config
     (require 'mu4e-org))
+
+  (use-package org-msg
+    :after (mu4e org)
+    :custom
+    (org-msg-options "html-postamble:nil H:5 num:nil ^:{} toc:nil author:nil email:nil \\n:t")
+    (org-msg-startup "hidestars indent inlineimages")
+    (org-msg-default-alternatives
+     '((new . (text html))
+       (reply-to-html . (text html))
+       (reply-to-text . (text))))
+    (org-msg-convert-citation t)
+    :config
+    (org-msg-mode 1))
 
   (use-package mu4e-dashboard
     :vc (:url "https://github.com/rougier/mu4e-dashboard")
