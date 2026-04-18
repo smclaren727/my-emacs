@@ -19,10 +19,13 @@ no Spacemacs).  Every package solves a concrete problem.
   CLAUDE.md              — this file
   etc/
     authinfo.example       — tracked mail auth example copied into ~/.authinfo.gpg or ~/.authinfo
+    com.seanmclaren.mail-sync.plist — launchd template for out-of-Emacs mail sync
     custom.el              — package-generated custom variables (gitignored/runtime)
     mail-accounts.example.el — example override for mu4e/mail account data
     mbsyncrc.example       — tracked local mbsync template with Gmail-safe IMAP defaults
     msmtprc.example        — tracked local msmtp template
+    mu4e-dashboard.org     — org source for the mu4e dashboard/sidebar
+    ssh-config.example     — TRAMP/Nix host alias examples
   core/
     my-flags.el          — feature flags that toggle modules (provides 'my-flags)
     my-loader.el         — error-resilient module loading macro (provides 'my-loader)
@@ -32,19 +35,25 @@ no Spacemacs).  Every package solves a concrete problem.
     my-os-macos.el       — macOS: modifier keys, exec-path-from-shell, clipboard (provides 'my-os-macos)
     my-os-linux.el       — Linux: clipboard + trash integration (provides 'my-os-linux)
     my-os-windows.el     — Windows: Super modifiers, clipboard, trash (provides 'my-os-windows)
-    my-ui.el             — ef-themes, modeline, fonts, visual spacing (provides 'my-ui)
-    my-editing.el        — vertico, orderless, marginalia, consult, embark, corfu, cape, vundo, markdown (provides 'my-editing)
+    my-ui.el             — ef-themes, spacious-padding, moody/minions, nerd-icons modeline, fonts (provides 'my-ui)
+    my-files.el          — Dired defaults plus explicit Dirvish file manager (provides 'my-files)
+    my-editing.el        — vertico, orderless, marginalia, consult, embark, corfu, cape, devil, vundo, markdown (provides 'my-editing)
     my-dev.el            — magit, eglot, tree-sitter, flymake, diff-hl, compile (provides 'my-dev)
     my-org-mode.el       — org capture, agenda, refile, org-id, org-modern (provides 'my-org-mode)
+    my-tramp.el          — TRAMP helpers and Nix host shortcuts (provides 'my-tramp)
     my-shells.el         — project-aware shell management (provides 'my-shells)
-    my-feeds.el          — elfeed RSS reader, elfeed-org, article saving (provides 'my-feeds)
+    my-feeds.el          — Elfeed, elfeed-goodies, elfeed-tube, article saving (provides 'my-feeds)
     my-nodes.el          — org-node networked notes, backlinks, node search (provides 'my-nodes)
+    my-bookmarks.el      — org-backed bookmark manager (provides 'my-bookmarks)
     my-ai.el             — gptel + agent-shell: LLM chat, Claude Code, Codex (provides 'my-ai)
-    my-mail.el           — mu4e, mbsync, msmtp, org mail capture (provides 'my-mail)
+    my-mail.el           — mu4e, mbsync, msmtp, org-msg, dashboard, org mail capture (provides 'my-mail)
     my-ops.el            — placeholder, flag disabled (provides 'my-ops)
   scripts/
+    bookmark-open        — helper for opening bookmark URLs
     bootstrap-mail-config.sh — idempotent local mail bootstrap helper
     mail-auth-value      — authinfo reader for mbsync/msmtp password helpers
+    mail-sync            — launchd-friendly mail sync/index helper
+    vcf-to-org-contacts.py — one-off VCF to org contact conversion helper
 ```
 
 ## Load Order
@@ -78,7 +87,7 @@ no Spacemacs).  Every package solves a concrete problem.
 ## Keybinding Architecture
 
 - All personal bindings live in `my-leader-map`, accessible via double-space chord or `C-c u`
-- Leader sub-prefixes: `b` buffer, `c` compile, `e` emacs/eval, `f` files, `g` git, `n` news/feeds, `o` org, `p` project, `s` shell
+- Leader sub-prefixes: `a` addressbook, `b` buffer, `c` compile, `d` Dired/Dirvish, `e` emacs/eval, `f` files/search, `g` git, `m` mail/bookmarks, `n` news/feeds, `o` org, `p` project, `r` remote/TRAMP, `s` shell, `w` window
 - Use `my-leader-define` to add leader bindings
 - Mode-local bindings (`:map some-mode-map`) stay in their respective module files
 - Don't shadow core Emacs bindings without strong justification
@@ -89,6 +98,7 @@ no Spacemacs).  Every package solves a concrete problem.
 - `package.el` with MELPA and GNU ELPA
 - `use-package` (built-in Emacs 29+) for configuration
 - No `straight.el`, no `elpaca` (future migration path)
+- GitHub-only packages may use `use-package :vc` / package-vc; prefer ELPA/MELPA when available
 - One package at a time.  Each must solve a concrete problem.
 
 ## Platform
@@ -99,7 +109,7 @@ no Spacemacs).  Every package solves a concrete problem.
 - Shell: zsh
 - Python LSP: `pylsp` via pip3 (`~/Library/Python/3.9/bin/`)
 - TypeScript LSP: `typescript-language-server` via npm (`~/.npm-global/bin/`)
-- Tools: ripgrep, pandoc, multimarkdown
+- Tools: ripgrep, pandoc, multimarkdown, yt-dlp, mpv, mu, mbsync, msmtp
 - Remote/TRAMP host aliases are documented in `etc/ssh-config.example` (copy to `~/.ssh/config` per machine)
 
 ## Theme System
@@ -107,6 +117,7 @@ no Spacemacs).  Every package solves a concrete problem.
 - `ef-themes` (`ef-dark` / `ef-light`)
 - On macOS, auto-switches via `ns-system-appearance-change-functions`; on other OSes, uses frame background mode at startup
 - `minions` + `moody` for modeline behavior and cleanup
+- `nerd-icons` is available for targeted UI surfaces; `nerd-icons-mode-line` is inserted beside Moody's buffer segment, and Dirvish uses its own `nerd-icons` attribute
 
 ## Notes / Org System (PARA)
 
@@ -125,6 +136,7 @@ no Spacemacs).  Every package solves a concrete problem.
 - `org-id` enabled from day one — IDs generated on every capture
 - Refile targets: all project files, inbox, areas, interests
 - Auto-save after refile via advice on `org-refile`
+- Org files open folded to top-level headings (`overview`); property drawers stay hidden but participate in normal cycling
 
 ## Testing Changes
 
@@ -148,7 +160,7 @@ no Spacemacs).  Every package solves a concrete problem.
 
 - Commit after each logical change
 - Commit messages: `"module: brief description"` (e.g., `"core: add leader key"`)
-- Always `git add -A && git commit -m "..."` then `git push`
+- Review the full diff before staging. Use `git add -A` only when the user confirms the whole worktree belongs in scope, then commit and push.
 
 ## What NOT to Do
 

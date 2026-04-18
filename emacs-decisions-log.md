@@ -12,11 +12,16 @@ These entries supersede older sections below where they conflict.
 - Leader trigger is `key-chord` double-space (`"  "`), with `C-c u` as fallback.
 - `key-chord` is treated as optional at startup; failure falls back to `C-c u`.
 - Theme stack uses `ef-themes` (`ef-dark` / `ef-light`).
-- Modeline stack uses `moody` and `minions` (not `doom-modeline` / `nerd-icons`).
+- Modeline stack uses `moody` and `minions` with a small `nerd-icons-mode-line`
+  supplement beside the Moody buffer segment (not `doom-modeline`).
 - OS modules now exist for macOS, Linux, and Windows and are loaded by `system-type`.
 - File-manager reveal is cross-platform via `my-reveal-in-file-manager`.
+- Standard Dired remains the default; Dirvish is explicit via `dirvish`,
+  `dirvish-dwim`, and leader `d D`.
 - Elfeed search layout uses fixed `Date`, `Tags`, and `Feed Source`
   columns with `Subject` as the flexible final column.
+- Mail uses mu4e from Homebrew/site-lisp, org-msg for compose, and
+  mu4e-dashboard as the main dashboard/sidebar surface.
 
 ---
 
@@ -222,11 +227,12 @@ character input on international keyboards.
 
 ### `exec-path-from-shell`
 
-**Chosen:** Used, GUI-only via `:if (display-graphic-p)`.
+**Chosen:** Used for GUI and daemon sessions.
 
-**Why:** GUI Emacs on macOS doesn't inherit the terminal's `$PATH`.
-Without this, tools like `git`, `node`, `rg`, `pylsp` aren't found.
-Adds ~100ms to startup but correctness matters more at this stage.
+**Why:** GUI Emacs and launchd-started daemon Emacs on macOS do not inherit
+the terminal's `$PATH`. Without this, tools like `git`, `node`, `rg`, `pylsp`,
+`mu`, `mbsync`, and Homebrew GCC support files can be missing. Correct PATH
+inheritance is also part of the native-comp stability fix for daemon startup.
 
 **Alternatives considered:**
 - Manual `exec-path` setting — faster but brittle, needs updating when
@@ -234,13 +240,15 @@ Adds ~100ms to startup but correctness matters more at this stage.
 
 ---
 
-### Font: JetBrains Mono 14pt
+### Font fallbacks and larger default size
 
-**Chosen:** JetBrains Mono at height 140 (14pt).
+**Chosen:** Prefer JetBrains Mono, then Fira Code, SF Mono, Menlo, and
+DejaVu Sans Mono at height 160. Variable-pitch prose prefers Avenir Next,
+SF Pro Text, Helvetica Neue, Cantarell, and DejaVu Sans at height 170.
 
-**Why:** Widely used programming font with excellent legibility, tall
-x-height, and cross-platform availability. 14pt is appropriate for
-macOS Retina displays.
+**Why:** The fallback list keeps the config portable while still preferring
+high-quality fonts on macOS. Height 160/170 improved readability after
+daily-use testing.
 
 **Previously tried:** Atkinson Hyperlegible Mono — decided against for
 personal preference.
@@ -290,11 +298,13 @@ is a direct NS-port callback — instant, no polling, no extra dependency.
 ### `moody` with `minions`
 
 **Chosen:** `moody` for the modeline structure, with `minions` to collapse
-minor modes into a compact menu.
+minor modes into a compact menu. `nerd-icons-mode-line` is installed beside
+Moody's buffer segment with a small compatibility helper.
 
 **Why:** Moody gives the modeline a clean ribbon/tab treatment without
-requiring icon fonts or a large modeline framework. Minions keeps minor
-modes available without letting them dominate the mode line.
+requiring a large modeline framework. Minions keeps minor modes available
+without letting them dominate the mode line. A small icon next to the buffer
+name adds useful file-type recognition without adopting a heavier modeline.
 
 **Alternatives considered:**
 - doom-modeline with nerd-icons — polished, but heavier and more dependent
@@ -382,6 +392,53 @@ the binding.
 
 ---
 
+### `devil` for modifier-light default bindings
+
+**Chosen:** Devil mode with semicolon (`;`) as the activation key.
+
+**Why:** Learning default Emacs bindings is valuable, but repeatedly holding
+Control is physically costly. Devil mode provides a modifier-light path toward
+default keybinding literacy without requiring OS-level Caps Lock remapping.
+
+---
+
+### `nerd-icons-completion`
+
+**Chosen:** Enabled after init and integrated with Marginalia via
+`marginalia-mode-hook`.
+
+**Why:** Icons add lightweight recognition in completion surfaces without
+changing completion behavior. Hooking the Marginalia setup avoids the package
+turning itself back off when Marginalia is not active yet.
+
+---
+
+## `my-files.el`
+
+### Dired stays plain by default
+
+**Chosen:** Standard Dired remains the default for `M-x dired` and leader
+`d d`. Dirvish is invoked explicitly via `M-x dirvish`, `M-x dirvish-dwim`,
+and leader `d D`.
+
+**Why:** Dirvish is promising, but keeping plain Dired available makes the
+transition safer while the workflow is still being learned. It also keeps a
+stable baseline for troubleshooting file-management behavior.
+
+---
+
+### Dirvish as enhanced file manager
+
+**Chosen:** Dirvish is installed with `nerd-icons`, collapse, VC state,
+file-time, and file-size attributes.
+
+**Why:** Dirvish provides a more familiar file-manager surface while staying
+based on Dired. Its own `nerd-icons` attribute handles icons in Dirvish
+buffers; `nerd-icons-dired` is installed but not automatically enabled so
+plain Dired remains visually plain for now.
+
+---
+
 ## `my-dev.el`
 
 ### Eglot over lsp-mode
@@ -401,11 +458,13 @@ Less configuration surface than lsp-mode.
 
 ### Tree-sitter via `treesit-auto`
 
-**Chosen:** `treesit-auto` with `'prompt` for grammar installation.
+**Chosen:** `treesit-auto` with implicit installation disabled. Only modes
+whose grammars are already installed are registered in `auto-mode-alist`.
 
-**Why:** Handles grammar installation and automatic major mode remapping
-(e.g., `python-mode` → `python-ts-mode`). Prompting before download
-avoids hidden network installs across environments.
+**Why:** Dirvish and other preview workflows can visit many files briefly.
+Prompting for missing grammars or remapping to unavailable `-ts-mode`s creates
+noisy warnings and interrupts browsing. Missing grammars now fall back to the
+regular major modes until they are installed intentionally.
 
 ---
 
@@ -456,11 +515,11 @@ depend on system package managers.
 
 ---
 
-## `my-notes.el`
+## `my-org-mode.el`
 
 ### Single notes root variable
 
-**Chosen:** `my-notes-directory` set to `~/notes/`.
+**Chosen:** `my-notes-directory` set to `~/All-The-Things/`.
 
 **Why:** All paths derive from this one variable. No absolute paths
 baked into capture templates, agenda config, or org settings. Easy to
@@ -516,6 +575,18 @@ Minimal configuration required.
 
 ---
 
+### Folded startup and property drawers
+
+**Chosen:** Org files open with `org-startup-folded` set to `overview`, so
+only top-level headings are visible. Property drawers are hidden by default
+with a custom helper while still participating in normal local cycling.
+
+**Why:** This keeps daily org files scannable and reduces visual noise without
+making metadata inaccessible. It preserves standard Org cycling semantics
+instead of inventing a separate drawer UI.
+
+---
+
 ## `my-feeds.el`
 
 ### Elfeed search layout
@@ -552,9 +623,9 @@ trigger that works everywhere.
 
 ---
 
-### Leader key mechanism: `key-chord` with `fj`
+### Leader key mechanism: `key-chord` with double-space
 
-**Chosen:** `key-chord` package, chord `fj`, bound to `my-leader-map`.
+**Chosen:** `key-chord` package, chord `"  "` (double-space), bound to `my-leader-map`.
 `C-c u` retained as a universal fallback pointing to the same map.
 
 **Why `key-chord` over the alternatives:**
@@ -562,16 +633,16 @@ trigger that works everywhere.
 - Fully self-contained in the Emacs config — one package, version-controlled,
   no OS-level steps or external tooling required.
 - Works identically on macOS, Linux, and Windows.
-- Works over SSH — `f` and `j` are plain characters that transmit
-  reliably through any terminal connection, unlike modifier keys.
-- `fj` is a natural home-row chord with no real English words that would
-  cause accidental triggers during normal typing.
+- Works over SSH — space is a plain character that transmits reliably through
+  any terminal connection, unlike modifier keys.
+- Double-space is easy to hit while keeping hands on the home row.
 
-**Why `fj` as the chord:**
+**Why double-space as the chord:**
 
-Home-row, index fingers, opposite hands. Fast to press simultaneously
-without lifting from the typing position. No English words contain `fj`
-in sequence, making false triggers during prose writing effectively zero.
+It is fast, ergonomic, and does not require a modifier. The tradeoff is that
+intentional double-spaces in prose may trigger the leader, but the config is
+optimized around editing and command entry rather than preserving literal
+double-space typing.
 
 **Why `C-c u` is kept:**
 
@@ -616,7 +687,7 @@ adding a binding once makes it available via either key.
 
 ### Key mapping architecture
 
-**Chosen:** A single `my-leader-map` keymap. Both `fj` (via `key-chord`)
+**Chosen:** A single `my-leader-map` keymap. Both double-space (via `key-chord`)
 and `C-c u` (via standard `keymap-global-set`) are bound to this same
 map object.
 
@@ -624,10 +695,10 @@ map object.
 makes it reachable via either entry point automatically. No duplication,
 no synchronization required.
 
-**`key-chord` loaded with `:noerror`:** The `require` uses `:noerror` so
-`my-leader.el` loads cleanly even before the package is installed. This
-is consistent with the error resilience principle — the module degrades
-gracefully rather than blocking startup.
+**`key-chord` guarded at startup:** Loading is wrapped in `condition-case`, so
+`my-leader.el` still provides `C-c u` even if `key-chord` fails to load. This
+is consistent with the error resilience principle — the leader fallback remains
+usable rather than blocking startup.
 
 ---
 
@@ -658,6 +729,57 @@ transport only.
 
 ---
 
+## `my-mail.el`
+
+### mu4e from system package manager
+
+**Chosen:** mu4e is loaded from Homebrew/site-lisp rather than ELPA/MELPA.
+`init.el` marks `mu4e` as a built-in package version so package-vc dependencies
+can resolve cleanly.
+
+**Why:** mu4e ships with the `mu` system package. Keeping the Elisp side paired
+with the installed `mu` binary avoids version skew and mirrors how this should
+work on Nix later.
+
+---
+
+### Mail retrieval outside Emacs, manual refresh inside Emacs
+
+**Chosen:** mbsync handles retrieval, `mu index` handles indexing, and msmtp
+handles sending. The launchd template and `scripts/mail-sync` support periodic
+sync outside Emacs; `my-mail-sync-now` provides an in-Emacs manual refresh.
+
+**Why:** Mail sync should not depend on whether Emacs is open, but Emacs still
+needs an easy "refresh now" command during mail triage.
+
+---
+
+### mu4e dashboard plus org-msg
+
+**Chosen:** `mu4e-dashboard` provides the dashboard/sidebar workflow, while
+`org-msg` handles composing HTML-capable messages from Org. `mu4e-org` stays
+enabled for linking mail into Org tasks and notes.
+
+**Why:** This keeps the reading/navigation surface, compose surface, and
+task-linking surface separate. The dashboard is a mail home base; org-msg is
+only about authoring; mu4e-org keeps durable links into the Org system.
+
+---
+
+### `consult-mu` deferred
+
+**Decision:** Do not add `consult-mu` yet. Keep it as a future option for fast,
+from-anywhere mail lookup.
+
+**Why:** The useful part would be `consult-mu-async` for quickly finding one
+message or thread without entering the full mu4e dashboard. However, the
+current dashboard/org-msg/mu4e-org workflow is still settling, and consult-mu
+is a GitHub-only package whose README describes edge cases around mu4e window
+management. If revisited, start with a minimal `:vc` setup, conservative
+preview settings, and no attachment/contact extras on day one.
+
+---
+
 ## Packages Not Chosen (and why)
 
 | Package | Reason skipped |
@@ -665,6 +787,7 @@ transport only.
 | auto-dark | Failed to detect macOS appearance reliably. Replaced by built-in `ns-system-appearance-change-functions`. |
 | Custom `key-translation-map` leader | Blocked every `f` keypress for 0.3s; timeout fallback emitted `fj` instead of `f`. Would have meant rebuilding `key-chord` from scratch. |
 | Caps Lock → Hyper modifier | Per-machine OS dependency; Hyper doesn't transmit reliably over SSH. |
+| consult-mu | Deferred. Potentially useful for async "find one email" lookup, but not needed while the mu4e dashboard workflow is still settling. |
 | OS-level remapping (Karabiner / keyd) | Per-machine dependency, breaks portability goal, doesn't work over SSH. |
 | Hydra / Transient (as leader replacement) | Deferred, not rejected. Right tool when binding count makes discoverability a problem. |
 | Helm | Monolithic, ecosystem lock-in. |
@@ -684,6 +807,7 @@ transport only.
 | `my-ai.el` | Implemented. gptel + agent-shell. See decision above. |
 | `my-ops.el` | No concrete need identified yet. |
 | Journaling workflow | Capture and ID scaffolding in place. Specific workflows deferred. |
+| consult-mu | Maybe later for fast async mail search from anywhere; start minimal if revisited. |
 | elpaca migration | Future upgrade path from `package.el` once config stabilizes. |
 | `inhibit-redisplay` | Can be re-added to `early-init.el` once startup restoration is battle-tested. |
-| Linux / Windows OS modules | macOS module complete. Other platforms deferred until needed. |
+| Linux / Windows OS module polish | Basic OS modules exist; deeper per-platform tuning deferred until needed. |

@@ -63,10 +63,13 @@ directory layout:
 - **early-init** — startup performance, UI suppression, GC tuning
 - **core** — production-safe defaults and infrastructure
 - **ui** — visual decisions (theme, modeline, fonts)
+- **files** — Dired defaults plus explicit Dirvish file-manager workflow
 - **editing** — completion, minibuffer, undo, pairs
 - **dev** — git, projects, LSP, tree-sitter
 - **notes** — org, capture, agenda, IDs
-- **ai** — reserved, intentionally minimal for now
+- **mail** — mu4e, mbsync/msmtp integration, org-msg, dashboard, mail capture
+- **feeds** — Elfeed, elfeed-org, elfeed-goodies, YouTube enhancements
+- **ai** — gptel plus CLI coding-agent shells
 - **ops** — async processes, job runners, logging helpers, remote helpers, and orchestration utilities
 - **leader** — custom leader key map (double-space chord via `key-chord`, `C-c u` as fallback)
 - **os** — platform-specific modules (macOS, Linux, Windows)
@@ -171,24 +174,34 @@ A modern vanilla completion and development stack:
 - Vertico (minibuffer UI)
 - Orderless (flexible matching)
 - Marginalia (rich annotations)
+- nerd-icons-completion (icons in supported completion surfaces)
 - Consult (power commands — search, buffer switching, line jumping)
 - Embark (context actions on completion candidates)
 - Corfu (in-buffer completion popup, auto-complete enabled, 0.2s delay, 2-char prefix)
 - Cape (extra completion-at-point backends — file paths, dabbrev, keywords; plugs directly into Corfu)
+- Devil (semicolon-triggered modifier-free entry for default Emacs keybindings)
 - vundo (visual undo tree on `C-x u` — replaces undo-tree, no persistence corruption risk)
 
 ### UI:
 
-- color-theme-sanityinc-tomorrow (`sanityinc-tomorrow-night` / `sanityinc-tomorrow-day`)
-- moody + minions (custom modeline + minor-mode collapse)
+- ef-themes (`ef-dark` / `ef-light`) with macOS appearance switching
+- spacious-padding for frame/window breathing room
+- moody + minions (ribbon-style modeline + minor-mode collapse)
+- nerd-icons-mode-line, installed beside Moody's buffer identification
 
 ### Development:
 
 - Magit (git)
 - Eglot (LSP, built-in from Emacs 29+)
 - Native tree-sitter integration
-- `treesit-auto` (automatic grammar installation and major mode remapping)
+- `treesit-auto` (major mode remapping only for grammars already installed)
 - diff-hl (fringe git change indicators, kept in sync via Magit post-refresh hook)
+
+### Files:
+
+- Dired remains the plain default for `M-x dired` and leader `d d`
+- Dirvish is available explicitly via `M-x dirvish`, `M-x dirvish-dwim`, and leader `d D`
+- Dirvish uses its own Nerd Icons attribute; `nerd-icons-dired` is installed but not auto-enabled so plain Dired stays plain during evaluation
 
 ### Language Servers:
 
@@ -201,12 +214,11 @@ Language servers are system tools, not Emacs packages — install manually:
 Eglot hooks must target `-ts-mode` variants (`python-ts-mode`, `js-ts-mode`, etc.)
 since `treesit-auto` remaps traditional major modes.
 
-Tree-sitter grammar installation should follow a clear policy:
+Tree-sitter grammar installation follows a clear policy:
 
-- Grammars are installed intentionally (not implicitly on every machine), or
-- Disabled in minimal/headless profiles.
-
-Avoid hidden network installs or build assumptions across environments.
+- Grammars are installed intentionally, outside of incidental file previews.
+- `treesit-auto` only registers `-ts-mode` remaps for grammars already present.
+- Missing grammars fall back to regular major modes instead of prompting during Dirvish previews or other transient buffer visits.
 
 Keep it minimal. Avoid stacking redundant packages. Every addition
 should solve a concrete problem.
@@ -227,6 +239,8 @@ Core setup:
 - Agenda configuration
 - `org-id` enabled from day one, generating IDs on capture
 - `org-modern` for visual polish (styled bullets, TODO keywords, table rendering)
+- Open org files folded to top-level headings
+- Hide property drawers by default while keeping them available through normal cycling
 
 Define an ID policy early (e.g., IDs added on capture rather than
 retroactively). Retrofitting IDs across hundreds of files is painful.
@@ -282,9 +296,9 @@ Only platform-specific concerns belong here:
 
 - Modifier key behavior: Command = Meta, Option = Super, Fn = Hyper, Right Option = none
 - Clipboard integration
-- Font: JetBrains Mono 14pt (height 140)
+- Font: first available mono from JetBrains Mono, Fira Code, SF Mono, Menlo, or DejaVu Sans Mono at height 160; variable-pitch prose uses Avenir Next/SF Pro Text/etc. at height 170
 - Smooth scrolling tweaks
-- `exec-path-from-shell` (only when running as a GUI instance, not terminal)
+- `exec-path-from-shell` for GUI and daemon sessions so launchd-started Emacs inherits Homebrew paths
 - `ns-auto-titlebar` for dark mode consistency
 - `frame-resize-pixelwise` set to `t` (prevents gaps when tiling windows)
 

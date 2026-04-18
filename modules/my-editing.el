@@ -23,6 +23,12 @@
 (use-package marginalia
   :hook (after-init . marginalia-mode))
 
+(use-package nerd-icons-completion
+  :hook (after-init . nerd-icons-completion-mode)
+  :config
+  (add-hook 'marginalia-mode-hook
+            #'nerd-icons-completion-marginalia-setup))
+
 (use-package consult
   :bind
   (("C-s"     . consult-line)

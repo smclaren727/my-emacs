@@ -38,6 +38,7 @@ Examples from this config:
 - `savehist`
 - `var/org-id-locations`
 - `var/elfeed/db/`
+- `~/Mail/` and the mu index database
 - Possibly `etc/custom.el` if it picks up machine-specific values
 
 These files are not the "real" config. They are machine-shaped state.
@@ -129,6 +130,7 @@ If a future cross-machine setup behaves strangely, first suspects are:
 - package-specific note graph caches or databases
 - org-id locations
 - elfeed database
+- maildir contents, mu indexes, and auth-backed mail sync state
 
 ## Not Planned Yet
 

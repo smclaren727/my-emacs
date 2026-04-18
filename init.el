@@ -64,6 +64,9 @@
 (when my-flag-ui
   (my-load-module ui "my-ui"))
 
+(when my-flag-files
+  (my-load-module files "my-files"))
+
 (when my-flag-editing
   (my-load-module editing "my-editing"))
 

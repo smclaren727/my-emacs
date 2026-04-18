@@ -7,6 +7,7 @@
 ;; No editing or keybinding logic belongs here.
 
 (require 'subr-x)
+(require 'cl-lib)
 
 ;;; Theme -------------------------------------------------------------
 (use-package ef-themes
@@ -145,6 +146,22 @@
 (use-package nerd-icons
   :defer t)
 
+(defun my-ui--install-nerd-icons-mode-line ()
+  "Insert `nerd-icons-mode-line' next to the active buffer name segment."
+  (let* ((format (default-value 'mode-line-format))
+         (anchor (cond
+                  ((memq 'moody-mode-line-buffer-identification format)
+                   'moody-mode-line-buffer-identification)
+                  ((memq 'mode-line-buffer-identification format)
+                   'mode-line-buffer-identification))))
+    (when-let ((position (and anchor (cl-position anchor format))))
+      (unless (memq 'mode-line-nerd-icon format)
+        (set-default 'mode-line-format
+                     (append (cl-subseq format 0 position)
+                             '(mode-line-nerd-icon)
+                             (cl-subseq format position)))
+        (force-mode-line-update t)))))
+
 ;; Give text a little more air without making code feel too loose.
 (setq-default line-spacing 0.08)
 (with-eval-after-load 'org
@@ -198,6 +215,19 @@
   (moody-replace-mode-line-buffer-identification)
   (moody-replace-vc-mode)
   (my-ui--apply-face-customizations))
+
+(use-package nerd-icons-mode-line
+  :vc (:url "https://github.com/grolongo/nerd-icons-mode-line"
+       :rev :newest)
+  :after moody
+  :demand t
+  :custom
+  (nerd-icons-mode-line-v-adjust 0.1)
+  (nerd-icons-mode-line-size 1.0)
+  :config
+  ;; The package's global mode targets the stock modeline symbol.  Moody
+  ;; replaces that symbol, so install the icon beside Moody's buffer segment.
+  (my-ui--install-nerd-icons-mode-line))
 
 ;; Show clock in modeline (no load average).
 (setq display-time-default-load-average nil)

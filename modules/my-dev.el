@@ -33,9 +33,24 @@
 (use-package treesit-auto
   :demand t
   :custom
-  (treesit-auto-install 'prompt)
+  ;; Keep grammar installation explicit.  Prompting from file previews is
+  ;; disruptive, especially in Dirvish buffers that briefly visit many files.
+  (treesit-auto-install nil)
   :config
-  (treesit-auto-add-to-auto-mode-alist 'all)
+  (let (unready-ts-modes)
+    (dolist (recipe treesit-auto-recipe-list)
+      (unless (treesit-ready-p (treesit-auto-recipe-lang recipe) t)
+        (push (treesit-auto-recipe-ts-mode recipe) unready-ts-modes)))
+    (setq auto-mode-alist
+          (delq nil
+                (mapcar (lambda (entry)
+                          (unless (memq (cdr entry) unready-ts-modes)
+                            entry))
+                        auto-mode-alist))))
+  ;; Only register tree-sitter modes whose grammars are actually installed.
+  ;; Missing grammars fall back to regular modes instead of warning during
+  ;; file previews, for example when Dirvish previews JSON files.
+  (treesit-auto-add-to-auto-mode-alist)
   (global-treesit-auto-mode 1))
 
 ;;; LSP via Eglot -----------------------------------------------------

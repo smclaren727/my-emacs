@@ -8,6 +8,9 @@
 (defvar my-flag-ui t
   "Load UI module (theme, modeline, fonts).")
 
+(defvar my-flag-files t
+  "Load file browsing module (Dired and Dirvish).")
+
 (defvar my-flag-editing t
   "Load editing module (completion, minibuffer, undo, pairs).")
 
