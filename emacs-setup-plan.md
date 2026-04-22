@@ -63,7 +63,7 @@ directory layout:
 - **early-init** — startup performance, UI suppression, GC tuning
 - **core** — production-safe defaults and infrastructure
 - **ui** — visual decisions (theme, modeline, fonts)
-- **files** — Dired defaults plus explicit Dirvish file-manager workflow
+- **files** — Dired defaults, explicit Dirvish workflow, and on-demand PDF viewing
 - **editing** — completion, minibuffer, undo, pairs
 - **dev** — git, projects, LSP, tree-sitter
 - **notes** — org, capture, agenda, IDs
@@ -202,6 +202,7 @@ A modern vanilla completion and development stack:
 - Dired remains the plain default for `M-x dired` and leader `d d`
 - Dirvish is available explicitly via `M-x dirvish`, `M-x dirvish-dwim`, and leader `d D`
 - Dirvish uses its own Nerd Icons attribute; `nerd-icons-dired` is installed but not auto-enabled so plain Dired stays plain during evaluation
+- PDFs open through `pdf-tools`; `pdf-loader-install` keeps startup light and activates `pdf-view-mode` only when a PDF is visited
 
 ### Language Servers:
 

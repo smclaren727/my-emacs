@@ -439,6 +439,17 @@ plain Dired remains visually plain for now.
 
 ---
 
+### PDF viewing via `pdf-tools`
+
+**Chosen:** `pdf-tools` is installed and activated with
+`pdf-loader-install`, keeping PDF support on-demand.
+
+**Why:** This replaces DocView with the better `pdf-view-mode` experience
+without adding unnecessary startup work. The loader approach follows the
+package's own recommendation when startup time matters.
+
+---
+
 ## `my-dev.el`
 
 ### Eglot over lsp-mode

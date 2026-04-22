@@ -36,7 +36,7 @@ no Spacemacs).  Every package solves a concrete problem.
     my-os-linux.el       — Linux: clipboard + trash integration (provides 'my-os-linux)
     my-os-windows.el     — Windows: Super modifiers, clipboard, trash (provides 'my-os-windows)
     my-ui.el             — ef-themes, spacious-padding, moody/minions, nerd-icons modeline, fonts (provides 'my-ui)
-    my-files.el          — Dired defaults plus explicit Dirvish file manager (provides 'my-files)
+    my-files.el          — Dired defaults, explicit Dirvish workflow, PDF viewing via pdf-tools (provides 'my-files)
     my-editing.el        — vertico, orderless, marginalia, consult, embark, corfu, cape, devil, vundo, markdown (provides 'my-editing)
     my-dev.el            — magit, eglot, tree-sitter, flymake, diff-hl, compile (provides 'my-dev)
     my-org-mode.el       — org capture, agenda, refile, org-id, export, org-modern (provides 'my-org-mode)
@@ -118,6 +118,7 @@ no Spacemacs).  Every package solves a concrete problem.
 - On macOS, auto-switches via `ns-system-appearance-change-functions`; on other OSes, uses frame background mode at startup
 - `minions` + `moody` for modeline behavior and cleanup
 - `nerd-icons` is available for targeted UI surfaces; `nerd-icons-mode-line` is inserted beside Moody's buffer segment, and Dirvish uses its own `nerd-icons` attribute
+- `pdf-tools` is enabled via `pdf-loader-install`, so opening a PDF switches to `pdf-view-mode` on demand instead of front-loading PDF support at startup
 
 ## Notes / Org System (PARA)
 
