@@ -252,7 +252,11 @@ doesn't already exist."
   :demand t
   :custom
   (org-pandoc-options '((standalone . t)))
+  ;; Keep the common PDF routes deterministic instead of relying on
+  ;; Pandoc's per-writer defaults.
+  (org-pandoc-options-for-beamer-pdf '((pdf-engine . "pdflatex")))
   (org-pandoc-options-for-latex-pdf '((pdf-engine . "pdflatex")))
+  (org-pandoc-options-for-html5-pdf '((pdf-engine . "weasyprint")))
   :config
   (add-to-list 'org-export-backends 'pandoc))
 

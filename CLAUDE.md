@@ -139,6 +139,9 @@ no Spacemacs).  Every package solves a concrete problem.
 - Auto-save after refile via advice on `org-refile`
 - Org files open folded to top-level headings (`overview`); property drawers stay hidden but participate in normal cycling
 - Exports: built-in Org -> LaTeX -> PDF plus `ox-pandoc` for broader format conversion
+  Verified Pandoc targets on this machine: `docx`, `latex-pdf`, `beamer-pdf`, `html5-pdf`
+  `ox-pandoc` uses `pdflatex` for `latex-pdf` / `beamer-pdf` and `weasyprint` for `html5-pdf`
+  Not installed by default: `context-pdf`, `typst-pdf`, `wkhtmltopdf`/`prince`/`groff`-dependent routes
 
 ## Testing Changes
 

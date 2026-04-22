@@ -607,6 +607,16 @@ add `ox-pandoc` for broader format conversion through Pandoc.
 the TeX toolchain is complete. `ox-pandoc` expands the available targets
 without replacing the built-in Org exporter.
 
+Pandoc's PDF routes now have explicit engines configured so the behavior is
+predictable: `latex-pdf` and `beamer-pdf` use `pdflatex`, while `html5-pdf`
+uses `weasyprint`.
+
+Verified working on this macOS setup: `docx`, `latex-pdf`, `beamer-pdf`,
+`html5-pdf`.
+
+Left intentionally unprovisioned for now: `context-pdf`, `typst-pdf`, and
+PDF routes that depend on `wkhtmltopdf`, `prince`, or `groff`.
+
 ---
 
 ## `my-feeds.el`

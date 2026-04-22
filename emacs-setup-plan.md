@@ -243,6 +243,9 @@ Core setup:
 - Open org files folded to top-level headings
 - Hide property drawers by default while keeping them available through normal cycling
 - Keep Org's built-in LaTeX -> PDF export path, and add `ox-pandoc` for broader export targets
+- Pandoc PDF targets are split intentionally: `latex-pdf` and `beamer-pdf` use `pdflatex`, while `html5-pdf` uses `weasyprint`
+- Verified Pandoc targets on this machine: `docx`, `latex-pdf`, `beamer-pdf`, `html5-pdf`
+- Unprovisioned Pandoc engines are intentionally left out for now: `context`, `typst`, `wkhtmltopdf`, `prince`, `groff`
 
 Define an ID policy early (e.g., IDs added on capture rather than
 retroactively). Retrofitting IDs across hundreds of files is painful.
