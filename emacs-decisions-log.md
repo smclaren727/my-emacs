@@ -587,6 +587,17 @@ instead of inventing a separate drawer UI.
 
 ---
 
+### Org export: built-in LaTeX PDF plus `ox-pandoc`
+
+**Chosen:** Keep Org's standard LaTeX exporter as the primary PDF path, and
+add `ox-pandoc` for broader format conversion through Pandoc.
+
+**Why:** PDF export is already a first-class Org workflow and works well once
+the TeX toolchain is complete. `ox-pandoc` expands the available targets
+without replacing the built-in Org exporter.
+
+---
+
 ## `my-feeds.el`
 
 ### Elfeed search layout

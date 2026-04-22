@@ -39,7 +39,7 @@ no Spacemacs).  Every package solves a concrete problem.
     my-files.el          — Dired defaults plus explicit Dirvish file manager (provides 'my-files)
     my-editing.el        — vertico, orderless, marginalia, consult, embark, corfu, cape, devil, vundo, markdown (provides 'my-editing)
     my-dev.el            — magit, eglot, tree-sitter, flymake, diff-hl, compile (provides 'my-dev)
-    my-org-mode.el       — org capture, agenda, refile, org-id, org-modern (provides 'my-org-mode)
+    my-org-mode.el       — org capture, agenda, refile, org-id, export, org-modern (provides 'my-org-mode)
     my-tramp.el          — TRAMP helpers and Nix host shortcuts (provides 'my-tramp)
     my-shells.el         — project-aware shell management (provides 'my-shells)
     my-feeds.el          — Elfeed, elfeed-goodies, elfeed-tube, article saving (provides 'my-feeds)
@@ -137,6 +137,7 @@ no Spacemacs).  Every package solves a concrete problem.
 - Refile targets: all project files, inbox, areas, interests
 - Auto-save after refile via advice on `org-refile`
 - Org files open folded to top-level headings (`overview`); property drawers stay hidden but participate in normal cycling
+- Exports: built-in Org -> LaTeX -> PDF plus `ox-pandoc` for broader format conversion
 
 ## Testing Changes
 

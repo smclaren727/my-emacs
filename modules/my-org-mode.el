@@ -243,6 +243,19 @@ doesn't already exist."
   (org-id-locations-load)
   (add-hook 'org-capture-prepare-finalize-hook #'org-id-get-create))
 
+;;; Org export --------------------------------------------------------
+;; Keep Org's standard LaTeX -> PDF path for native PDF export, while
+;; adding Pandoc-backed exporters for broader format conversion.
+(use-package ox-pandoc
+  :if (executable-find "pandoc")
+  :after ox
+  :demand t
+  :custom
+  (org-pandoc-options '((standalone . t)))
+  (org-pandoc-options-for-latex-pdf '((pdf-engine . "pdflatex")))
+  :config
+  (add-to-list 'org-export-backends 'pandoc))
+
 ;;; Org appearance ----------------------------------------------------
 (use-package org-modern
   :hook ((org-mode . org-modern-mode)

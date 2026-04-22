@@ -241,6 +241,7 @@ Core setup:
 - `org-modern` for visual polish (styled bullets, TODO keywords, table rendering)
 - Open org files folded to top-level headings
 - Hide property drawers by default while keeping them available through normal cycling
+- Keep Org's built-in LaTeX -> PDF export path, and add `ox-pandoc` for broader export targets
 
 Define an ID policy early (e.g., IDs added on capture rather than
 retroactively). Retrofitting IDs across hundreds of files is painful.
