@@ -19,19 +19,26 @@
 (global-set-key (kbd "C-c u") 'my-leader-command)
 
 ;; Ergonomic chord via key-chord.
-(condition-case err
-    (use-package key-chord
-      :demand t
-      :config
-      (setq key-chord-two-keys-delay 0.05)
-      (key-chord-define-global "  " 'my-leader-command)
-      (key-chord-mode 1))
-  (error
-   (display-warning
-    'my-leader
-    (format "key-chord unavailable; using C-c u only: %s"
-            (error-message-string err))
-    :warning)))
+(if (or use-package-always-ensure
+        (locate-library "key-chord"))
+    (condition-case err
+        (use-package key-chord
+          :demand t
+          :config
+          (setq key-chord-two-keys-delay 0.05)
+          (key-chord-define-global "  " 'my-leader-command)
+          (key-chord-mode 1))
+      (error
+       (display-warning
+        'my-leader
+        (format "key-chord unavailable; using C-c u only: %s"
+                (error-message-string err))
+        :warning)))
+  (unless (eq my-host-type 'node)
+    (display-warning
+     'my-leader
+     "key-chord unavailable; using C-c u only."
+     :warning)))
 
 ;;; Binding helper ----------------------------------------------------
 (defun my-leader-define (key command)
