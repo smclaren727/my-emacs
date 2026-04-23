@@ -51,6 +51,10 @@
   (my-node--apply-secrets)
   :ok)
 
+;; Preserve the operator-facing entry points used by emacs-node-ops.
+(defalias 'emacs-node-health #'my-node-health)
+(defalias 'emacs-node-reload-secrets #'my-node-reload-secrets)
+
 (defun my-node--clear-bootstrap-marker ()
   "Remove any stale Harness bootstrap-failed marker."
   (when (file-exists-p my-node-bootstrap-failed-marker)
