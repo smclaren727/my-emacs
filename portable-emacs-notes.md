@@ -132,7 +132,9 @@ If a future cross-machine setup behaves strangely, first suspects are:
 - elfeed database
 - maildir contents, mu indexes, and auth-backed mail sync state
 
-## Not Planned Yet
+## Current Status
 
-This note is for reference only. No automatic per-machine local state split has
-been implemented yet.
+The config now supports a split between a tracked source root
+(`my-emacs-source-root`) and writable local state (`user-emacs-directory`), but
+there is not yet a full per-machine state-root selector for portable/external
+drive use.

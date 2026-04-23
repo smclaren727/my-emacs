@@ -7,6 +7,7 @@
 
 (require 'my-org-property-drawers)
 (require 'my-org-tag-transitions)
+(declare-function my-emacs-state-file "my-core" (path))
 
 ;;; Org setup ---------------------------------------------------------
 (use-package org
@@ -238,7 +239,7 @@ doesn't already exist."
   :custom
   (org-id-link-to-org-use-id 'create-if-interactive-and-no-custom-id)
   (org-id-locations-file
-   (expand-file-name "var/org-id-locations" user-emacs-directory))
+   (my-emacs-state-file "var/org-id-locations"))
   :config
   (org-id-locations-load)
   (add-hook 'org-capture-prepare-finalize-hook #'org-id-get-create))

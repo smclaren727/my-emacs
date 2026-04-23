@@ -51,6 +51,17 @@
 ;;; Shared paths -------------------------------------------------------
 ;; Used by multiple modules (org-mode, feeds).  Defined here so no
 ;; module needs to defensively re-declare it.
+(defvar my-emacs-source-root (expand-file-name user-emacs-directory)
+  "Root directory containing the tracked Emacs configuration source.")
+
+(defun my-emacs-source-file (path)
+  "Return PATH resolved relative to `my-emacs-source-root'."
+  (expand-file-name path my-emacs-source-root))
+
+(defun my-emacs-state-file (path)
+  "Return PATH resolved relative to `user-emacs-directory'."
+  (expand-file-name path user-emacs-directory))
+
 (defvar my-notes-directory "~/All-The-Things/"
   "Root directory for all notes and org files.")
 
@@ -104,7 +115,7 @@
 (prefer-coding-system 'utf-8)
 
 ;; Redirect customize writes to a separate file so they don't pollute init.el.
-(setq custom-file (expand-file-name "etc/custom.el" user-emacs-directory))
+(setq custom-file (my-emacs-state-file "etc/custom.el"))
 (when (file-exists-p custom-file)
   (load custom-file 'noerror))
 

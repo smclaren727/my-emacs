@@ -8,6 +8,7 @@
 (require 'subr-x)
 (require 'auth-source nil t)
 (defvar gptel-backend)
+(defvar my-package-vc-enabled)
 
 (defvar my-ai--auth-source-disabled nil
   "Non-nil when auth-source failed and should be skipped this session.")
@@ -70,34 +71,62 @@
     (setq my-ai--gptel-default-backend backend
           gptel-backend backend)))
 
-(use-package gptel
-  :vc (:url "https://github.com/karthink/gptel")
-  :commands (gptel gptel-send gptel-menu)
-  :init
-  (setq gptel-use-curl t)
-  :config
-  (when-let ((openai-key (my-ai--openai-api-key)))
-    (my-ai--set-gptel-default-backend
-     (gptel-make-openai "OpenAI"
-       :key (lambda () openai-key)
-       :stream t)))
-  (when-let ((anthropic-key (my-ai--anthropic-api-key)))
-    (my-ai--set-gptel-default-backend
-     (gptel-make-anthropic "Claude"
-       :key (lambda () anthropic-key)
-       :stream t)))
-  (when-let ((openrouter-key (my-ai--openrouter-api-key)))
-    (my-ai--set-gptel-default-backend
-     (gptel-make-openai "OpenRouter"
-       :host "openrouter.ai"
-       :endpoint "/api/v1/chat/completions"
-       :key (lambda () openrouter-key)
-       :stream t)))
-  (when (and (fboundp 'gptel-make-ollama)
-             (or (executable-find "ollama")
-                 (file-directory-p (expand-file-name "~/.ollama"))))
-    (my-ai--set-gptel-default-backend
-     (gptel-make-ollama "Ollama"))))
+(if my-package-vc-enabled
+    (use-package gptel
+      :vc (:url "https://github.com/karthink/gptel")
+      :commands (gptel gptel-send gptel-menu)
+      :init
+      (setq gptel-use-curl t)
+      :config
+      (when-let ((openai-key (my-ai--openai-api-key)))
+        (my-ai--set-gptel-default-backend
+         (gptel-make-openai "OpenAI"
+           :key (lambda () openai-key)
+           :stream t)))
+      (when-let ((anthropic-key (my-ai--anthropic-api-key)))
+        (my-ai--set-gptel-default-backend
+         (gptel-make-anthropic "Claude"
+           :key (lambda () anthropic-key)
+           :stream t)))
+      (when-let ((openrouter-key (my-ai--openrouter-api-key)))
+        (my-ai--set-gptel-default-backend
+         (gptel-make-openai "OpenRouter"
+           :host "openrouter.ai"
+           :endpoint "/api/v1/chat/completions"
+           :key (lambda () openrouter-key)
+           :stream t)))
+      (when (and (fboundp 'gptel-make-ollama)
+                 (or (executable-find "ollama")
+                     (file-directory-p (expand-file-name "~/.ollama"))))
+        (my-ai--set-gptel-default-backend
+         (gptel-make-ollama "Ollama"))))
+  (use-package gptel
+    :commands (gptel gptel-send gptel-menu)
+    :init
+    (setq gptel-use-curl t)
+    :config
+    (when-let ((openai-key (my-ai--openai-api-key)))
+      (my-ai--set-gptel-default-backend
+       (gptel-make-openai "OpenAI"
+         :key (lambda () openai-key)
+         :stream t)))
+    (when-let ((anthropic-key (my-ai--anthropic-api-key)))
+      (my-ai--set-gptel-default-backend
+       (gptel-make-anthropic "Claude"
+         :key (lambda () anthropic-key)
+         :stream t)))
+    (when-let ((openrouter-key (my-ai--openrouter-api-key)))
+      (my-ai--set-gptel-default-backend
+       (gptel-make-openai "OpenRouter"
+         :host "openrouter.ai"
+         :endpoint "/api/v1/chat/completions"
+         :key (lambda () openrouter-key)
+         :stream t)))
+    (when (and (fboundp 'gptel-make-ollama)
+               (or (executable-find "ollama")
+                   (file-directory-p (expand-file-name "~/.ollama"))))
+      (my-ai--set-gptel-default-backend
+       (gptel-make-ollama "Ollama")))))
 
 ;;; agent-shell -------------------------------------------------------
 

@@ -23,11 +23,13 @@
 (use-package marginalia
   :hook (after-init . marginalia-mode))
 
-(use-package nerd-icons-completion
-  :hook (after-init . nerd-icons-completion-mode)
-  :config
-  (add-hook 'marginalia-mode-hook
-            #'nerd-icons-completion-marginalia-setup))
+(when (or use-package-always-ensure
+          (locate-library "nerd-icons-completion"))
+  (use-package nerd-icons-completion
+    :hook (after-init . nerd-icons-completion-mode)
+    :config
+    (add-hook 'marginalia-mode-hook
+              #'nerd-icons-completion-marginalia-setup)))
 
 (use-package consult
   :bind

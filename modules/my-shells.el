@@ -10,9 +10,13 @@
   :ensure nil
   :hook (shell-mode . my-shell--setup)
   :custom
-  (shell-file-name (or (executable-find "zsh")
-                       (executable-find "bash")
-                       "/bin/sh"))
+  (shell-file-name
+   (or (and (stringp shell-file-name)
+            (file-executable-p shell-file-name)
+            shell-file-name)
+       (executable-find "zsh")
+       (executable-find "bash")
+       "/bin/sh"))
   :config
   (defun my-shell--setup ()
     "Common setup for every shell buffer."

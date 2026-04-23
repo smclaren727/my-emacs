@@ -11,6 +11,8 @@
 (require 'cl-lib)
 (require 'subr-x)
 
+(declare-function my-emacs-source-file "my-core" (path))
+(declare-function my-emacs-state-file "my-core" (path))
 (declare-function mu4e-dashboard "mu4e-dashboard")
 (declare-function mu4e-dashboard-expand-bookmarks-in-query "mu4e-dashboard")
 (declare-function mu4e-dashboard-update-link "mu4e-dashboard")
@@ -24,13 +26,17 @@
 (defvar mu4e-dashboard-mu-program)
 (defvar mu4e-dashboard-propagate-keymap)
 (defvar mu4e-search-results-limit)
+(defvar my-package-vc-enabled)
 
 (defvar my-mail-root (expand-file-name "~/Mail/")
   "Root Maildir path shared by mu and mbsync.")
 
 (defvar my-mail-accounts-file
-  (expand-file-name "etc/mail-accounts.el" user-emacs-directory)
+  (my-emacs-state-file "etc/mail-accounts.el")
   "Optional untracked account overrides loaded after defaults.")
+
+(defvar my-mail-host-config-file nil
+  "Optional host-specific mail overrides loaded after account defaults.")
 
 (defvar my-mail-org-tasks-file
   (expand-file-name "10-Projects/email-tasks.org" my-notes-directory)
@@ -47,7 +53,7 @@
   "Directory containing curated org contact entries.")
 
 (defvar my-mail-dashboard-file
-  (expand-file-name "etc/mu4e-dashboard.org" user-emacs-directory)
+  (my-emacs-source-file "etc/mu4e-dashboard.org")
   "Org dashboard file used by mu4e-dashboard.")
 
 (defvar my-mail-dashboard-sidebar-width 40
@@ -100,6 +106,10 @@ See etc/mail-accounts.example.el for an override example.")
 
 (when (file-readable-p my-mail-accounts-file)
   (load my-mail-accounts-file nil 'nomessage))
+
+(when (and my-mail-host-config-file
+           (file-readable-p my-mail-host-config-file))
+  (load my-mail-host-config-file nil 'nomessage))
 
 (defun my-mail--find-executable (program &rest fallbacks)
   "Return PROGRAM or the first executable fallback path."
@@ -448,10 +458,12 @@ When LIMIT is non-nil, temporarily limit the number of results."
 
 (defun my-mail--install-capture-templates ()
   "Append mail-specific Org capture templates once."
+  (require 'org-capture)
   (my-mail--ensure-org-files)
   (setq org-capture-templates
         (append
-         (cl-remove-if #'my-mail--mail-capture-entry-p org-capture-templates)
+         (cl-remove-if #'my-mail--mail-capture-entry-p
+                       (bound-and-true-p org-capture-templates))
          `(("m" "Mail")
            ("me" "Email TODO" entry
             (file+headline ,my-mail-org-tasks-file "Email Tasks")
@@ -538,41 +550,66 @@ When LIMIT is non-nil, temporarily limit the number of results."
     :config
     (require 'mu4e-org))
 
-  (use-package org-msg
-    :after (mu4e org)
-    :custom
-    (org-msg-options "html-postamble:nil H:5 num:nil ^:{} toc:nil author:nil email:nil \\n:t")
-    (org-msg-startup "hidestars indent inlineimages")
-    (org-msg-default-alternatives
-     '((new . (text html))
-       (reply-to-html . (text html))
-       (reply-to-text . (text))))
-    (org-msg-convert-citation t)
-    :config
-    (org-msg-mode 1))
+  (when (or use-package-always-ensure
+            (locate-library "org-msg"))
+    (use-package org-msg
+      :after (mu4e org)
+      :custom
+      (org-msg-options "html-postamble:nil H:5 num:nil ^:{} toc:nil author:nil email:nil \\n:t")
+      (org-msg-startup "hidestars indent inlineimages")
+      (org-msg-default-alternatives
+       '((new . (text html))
+         (reply-to-html . (text html))
+         (reply-to-text . (text))))
+      (org-msg-convert-citation t)
+      :config
+      (org-msg-mode 1)))
 
-  (use-package mu4e-dashboard
-    :vc (:url "https://github.com/rougier/mu4e-dashboard")
-    :commands (mu4e-dashboard mu4e-dashboard-mode)
-    :init
-    (setq mu4e-dashboard-file my-mail-dashboard-file
-          mu4e-dashboard-mu-program
-          (or (my-mail--find-executable "mu" "/opt/homebrew/bin/mu") "mu")
-          ;; Keep dashboard-local shortcuts from leaking into mu4e headers.
-          mu4e-dashboard-propagate-keymap nil)
-    (my-leader-define "o d" nil)
-    (my-leader-define "m d" #'my-mail-dashboard-sidebar)
-    (my-leader-define "m D" #'my-mail-dashboard)
-    (with-eval-after-load 'which-key
-      (which-key-add-keymap-based-replacements my-leader-map
-        "m" "mail/bookmarks"
-        "m d" "mail dashboard"
-        "m D" "dashboard only"))
-    :config
-    (org-link-set-parameters mu4e-dashboard-link-name
-                             :follow #'my-mail-dashboard-follow-link)
-    :hook
-    (mu4e-dashboard-mode . my-mail-dashboard-visual-setup)))
+  (if my-package-vc-enabled
+      (use-package mu4e-dashboard
+        :vc (:url "https://github.com/rougier/mu4e-dashboard")
+        :commands (mu4e-dashboard mu4e-dashboard-mode)
+        :init
+        (setq mu4e-dashboard-file my-mail-dashboard-file
+              mu4e-dashboard-mu-program
+              (or (my-mail--find-executable "mu" "/opt/homebrew/bin/mu") "mu")
+              ;; Keep dashboard-local shortcuts from leaking into mu4e headers.
+              mu4e-dashboard-propagate-keymap nil)
+        (my-leader-define "o d" nil)
+        (my-leader-define "m d" #'my-mail-dashboard-sidebar)
+        (my-leader-define "m D" #'my-mail-dashboard)
+        (with-eval-after-load 'which-key
+          (which-key-add-keymap-based-replacements my-leader-map
+            "m" "mail/bookmarks"
+            "m d" "mail dashboard"
+            "m D" "dashboard only"))
+        :config
+        (org-link-set-parameters mu4e-dashboard-link-name
+                                 :follow #'my-mail-dashboard-follow-link)
+        :hook
+        (mu4e-dashboard-mode . my-mail-dashboard-visual-setup))
+    (when (locate-library "mu4e-dashboard")
+      (use-package mu4e-dashboard
+        :commands (mu4e-dashboard mu4e-dashboard-mode)
+        :init
+        (setq mu4e-dashboard-file my-mail-dashboard-file
+              mu4e-dashboard-mu-program
+              (or (my-mail--find-executable "mu" "/opt/homebrew/bin/mu") "mu")
+              ;; Keep dashboard-local shortcuts from leaking into mu4e headers.
+              mu4e-dashboard-propagate-keymap nil)
+        (my-leader-define "o d" nil)
+        (my-leader-define "m d" #'my-mail-dashboard-sidebar)
+        (my-leader-define "m D" #'my-mail-dashboard)
+        (with-eval-after-load 'which-key
+          (which-key-add-keymap-based-replacements my-leader-map
+            "m" "mail/bookmarks"
+            "m d" "mail dashboard"
+            "m D" "dashboard only"))
+        :config
+        (org-link-set-parameters mu4e-dashboard-link-name
+                                 :follow #'my-mail-dashboard-follow-link)
+        :hook
+        (mu4e-dashboard-mode . my-mail-dashboard-visual-setup)))))
 
 (provide 'my-mail)
 ;;; my-mail.el ends here

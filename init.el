@@ -8,10 +8,35 @@
 ;;
 ;; No configuration logic belongs here.
 
+;;; Source and host context --------------------------------------------
+(defvar my-emacs-source-root
+  (let ((source-root (getenv "MY_EMACS_SOURCE_ROOT")))
+    (if (and source-root
+             (file-directory-p source-root))
+        (expand-file-name source-root)
+      (expand-file-name user-emacs-directory)))
+  "Root directory containing the tracked Emacs configuration source.")
+
+(defvar my-host-type
+  (pcase system-type
+    ('darwin 'mac)
+    ('gnu/linux 'linux)
+    ('windows-nt 'windows)
+    (_ 'unknown))
+  "Current host profile.  `node' enables headless node-only behavior.")
+
+(defvar my-package-vc-enabled t
+  "Whether `use-package :vc' declarations may install packages on this host.")
+
 ;;; Load path ---------------------------------------------------------
-(add-to-list 'load-path (expand-file-name "core" user-emacs-directory))
-(add-to-list 'load-path (expand-file-name "elisp" user-emacs-directory))
-(add-to-list 'load-path (expand-file-name "modules" user-emacs-directory))
+(add-to-list 'load-path (expand-file-name "core" my-emacs-source-root))
+(add-to-list 'load-path (expand-file-name "elisp" my-emacs-source-root))
+(add-to-list 'load-path (expand-file-name "modules" my-emacs-source-root))
+
+;;; Host context -------------------------------------------------------
+(let ((host-context (getenv "MY_EMACS_HOST_CONTEXT")))
+  (when (and host-context (file-readable-p host-context))
+    (load host-context nil 'nomessage)))
 
 ;;; Feature flags -----------------------------------------------------
 ;; Loaded first so all module decisions can reference these variables.
@@ -30,7 +55,8 @@
 
 ;; use-package is built-in from Emacs 29+.
 (require 'use-package)
-(setq use-package-always-ensure t)
+(setq use-package-always-ensure (not (eq my-host-type 'node))
+      my-package-vc-enabled (not (eq my-host-type 'node)))
 
 ;;; Loader — must succeed ---------------------------------------------
 ;; Provides the `my-load-module' macro used below.
@@ -99,5 +125,8 @@
 
 (when my-flag-bookmarks
   (my-load-module bookmarks "my-bookmarks"))
+
+(when my-flag-node
+  (my-load-module node "my-node"))
 
 ;;; init.el ends here

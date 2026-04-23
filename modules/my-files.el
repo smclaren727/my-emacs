@@ -49,13 +49,15 @@
 
 ;; Use the loader variant so PDF Tools only fully activates when a PDF is
 ;; opened, keeping normal startup light while still replacing DocView.
-(use-package pdf-tools
-  :defer t
-  :commands (pdf-loader-install pdf-view-mode)
-  :init
-  (pdf-loader-install)
-  :custom
-  (pdf-view-display-size 'fit-width))
+(when (or use-package-always-ensure
+          (locate-library "pdf-tools"))
+  (use-package pdf-tools
+    :defer t
+    :commands (pdf-loader-install pdf-view-mode)
+    :init
+    (pdf-loader-install)
+    :custom
+    (pdf-view-display-size 'fit-width)))
 
 (use-package treemacs-nerd-icons
   :after treemacs

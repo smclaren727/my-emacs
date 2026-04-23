@@ -44,5 +44,8 @@
 (defvar my-flag-bookmarks t
   "Load bookmarks module (org-based bookmark manager).")
 
+(defvar my-flag-node nil
+  "Load node-only module behavior for the headless harness host.")
+
 (provide 'my-flags)
 ;;; my-flags.el ends here

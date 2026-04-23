@@ -47,6 +47,7 @@ no Spacemacs).  Every package solves a concrete problem.
     my-bookmarks.el      — org-backed bookmark manager (provides 'my-bookmarks)
     my-ai.el             — gptel + agent-shell: LLM chat, Claude Code, Codex (provides 'my-ai)
     my-mail.el           — mu4e, mbsync, msmtp, org-msg, dashboard, org mail capture (provides 'my-mail)
+    my-node.el           — shared node-only hooks selected by host profile (provides 'my-node)
     my-ops.el            — placeholder, flag disabled (provides 'my-ops)
   scripts/
     bookmark-open        — helper for opening bookmark URLs
@@ -69,9 +70,16 @@ no Spacemacs).  Every package solves a concrete problem.
 
 - **Core files fail hard.** `my-flags`, `my-loader`, `my-core`, `my-leader` use bare `require`.  If they break, Emacs should crash loudly.
 - **Modules fail gracefully.** Loaded via `my-load-module` which catches errors and logs to `*startup-errors*`.
-- **No hardcoded paths.** Notes use `my-notes-directory`.  Everything else derives from `user-emacs-directory`.
+- **Keep source and state separate.** Tracked repo files use `my-emacs-source-root` via `my-emacs-source-file`; writable local state uses `user-emacs-directory` via `my-emacs-state-file`.
 - **`provide` must match filename.** `my-core.el` provides `'my-core`.  Always.
-- **`use-package-always-ensure` is `t`.**  Don't add redundant `:ensure t` on external packages.  Use `:ensure nil` for built-in packages.
+- **`use-package-always-ensure` is host-aware.** It stays enabled on normal editable hosts and is disabled for `my-host-type = node`; don't add redundant `:ensure t` on external packages.  Use `:ensure nil` for built-in packages.
+
+## Host Profiles
+
+- `MY_EMACS_SOURCE_ROOT` may point at a read-only source checkout that differs from `user-emacs-directory`.
+- `MY_EMACS_HOST_CONTEXT` is loaded near the top of `init.el`, before `my-flags`, so host shims can pre-bind flags and host-only variables.
+- `my-host-type = node` means a headless harness host: `use-package-always-ensure` and package-vc installs are disabled, and `my-node.el` is loaded when `my-flag-node` is non-nil.
+- Keep non-portable paths and secrets outside the repo in the host-context shim; keep shared node behavior in `modules/my-node.el`.
 
 ## Coding Conventions
 
