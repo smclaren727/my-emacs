@@ -26,7 +26,8 @@
 (defvar mu4e-dashboard-mu-program)
 (defvar mu4e-dashboard-propagate-keymap)
 (defvar mu4e-search-results-limit)
-(defvar my-package-vc-enabled)
+(defvar my-package-vc-enabled nil
+  "Non-nil when `use-package :vc' may install packages on this host.")
 
 (defvar my-mail-root (expand-file-name "~/Mail/")
   "Root Maildir path shared by mu and mbsync.")
@@ -110,6 +111,8 @@ See etc/mail-accounts.example.el for an override example.")
 (when (and my-mail-host-config-file
            (file-readable-p my-mail-host-config-file))
   (load my-mail-host-config-file nil 'nomessage))
+
+;;; Mail helpers ------------------------------------------------------
 
 (defun my-mail--find-executable (program &rest fallbacks)
   "Return PROGRAM or the first executable fallback path."

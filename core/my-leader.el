@@ -51,13 +51,6 @@ KEY is a string accepted by `kbd'."
 ;; are bound here as symbols; they resolve at call time so loading order
 ;; doesn't matter.
 
-;; a = addressbook
-(my-leader-define "a a" #'ebdb-display-all-records)
-(my-leader-define "a c" #'ebdb-create-record)
-(my-leader-define "a m" #'ebdb-mail)
-(my-leader-define "a s" #'ebdb)
-(my-leader-define "a t" #'ebdb-search-tags)
-
 ;; b = buffer
 (my-leader-define "b b" #'bury-buffer)
 (my-leader-define "b k" #'kill-current-buffer)
@@ -157,7 +150,6 @@ KEY is a string accepted by `kbd'."
 ;;; Which-key descriptions --------------------------------------------
 (with-eval-after-load 'which-key
   (which-key-add-keymap-based-replacements my-leader-map
-    "a" "addressbook"
     "b" "buffer"
     "c" "compile"
     "d" "dired"

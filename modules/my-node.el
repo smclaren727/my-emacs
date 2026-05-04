@@ -4,6 +4,8 @@
 ;; elisp.  The host-context shim selects this module on the headless node.
 
 (require 'subr-x)
+(defvar telega-app)
+(declare-function eh-bootstrap-maybe-enable-runtime "eh-bootstrap" (harness-root))
 
 (defconst my-node-harness-root "/srv/emacs-node/Harness"
   "Filesystem root of the Emacs-Harness checkout on the node.")

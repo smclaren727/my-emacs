@@ -8,7 +8,8 @@
 (require 'subr-x)
 (require 'auth-source nil t)
 (defvar gptel-backend)
-(defvar my-package-vc-enabled)
+(defvar my-package-vc-enabled nil
+  "Non-nil when `use-package :vc' may install packages on this host.")
 
 (defvar my-ai--auth-source-disabled nil
   "Non-nil when auth-source failed and should be skipped this session.")

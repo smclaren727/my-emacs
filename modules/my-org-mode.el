@@ -5,11 +5,13 @@
 ;; All note files live under `my-notes-directory'.
 ;; Small Org helpers loaded from elisp/.
 
+(require 'cl-lib)
 (require 'my-org-headline-bullets)
 (require 'my-org-property-drawers)
 (require 'my-org-tag-transitions)
 (declare-function my-emacs-state-file "my-core" (path))
-(defvar my-package-vc-enabled)
+(defvar my-package-vc-enabled nil
+  "Non-nil when `use-package :vc' may install packages on this host.")
 
 ;;; Org setup ---------------------------------------------------------
 (use-package org

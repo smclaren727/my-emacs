@@ -784,7 +784,7 @@ adding a binding once makes it available via either key.
 and `C-c u` (via standard `keymap-global-set`) are bound to this same
 map object.
 
-**Why a shared map:** Adding a binding once (`(keymap-set my-leader-map "g" #'consult-ripgrep)`)
+**Why a shared map:** Adding a binding once (`(my-leader-define "f g" #'consult-ripgrep)`)
 makes it reachable via either entry point automatically. No duplication,
 no synchronization required.
 
