@@ -1,17 +1,20 @@
 ;;; my-org-mode.el --- Org-mode knowledge layer -*- lexical-binding: t; -*-
 
 ;; Org-mode knowledge layer: capture templates, agenda, refile
-;; targets, org-id for stable linking, and org-modern for visual
-;; polish.  All note files live under `my-notes-directory'.
+;; targets, org-id for stable linking, and minimal headline bullets.
+;; All note files live under `my-notes-directory'.
 ;; Small Org helpers loaded from elisp/.
 
+(require 'my-org-headline-bullets)
 (require 'my-org-property-drawers)
 (require 'my-org-tag-transitions)
 (declare-function my-emacs-state-file "my-core" (path))
+(defvar my-package-vc-enabled)
 
 ;;; Org setup ---------------------------------------------------------
 (use-package org
   :ensure nil
+  :demand t
   :hook ((org-mode . visual-line-mode)
          (org-mode . my-org-property-drawers-mode)
          (org-mode . my-org-enable-tag-transition-autosave)
@@ -57,7 +60,6 @@
   (org-use-property-inheritance t)
 
   ;; Tags sit flush against heading text rather than right-justified.
-  ;; Easier to read, especially with org-modern.
   (org-tags-column 0)
 
   ;; M-RET on a heading creates a new heading; never splits the current line.
@@ -80,7 +82,7 @@
   ;; Show one blank line between headings when the outline is folded.
   (org-cycle-separator-lines 1)
 
-  ;; Replace the default "..." fold indicator with a down-arrow.
+  ;; Use a visible folded-subtree indicator.
   (org-ellipsis " ▼")
 
   ;; Hide markup characters (*bold*, /italic/) and show formatted text.
@@ -262,14 +264,29 @@ doesn't already exist."
   (add-to-list 'org-export-backends 'pandoc))
 
 ;;; Org appearance ----------------------------------------------------
-(use-package org-modern
-  :hook ((org-mode . org-modern-mode)
-         (org-agenda-finalize . org-modern-agenda))
-  :custom
-  ;; Keep org-modern responsible only for headline bullets.  Org's own
-  ;; `org-ellipsis' handles the end-of-line folded-subtree indicator.
-  (org-modern-star 'replace)
-  (org-modern-replace-stars '("◉" "○" "◈" "◇" "▸")))
+(add-hook 'org-mode-hook #'my-org-headline-bullets-mode)
+
+;;; Org outline guide bars -------------------------------------------
+(if my-package-vc-enabled
+    (use-package org-bars
+      :vc (:url "https://github.com/tonyaldon/org-bars" :rev :newest)
+      :after org
+      :demand t
+      :init
+      ;; Custom headline bullets own stars; org-bars only draws rails.
+      (setq org-bars-with-dynamic-stars-p nil
+            org-bars-extra-pixels-height 1)
+      :hook
+      (org-mode . org-bars-mode))
+  (when (locate-library "org-bars")
+    (use-package org-bars
+      :after org
+      :demand t
+      :init
+      (setq org-bars-with-dynamic-stars-p nil
+            org-bars-extra-pixels-height 1)
+      :hook
+      (org-mode . org-bars-mode))))
 
 (provide 'my-org-mode)
 ;;; my-org-mode.el ends here

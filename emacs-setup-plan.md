@@ -184,10 +184,9 @@ A modern vanilla completion and development stack:
 
 ### UI:
 
-- ef-themes (`ef-dark` / `ef-light`) with macOS appearance switching
+- color-theme-sanityinc-tomorrow (`sanityinc-tomorrow-night` / `sanityinc-tomorrow-day`) with macOS appearance switching
 - spacious-padding for frame/window breathing room
-- moody + minions (ribbon-style modeline + minor-mode collapse)
-- nerd-icons-mode-line, installed beside Moody's buffer identification
+- mood-line (calm, robust mode line with glyphs enabled)
 
 ### Development:
 
@@ -239,7 +238,7 @@ Core setup:
 - Capture templates (todo, contextual note, daily journal)
 - Agenda configuration
 - `org-id` enabled from day one, generating IDs on capture
-- `org-modern` for visual polish (styled bullets, TODO keywords, table rendering)
+- minimal custom headline bullets plus `org-bars` for visual polish
 - Open org files folded to top-level headings
 - Hide property drawers by default while keeping them available through normal cycling
 - Keep Org's built-in LaTeX -> PDF export path, and add `ox-pandoc` for broader export targets

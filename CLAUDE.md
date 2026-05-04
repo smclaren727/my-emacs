@@ -35,11 +35,11 @@ no Spacemacs).  Every package solves a concrete problem.
     my-os-macos.el       — macOS: modifier keys, exec-path-from-shell, clipboard (provides 'my-os-macos)
     my-os-linux.el       — Linux: clipboard + trash integration (provides 'my-os-linux)
     my-os-windows.el     — Windows: Super modifiers, clipboard, trash (provides 'my-os-windows)
-    my-ui.el             — ef-themes, spacious-padding, moody/minions, nerd-icons modeline, fonts (provides 'my-ui)
+    my-ui.el             — sanityinc-tomorrow themes, spacious-padding, mood-line, fonts (provides 'my-ui)
     my-files.el          — Dired defaults, explicit Dirvish workflow, PDF viewing via pdf-tools (provides 'my-files)
     my-editing.el        — vertico, orderless, marginalia, consult, embark, corfu, cape, devil, vundo, markdown (provides 'my-editing)
     my-dev.el            — magit, eglot, tree-sitter, flymake, diff-hl, compile (provides 'my-dev)
-    my-org-mode.el       — org capture, agenda, refile, org-id, export, org-modern (provides 'my-org-mode)
+    my-org-mode.el       — org capture, agenda, refile, org-id, export, custom headline bullets, org-bars (provides 'my-org-mode)
     my-tramp.el          — TRAMP helpers and Nix host shortcuts (provides 'my-tramp)
     my-shells.el         — project-aware shell management (provides 'my-shells)
     my-feeds.el          — Elfeed, elfeed-goodies, elfeed-tube, article saving (provides 'my-feeds)
@@ -122,10 +122,11 @@ no Spacemacs).  Every package solves a concrete problem.
 
 ## Theme System
 
-- `ef-themes` (`ef-dark` / `ef-light`)
+- `color-theme-sanityinc-tomorrow` (`sanityinc-tomorrow-night` / `sanityinc-tomorrow-day`)
 - On macOS, auto-switches via `ns-system-appearance-change-functions`; on other OSes, uses frame background mode at startup
-- `minions` + `moody` for modeline behavior and cleanup
-- `nerd-icons` is available for targeted UI surfaces; `nerd-icons-mode-line` is inserted beside Moody's buffer segment, and Dirvish uses its own `nerd-icons` attribute
+- `mood-line` for the mode line, with Fira Code-compatible glyphs enabled
+- Org buffers use fixed-pitch layout inspired by NANO/book-mode, without enabling `book-mode` globally
+- `nerd-icons` is available for targeted UI surfaces; Dirvish uses its own `nerd-icons` attribute
 - `pdf-tools` is enabled via `pdf-loader-install`, so opening a PDF switches to `pdf-view-mode` on demand instead of front-loading PDF support at startup
 
 ## Notes / Org System (PARA)

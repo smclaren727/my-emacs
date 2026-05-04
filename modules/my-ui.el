@@ -1,22 +1,21 @@
 ;;; my-ui.el --- Visual configuration -*- lexical-binding: t; -*-
 
-;; Visual layer: theme (ef-themes with auto dark/light
-;; switching), font selection, spacious frame padding, modeline
-;; (moody + minions), prose layout, line numbers, smooth scrolling,
+;; Visual layer: theme (sanityinc-tomorrow with auto dark/light
+;; switching), font selection, spacious frame padding, mood-line,
+;; prose layout, line numbers, smooth scrolling,
 ;; navigation pulses, and window layout history.
 ;; No editing or keybinding logic belongs here.
 
 (require 'subr-x)
-(require 'cl-lib)
 
 ;;; Theme -------------------------------------------------------------
-(use-package ef-themes
+(use-package color-theme-sanityinc-tomorrow
   :demand t)
 
-(defvar my-ui-theme-dark 'ef-dark
+(defvar my-ui-theme-dark 'sanityinc-tomorrow-night
   "Theme used when system appearance is dark.")
 
-(defvar my-ui-theme-light 'ef-light
+(defvar my-ui-theme-light 'sanityinc-tomorrow-day
   "Theme used when system appearance is light.")
 
 (defun my-ui--face-color (face attribute)
@@ -77,7 +76,9 @@
     (my-ui--set-face-if-exists 'which-key-command-description-face
                                :inherit 'default)
     (my-ui--set-face-if-exists 'which-key-local-map-description-face
-                               :inherit 'default)))
+                               :inherit 'default)
+    (when (fboundp 'my-ui--apply-org-heading-faces)
+      (my-ui--apply-org-heading-faces))))
 
 ;;; Auto theme switching ----------------------------------------------
 (defun my-ui--current-appearance ()
@@ -109,6 +110,24 @@
            (boundp 'ns-system-appearance-change-functions))
   (add-hook 'ns-system-appearance-change-functions #'my-ui--apply-system-theme))
 
+;;; Frame shell -------------------------------------------------------
+
+(defvar my-ui-background-alpha 88
+  "Background opacity percentage for GUI frames.")
+
+(defvar my-ui-background-blur 30
+  "macOS background blur radius for Emacs Plus builds that support it.")
+
+(defun my-ui--apply-soft-frame-shell (frame)
+  "Apply rounded, translucent frame parameters to FRAME when supported."
+  (when (and (eq system-type 'darwin)
+             (display-graphic-p frame))
+    (set-frame-parameter frame 'alpha-background my-ui-background-alpha)
+    (set-frame-parameter frame 'ns-background-blur my-ui-background-blur)
+    (set-frame-parameter frame 'ns-alpha-elements '(ns-alpha-all))))
+
+(my-ui--apply-soft-frame-shell (selected-frame))
+(add-hook 'after-make-frame-functions #'my-ui--apply-soft-frame-shell)
 
 ;;; Font and spacing --------------------------------------------------
 ;; Try preferred fonts in order — first one found wins.
@@ -118,49 +137,65 @@
   '("JetBrains Mono" "Fira Code" "SF Mono" "Menlo" "DejaVu Sans Mono")
   "Preferred monospace fonts, in fallback order.")
 
+(defvar my-ui-monospace-height 130
+  "Default height for monospace faces.")
+
 (defvar my-ui-variable-pitch-fonts
   '("Avenir Next" "SF Pro Text" "Helvetica Neue" "Cantarell" "DejaVu Sans")
   "Preferred variable-pitch fonts, in fallback order.")
 
-(defun my-ui--first-available-font (fonts)
-  "Return the first installed font from FONTS."
+(defvar my-ui-variable-pitch-height 140
+  "Default height for variable-pitch faces.")
+
+(defun my-ui--first-available-font (fonts &optional frame)
+  "Return the first installed font from FONTS for FRAME."
   (catch 'font
     (dolist (font fonts)
-      (when (find-font (font-spec :name font))
+      (when (find-font (font-spec :name font) frame)
         (throw 'font font)))))
+
+(defun my-ui--set-font-defaults ()
+  "Set face defaults used by future graphical frames."
+  (when-let ((mono (my-ui--first-available-font my-ui-monospace-fonts)))
+    (set-face-attribute 'default nil
+                        :family mono
+                        :height my-ui-monospace-height)
+    (set-face-attribute 'fixed-pitch nil
+                        :family mono
+                        :height my-ui-monospace-height))
+  (when-let ((variable (my-ui--first-available-font my-ui-variable-pitch-fonts)))
+    (set-face-attribute 'variable-pitch nil
+                        :family variable
+                        :height my-ui-variable-pitch-height)))
 
 (defun my-ui--set-font-for-frame (frame)
   "Set mono and variable-pitch fonts on FRAME."
   (when (display-graphic-p frame)
-    (when-let ((mono (my-ui--first-available-font my-ui-monospace-fonts)))
-      (set-face-attribute 'default frame :family mono :height 160)
-      (set-face-attribute 'fixed-pitch frame :family mono :height 160))
-    (when-let ((variable (my-ui--first-available-font my-ui-variable-pitch-fonts)))
-      (set-face-attribute 'variable-pitch frame :family variable :height 170))))
+    (when-let ((mono (my-ui--first-available-font my-ui-monospace-fonts frame)))
+      (set-face-attribute 'default frame
+                          :family mono
+                          :height my-ui-monospace-height)
+      (set-face-attribute 'fixed-pitch frame
+                          :family mono
+                          :height my-ui-monospace-height))
+    (when-let ((variable (my-ui--first-available-font my-ui-variable-pitch-fonts frame)))
+      (set-face-attribute 'variable-pitch frame
+                          :family variable
+                          :height my-ui-variable-pitch-height))))
 
-(my-ui--set-font-for-frame (selected-frame))
+(defun my-ui--set-fonts-for-existing-frames ()
+  "Set fonts on all existing graphical frames."
+  (dolist (frame (frame-list))
+    (my-ui--set-font-for-frame frame)))
+
+(my-ui--set-font-defaults)
+(my-ui--set-fonts-for-existing-frames)
 (add-hook 'after-make-frame-functions #'my-ui--set-font-for-frame)
 
 ;;; Icons -------------------------------------------------------------
 
 (use-package nerd-icons
   :defer t)
-
-(defun my-ui--install-nerd-icons-mode-line ()
-  "Insert `nerd-icons-mode-line' next to the active buffer name segment."
-  (let* ((format (default-value 'mode-line-format))
-         (anchor (cond
-                  ((memq 'moody-mode-line-buffer-identification format)
-                   'moody-mode-line-buffer-identification)
-                  ((memq 'mode-line-buffer-identification format)
-                   'mode-line-buffer-identification))))
-    (when-let ((position (and anchor (cl-position anchor format))))
-      (unless (memq 'mode-line-nerd-icon format)
-        (set-default 'mode-line-format
-                     (append (cl-subseq format 0 position)
-                             '(mode-line-nerd-icon)
-                             (cl-subseq format position)))
-        (force-mode-line-update t)))))
 
 ;; Give text a little more air without making code feel too loose.
 (setq-default line-spacing 0.08)
@@ -198,41 +233,39 @@
   (my-ui--apply-face-customizations))
 
 ;;; Modeline ----------------------------------------------------------
-;; minions collapses minor modes into a single menu.
-(use-package minions
-  :custom
-  (minions-mode-line-lighter "…")
-  (minions-mode-line-delimiters '("" . ""))
-  :config
-  (minions-mode 1))
+(defun my-ui-mood-line-segment-kbd-macro ()
+  "Return keyboard macro recording status for `mood-line'."
+  (when defining-kbd-macro
+    (propertize (string-trim (format-mode-line mode-line-defining-kbd-macro))
+                'face 'mood-line-major-mode)))
 
-;; Moody's documented replacements provide the tab/ribbon modeline style.
-(use-package moody
+(use-package mood-line
+  :after color-theme-sanityinc-tomorrow
   :demand t
+  :custom
+  ;; Use mood-line's pretty Unicode glyphs instead of the ASCII fallback.
+  (mood-line-glyph-alist mood-line-glyphs-fira-code)
   :config
-  (setq x-underline-at-descent-line t)
-  (moody-replace-mode-line-front-space)
-  (moody-replace-mode-line-buffer-identification)
-  (moody-replace-vc-mode)
+  (setq mood-line-format
+        (mood-line-defformat
+         :left
+         (((mood-line-segment-modal)                  . " ")
+          ((or (mood-line-segment-buffer-status) " ") . " ")
+          ((mood-line-segment-buffer-name)            . "  ")
+          ((mood-line-segment-anzu)                   . "  ")
+          ((mood-line-segment-multiple-cursors)       . "  ")
+          ((mood-line-segment-cursor-position)        . " ")
+          ((mood-line-segment-region)                 . " ")
+          (mood-line-segment-scroll))
+         :right
+         (((mood-line-segment-vc)              . "  ")
+          ((mood-line-segment-major-mode)      . "  ")
+          ((mood-line-segment-misc-info)       . "  ")
+          ((my-ui-mood-line-segment-kbd-macro) . "  ")
+          ((mood-line-segment-checker)         . "  ")
+          ((mood-line-segment-process)         . "  "))))
+  (mood-line-mode 1)
   (my-ui--apply-face-customizations))
-
-(use-package nerd-icons-mode-line
-  :vc (:url "https://github.com/grolongo/nerd-icons-mode-line"
-       :rev :newest)
-  :after moody
-  :demand t
-  :custom
-  (nerd-icons-mode-line-v-adjust 0.1)
-  (nerd-icons-mode-line-size 1.0)
-  :config
-  ;; The package's global mode targets the stock modeline symbol.  Moody
-  ;; replaces that symbol, so install the icon beside Moody's buffer segment.
-  (my-ui--install-nerd-icons-mode-line))
-
-;; Show clock in modeline (no load average).
-(setq display-time-default-load-average nil)
-(setq display-time-24hr-format t)
-(display-time-mode 1)
 
 ;; Frame title shows buffer name.
 (setq frame-title-format '("%b — Emacs"))
@@ -242,24 +275,65 @@
 (defvar my-ui-prose-margin-width 3
   "Number of columns to use as side margins in prose buffers.")
 
+(defvar my-ui-org-margin-width 6
+  "Number of columns to use as side margins in Org buffers.")
+
+(defvar-local my-ui--buffer-margin-width nil
+  "Side margin width for the current buffer.")
+
 (defun my-ui--apply-prose-margins (&rest _)
-  "Apply small side margins to visible windows showing the current buffer."
-  (setq-local left-margin-width my-ui-prose-margin-width
-              right-margin-width my-ui-prose-margin-width)
-  (dolist (window (get-buffer-window-list (current-buffer) nil t))
-    (set-window-margins window
-                        my-ui-prose-margin-width
-                        my-ui-prose-margin-width)))
+  "Apply configured side margins to visible windows showing the current buffer."
+  (let ((margin-width (or my-ui--buffer-margin-width
+                          my-ui-prose-margin-width)))
+    (setq-local left-margin-width margin-width
+                right-margin-width margin-width)
+    (dolist (window (get-buffer-window-list (current-buffer) nil t))
+      (set-window-margins window margin-width margin-width))))
+
+(defun my-ui-enable-org-layout ()
+  "Use fixed-pitch text and wider margins for Org buffers."
+  ;; org-bars draws continuous image rails in Org's virtual indentation.
+  ;; Non-nil line spacing creates visible gaps between those per-line images.
+  (setq-local line-spacing nil
+              my-ui--buffer-margin-width my-ui-org-margin-width)
+  (variable-pitch-mode -1)
+  (hl-line-mode -1)
+  (my-ui--apply-org-heading-faces)
+  (my-ui--apply-prose-margins)
+  (add-hook 'window-configuration-change-hook
+            #'my-ui--apply-prose-margins nil t))
 
 (defun my-ui-enable-prose-layout ()
   "Use comfortable typography and light side margins for prose buffers."
-  (setq-local line-spacing 0.18)
+  (setq-local line-spacing 0.18
+              my-ui--buffer-margin-width my-ui-prose-margin-width)
   (variable-pitch-mode 1)
   (my-ui--apply-prose-margins)
   (add-hook 'window-configuration-change-hook
             #'my-ui--apply-prose-margins nil t))
 
-(add-hook 'org-mode-hook #'my-ui-enable-prose-layout)
+(defun my-ui--apply-org-heading-faces ()
+  "Keep Org headings bold, fixed-pitch, and calm across theme changes."
+  (my-ui--set-face-if-exists 'org-document-title
+                             :inherit 'fixed-pitch
+                             :weight 'bold
+                             :height 1.25)
+  (dolist (spec '((org-level-1 . 1.10)
+                  (org-level-2 . 1.08)
+                  (org-level-3 . 1.06)
+                  (org-level-4 . 1.04)
+                  (org-level-5 . 1.02)))
+    (my-ui--set-face-if-exists (car spec)
+                               :inherit 'fixed-pitch
+                               :weight 'bold
+                               :height (cdr spec)))
+  (dolist (face '(org-level-6 org-level-7 org-level-8))
+    (my-ui--set-face-if-exists face
+                               :inherit 'fixed-pitch
+                               :weight 'semibold
+                               :height 1.0)))
+
+(add-hook 'org-mode-hook #'my-ui-enable-org-layout)
 (add-hook 'markdown-mode-hook #'my-ui-enable-prose-layout)
 (add-hook 'gfm-mode-hook #'my-ui-enable-prose-layout)
 

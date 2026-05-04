@@ -21,7 +21,17 @@
 (push '(menu-bar-lines . 0) default-frame-alist)
 (push '(tool-bar-lines . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)
-(push '(fullscreen . maximized) default-frame-alist)
+
+;; Give GUI frames the soft NANO-style shell as early as possible.
+;; Unsupported frame parameters are harmless on builds without the patches.
+(if (eq system-type 'darwin)
+    (progn
+      (push '(width . 92) default-frame-alist)
+      (push '(height . 42) default-frame-alist)
+      (push '(alpha-background . 88) default-frame-alist)
+      (push '(ns-background-blur . 30) default-frame-alist)
+      (push '(ns-alpha-elements . (ns-alpha-all)) default-frame-alist))
+  (push '(fullscreen . maximized) default-frame-alist))
 
 ;; Prevent package.el from inserting (package-initialize) into init.el.
 ;; We call it ourselves in init.el after setting up sources.

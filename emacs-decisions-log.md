@@ -11,9 +11,9 @@ These entries supersede older sections below where they conflict.
 
 - Leader trigger is `key-chord` double-space (`"  "`), with `C-c u` as fallback.
 - `key-chord` is treated as optional at startup; failure falls back to `C-c u`.
-- Theme stack uses `ef-themes` (`ef-dark` / `ef-light`).
-- Modeline stack uses `moody` and `minions` with a small `nerd-icons-mode-line`
-  supplement beside the Moody buffer segment (not `doom-modeline`).
+- Theme stack uses `color-theme-sanityinc-tomorrow`
+  (`sanityinc-tomorrow-night` / `sanityinc-tomorrow-day`).
+- Modeline stack uses `mood-line` with Fira Code-compatible glyphs enabled.
 - OS modules now exist for macOS, Linux, and Windows and are loaded by `system-type`.
 - File-manager reveal is cross-platform via `my-reveal-in-file-manager`.
 - Standard Dired remains the default; Dirvish is explicit via `dirvish`,
@@ -243,12 +243,15 @@ inheritance is also part of the native-comp stability fix for daemon startup.
 ### Font fallbacks and larger default size
 
 **Chosen:** Prefer JetBrains Mono, then Fira Code, SF Mono, Menlo, and
-DejaVu Sans Mono at height 160. Variable-pitch prose prefers Avenir Next,
-SF Pro Text, Helvetica Neue, Cantarell, and DejaVu Sans at height 170.
+DejaVu Sans Mono at height 130. Variable-pitch prose prefers Avenir Next,
+SF Pro Text, Helvetica Neue, Cantarell, and DejaVu Sans at height 140.
 
 **Why:** The fallback list keeps the config portable while still preferring
-high-quality fonts on macOS. Height 160/170 improved readability after
-daily-use testing.
+high-quality fonts on macOS. Height 130/140 keeps JetBrains Mono readable
+without making Org outlines feel oversized. Font detection is frame-aware and
+applied to all existing graphical frames as well as future frames, so
+daemon/server startup cannot leave the first GUI frame on the platform default
+font.
 
 **Previously tried:** Atkinson Hyperlegible Mono — decided against for
 personal preference.
@@ -266,19 +269,33 @@ Without it, a dark theme has a jarring light titlebar.
 
 ## `my-ui.el`
 
-### ef-themes (`ef-dark` / `ef-light`)
+### color-theme-sanityinc-tomorrow
 
-**Chosen:** ef-themes by Protesilaos Stavrou.
+**Chosen:** `color-theme-sanityinc-tomorrow`, using
+`sanityinc-tomorrow-night` for dark appearance and `sanityinc-tomorrow-day`
+for light appearance.
 
-**Why:** High-quality, accessibility-conscious, well-matched dark/light
-pairs. Actively maintained. Consistent contrast across the collection.
+**Why:** The Tomorrow day/night pair gives a familiar, balanced light/dark
+palette while preserving the rest of the custom frame, Org, and modeline
+layout. Dark/light switching still follows macOS appearance when available.
 
-**Alternatives considered:**
-- doom-themes — more variety but uneven quality across the collection.
-- modus-themes — built-in, highest contrast, WCAG AAA. Good fallback if
-  ef-themes is ever dropped.
-- nano-theme — designed for the nano-emacs framework; makes assumptions
-  that conflict with standalone configs.
+**Previously used:** ef-themes (`ef-dark` / `ef-light`) and nano-theme
+(`nano-dark` / `nano-light`).
+
+---
+
+### Soft macOS frame shell
+
+**Chosen:** Add `alpha-background`, `ns-background-blur`, and
+`ns-alpha-elements` to `default-frame-alist` on macOS, start macOS GUI
+sessions as a modest floating frame, then reapply supported transparency
+parameters to newly created frames from `my-ui.el`. Non-macOS hosts keep the
+previous maximized default.
+
+**Why:** This recreates the translucent frame from the reference image while
+preserving the native macOS titlebar and traffic-light window controls. The
+settings stay harmless on Emacs builds that do not support the Emacs Plus
+blur patch.
 
 ---
 
@@ -295,23 +312,17 @@ is a direct NS-port callback — instant, no polling, no extra dependency.
 
 ---
 
-### `moody` with `minions`
+### `mood-line`
 
-**Chosen:** `moody` for the modeline structure, with `minions` to collapse
-minor modes into a compact menu. `nerd-icons-mode-line` is installed beside
-Moody's buffer segment with a small compatibility helper.
+**Chosen:** `mood-line`, enabled globally with `mood-line-mode`.
 
-**Why:** Moody gives the modeline a clean ribbon/tab treatment without
-requiring a large modeline framework. Minions keeps minor modes available
-without letting them dominate the mode line. A small icon next to the buffer
-name adds useful file-type recognition without adopting a heavier modeline.
+**Why:** It is a lightweight, conventional mode line with good defaults and
+customizable glyph sets. The config uses `mood-line-glyphs-fira-code` for
+prettier buffer, VC, and checker indicators without hand-rolling mode-line
+state.
 
-**Alternatives considered:**
-- doom-modeline with nerd-icons — polished, but heavier and more dependent
-  on icon/font rendering.
-- mood-line — minimal and lightweight, but less visually aligned with the
-  ribbon-style UI.
-- Built-in modeline — functional but visually basic.
+**Previously used:** `nano-modeline`, and before that `moody` with `minions`
+and `nerd-icons-mode-line`.
 
 ---
 
@@ -577,12 +588,62 @@ bulk-generating IDs for every heading.
 
 ---
 
-### `org-modern` for visual polish
+### Minimal custom Org headline bullets
 
-**Chosen:** `org-modern` package, hooked into `org-mode`.
+**Chosen:** A small local `my-org-headline-bullets-mode`, hooked into
+`org-mode`.
 
-**Why:** Styled bullets, cleaner TODO keywords, better table rendering.
-Minimal configuration required.
+**Why:** Plain Org is calmer than the broader `org-modern` styling for TODO
+keywords, tags, tables, checkboxes, lists, and metadata. The config only
+replaces the final visible headline star with level-specific glyphs:
+`●`, `○`, `◉`, `⌾`, and `⚬`. File contents stay as normal Org stars.
+Continuous outline guide lines stay in a separate display layer.
+
+**Previously used:** `org-modern`, with `org-modern-star` set to `replace`.
+It was removed because its general Org polish made buffers feel busier than
+plain Org.
+
+---
+
+### Org outline guide bars
+
+**Chosen:** `org-bars`, installed via `:vc` from GitHub and layered on top of
+`org-indent-mode`.
+
+**Why:** Org indentation is already display-only and uses virtual line
+prefixes. `org-bars` is purpose-built for those prefixes, keeps file contents
+unchanged, preserves Org's normal visibility cycling, and allows the custom
+headline bullet mode to remain responsible only for bullet glyphs.
+`org-bars-with-dynamic-stars-p` is disabled so it does not replace headline
+bullets, and Org buffers keep `line-spacing` nil because non-nil line spacing
+creates visible gaps between the per-line bar images. `org-bars` gets one
+extra pixel of image height to cover tiny gaps from heading font metric
+rounding.
+
+---
+
+### Org visual indentation
+
+**Chosen:** Keep `org-startup-indented` enabled.
+
+**Why:** Org's own `org-indent-mode` visually nests body text and plain lists
+under their parent headings without modifying file contents. Disabling it made
+all list items render at the left edge across Org files, which looked like a
+file indentation problem but was only a buffer display setting.
+
+---
+
+### Quiet Org layout instead of global `book-mode`
+
+**Chosen:** `mood-line` for the mode line, plus fixed-pitch Org
+typography and wider side margins. Org leaves `header-line-format` unset
+unless another package sets it.
+
+**Why:** `book-mode` is explicitly experimental and its own README describes
+it as WIP. Recreating the visible layout locally gives the screenshot's
+document feel without introducing a global, finicky UI mode. A custom
+full-width bottom mode line was avoided because it can become taller than
+expected and obscure the final buffer line in small frames.
 
 ---
 
