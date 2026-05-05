@@ -24,7 +24,7 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from vcard import parse_vcards
+from vcard import parse_vcards, split_contacts_and_groups
 from orgnote import (
     build_drawer_pairs,
     build_org_note,
@@ -33,6 +33,7 @@ from orgnote import (
     format_org_note,
     merge_drawer_pairs,
     parse_existing_drawer,
+    parse_existing_filetags,
     sanitize_filename,
     unique_filepath,
 )
@@ -119,7 +120,7 @@ def main():
     extras = []
     for vcf_path in vcf_paths:
         these = parse_vcards(str(vcf_path))
-        print(f"Parsed {len(these)} contacts from {vcf_path.name}")
+        print(f"Parsed {len(these)} records from {vcf_path.name}")
         for c in these:
             uid = c.get("UID", "")
             if uid:
@@ -128,9 +129,20 @@ def main():
                 # Should not happen post-2d-2 (synth-UID is always
                 # injected for FN-bearing contacts) but kept defensive.
                 extras.append(c)
-    contacts = list(by_uid.values()) + extras
-    print(f"Total: {len(contacts)} unique contacts across "
-          f"{len(vcf_paths)} file(s)")
+    records = list(by_uid.values()) + extras
+
+    # Split out group cards. `membership` maps each contact's UID to
+    # the list of groups it belongs to. When the import contains no
+    # group cards at all, membership is empty — we use that as a
+    # signal not to touch filetags on existing contact files (so a
+    # partial export doesn't blow away tags from an earlier full one).
+    contacts, membership = split_contacts_and_groups(records)
+    have_group_data = any(
+        r.get("X-ADDRESSBOOKSERVER-KIND") == "group" for r in records
+    )
+    print(f"Total: {len(contacts)} unique contacts, "
+          f"{sum(1 for r in records if r.get('X-ADDRESSBOOKSERVER-KIND') == 'group')} group cards "
+          f"across {len(vcf_paths)} file(s)")
 
     created = 0
     updated = 0
@@ -205,11 +217,24 @@ def main():
             merged_pairs = merge_drawer_pairs(
                 existing_pairs, old_emitted, new_pairs
             )
+
+            # Filetags policy: when the import contains group cards we
+            # trust membership data and emit `:contact:<group-slugs>:`.
+            # When no group cards are present (partial export, etc.)
+            # we preserve whatever non-contact, non-archived tags are
+            # already on the file so a partial run doesn't blow them
+            # away.
+            if have_group_data:
+                filetags = membership.get(vcard_uid, [])
+            else:
+                filetags = parse_existing_filetags(existing_file)
+
             note_content = format_org_note(
                 merged_pairs,
                 fn,
                 body=existing_body,
                 vcard_note=contact.get("NOTE", ""),
+                filetags=filetags,
             )
             with open(existing_file, "w", encoding="utf-8") as f:
                 f.write(note_content)
@@ -218,8 +243,9 @@ def main():
             emitted_keys = [k for k, _ in new_pairs]
         else:
             org_id = str(uuid.uuid4())
+            filetags = membership.get(vcard_uid, []) if have_group_data else []
             note_content, emitted_keys = build_org_note(
-                contact, org_id, vcard_uid
+                contact, org_id, vcard_uid, filetags=filetags
             )
             filepath = unique_filepath(output_dir, sanitize_filename(fn))
 

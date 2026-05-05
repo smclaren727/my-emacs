@@ -78,6 +78,23 @@ def extract_body(filepath):
     return body if body.strip() else ""
 
 
+def parse_existing_filetags(filepath):
+    """Return the tags from a file's #+filetags: line, excluding `contact`.
+
+    Returns [] if no filetags line is present. The `contact` tag is
+    excluded because format_org_note always re-injects it. Also excludes
+    `archived` so resurrection / archive state stays orthogonal to user
+    or group-derived tags.
+    """
+    skip = {"contact", "archived"}
+    with open(filepath, "r", encoding="utf-8") as f:
+        for line in f:
+            m = re.match(r"^#\+filetags:\s*:(.+):\s*$", line.strip())
+            if m:
+                return [t for t in m.group(1).split(":") if t and t not in skip]
+    return []
+
+
 def parse_existing_drawer(filepath):
     """Parse :PROPERTIES: drawer into a list of (key, value) pairs.
 
@@ -246,14 +263,31 @@ def merge_drawer_pairs(existing_pairs, old_emitted_keys, new_pairs):
     return list(new_pairs) + user_keys
 
 
-def format_org_note(drawer_pairs, fn, *, body="", vcard_note=""):
-    """Format a complete org file from drawer pairs + title/filetags + body."""
+def _slugify_group(name):
+    """Render a group name as an org filetag-safe slug (lowercase, hyphenated)."""
+    return re.sub(r"[^A-Za-z0-9]+", "-", name).strip("-").lower()
+
+
+def format_org_note(drawer_pairs, fn, *, body="", vcard_note="", filetags=None):
+    """Format a complete org file from drawer pairs + title/filetags + body.
+
+    `filetags` is an iterable of group names to append after `contact`.
+    Each gets slug-ified (lowercased, non-alphanumerics → hyphens) and
+    de-duplicated. Pass None or [] to emit just `:contact:`.
+    """
+    tags = ["contact"]
+    for raw in (filetags or []):
+        slug = _slugify_group(raw)
+        if slug and slug not in tags:
+            tags.append(slug)
+    filetag_line = ":" + ":".join(tags) + ":"
+
     lines = [":PROPERTIES:"]
     for key, value in drawer_pairs:
         lines.append(f":{key}: {value}".rstrip())
     lines.append(":END:")
     lines.append(f"#+title: {fn}")
-    lines.append("#+filetags: :contact:")
+    lines.append(f"#+filetags: {filetag_line}")
     lines.append("")
 
     if vcard_note and not body:
@@ -268,7 +302,7 @@ def format_org_note(drawer_pairs, fn, *, body="", vcard_note=""):
     return "\n".join(lines)
 
 
-def build_org_note(contact, org_id, vcard_uid, existing_body=None):
+def build_org_note(contact, org_id, vcard_uid, existing_body=None, filetags=None):
     """Build a fresh org note (no drawer merge — for new contacts).
 
     Returns (note_text, emitted_keys).
@@ -280,5 +314,6 @@ def build_org_note(contact, org_id, vcard_uid, existing_body=None):
         fn,
         body=existing_body or "",
         vcard_note=contact.get("NOTE", ""),
+        filetags=filetags,
     )
     return text, [k for k, _ in pairs]

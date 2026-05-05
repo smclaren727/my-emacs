@@ -17,6 +17,37 @@ import re
 _GROUP_RE = re.compile(r"^(item\d+)\.(.+)$", re.IGNORECASE)
 
 
+def split_contacts_and_groups(records):
+    """Partition parsed records into regular contacts and a UID->groups index.
+
+    Apple's address book exports group definitions as their own vCards
+    with X-ADDRESSBOOKSERVER-KIND:group. Each group lists its members
+    via X-ADDRESSBOOKSERVER-MEMBER lines pointing at contact UIDs.
+
+    Returns (contacts, membership) where:
+      contacts   — list of dicts, group cards excluded
+      membership — {contact_uid: [group_name, ...]} (insertion order)
+
+    `membership` is empty if the input has no group cards at all,
+    which the CLI uses as a signal that this run shouldn't touch
+    filetags on existing contact files.
+    """
+    contacts = []
+    membership = {}
+    for record in records:
+        if record.get("X-ADDRESSBOOKSERVER-KIND") == "group":
+            group_name = record.get("FN", "").strip()
+            if not group_name:
+                continue
+            for member_uri in record.get("_members", []):
+                uid = member_uri.replace("urn:uuid:", "").strip()
+                if uid:
+                    membership.setdefault(uid, []).append(group_name)
+        else:
+            contacts.append(record)
+    return contacts, membership
+
+
 def synthesize_uid(contact):
     """Produce a stable identity for a contact whose vCard lacks UID.
 
@@ -155,6 +186,12 @@ def parse_vcards(vcf_path):
                 network = _extract_param(key_part, "type")
                 social_list = current.setdefault("_social", [])
                 social_list.append((network, _strip_uri_scheme(value)))
+            elif base_key == "X-ADDRESSBOOKSERVER-MEMBER":
+                # Group cards list members on multiple lines; collect
+                # them all under _members so split_contacts_and_groups
+                # can build the membership index.
+                members = current.setdefault("_members", [])
+                members.append(value)
             elif group:
                 # Grouped non-multi-value key (X-ABLABEL, X-ABADR, etc.)
                 # — store under _groups so it can be looked up later.
