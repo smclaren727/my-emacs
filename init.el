@@ -126,6 +126,9 @@
 (when my-flag-bookmarks
   (my-load-module bookmarks "my-bookmarks"))
 
+(when my-flag-contacts
+  (my-load-module contacts "my-contacts"))
+
 (when my-flag-node
   (my-load-module node "my-node"))
 

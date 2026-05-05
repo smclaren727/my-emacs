@@ -44,6 +44,9 @@
 (defvar my-flag-bookmarks t
   "Load bookmarks module (org-based bookmark manager).")
 
+(defvar my-flag-contacts t
+  "Load contacts module (Apple Contacts vCard to Org importer).")
+
 (defvar my-flag-node nil
   "Load node-only module behavior for the headless harness host.")
 
