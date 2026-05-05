@@ -11,9 +11,29 @@ country code). The parser strips the prefix from base_key but keeps
 the group name so downstream code can look up the companion fields.
 """
 
+import hashlib
 import re
 
 _GROUP_RE = re.compile(r"^(item\d+)\.(.+)$", re.IGNORECASE)
+
+
+def synthesize_uid(contact):
+    """Produce a stable identity for a contact whose vCard lacks UID.
+
+    Apple's macOS export drops UID for many contacts, so we hash a
+    combination of FN, structured name (N), phones, and emails. The
+    result is stable as long as none of those fields change between
+    imports — if any of them change, the contact will be detected as
+    a new entry and the previous file archived. This is a known
+    limitation that Tier 6 (CardDAV) eliminates by using server-side
+    resource URLs as identity.
+    """
+    fn = contact.get("FN", "")
+    n = contact.get("N", "")
+    phones = sorted(v for _, v, _ in contact.get("TEL", []))
+    emails = sorted(v for _, v, _ in contact.get("EMAIL", []))
+    payload = "\n".join([fn, n] + phones + emails)
+    return "synth-" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
 def _extract_type(key_part):
@@ -65,6 +85,8 @@ def parse_vcards(vcf_path):
 
             if line == "END:VCARD":
                 if current.get("FN"):
+                    if not current.get("UID"):
+                        current["UID"] = synthesize_uid(current)
                     contacts.append(current)
                 current = {}
                 current_key = None
