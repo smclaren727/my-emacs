@@ -17,6 +17,20 @@ def sanitize_filename(name):
     return safe.lower()
 
 
+def unique_filepath(directory, basename, suffix=".org"):
+    """Return a Path inside `directory` that does not collide.
+
+    Tries `<basename><suffix>` first, then `<basename>-2<suffix>`,
+    `<basename>-3<suffix>`, ... until an unused name is found.
+    """
+    path = directory / f"{basename}{suffix}"
+    counter = 2
+    while path.exists():
+        path = directory / f"{basename}-{counter}{suffix}"
+        counter += 1
+    return path
+
+
 def find_existing_note(output_dir, vcard_uid):
     """Find an existing contact note matching a vCard UID."""
     if not vcard_uid or not output_dir.exists():

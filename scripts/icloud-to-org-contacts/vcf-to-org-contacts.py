@@ -26,6 +26,7 @@ from orgnote import (
     extract_body,
     find_existing_note,
     sanitize_filename,
+    unique_filepath,
 )
 from manifest import (
     content_hash,
@@ -70,6 +71,7 @@ def main():
     updated = 0
     unchanged = 0
     skipped = 0
+    renamed = 0
 
     for contact in contacts:
         fn = contact.get("FN", "").strip()
@@ -92,6 +94,14 @@ def main():
         existing_file = find_existing_note(output_dir, vcard_uid)
 
         if existing_file:
+            desired_basename = sanitize_filename(fn)
+            if existing_file.stem != desired_basename:
+                new_path = unique_filepath(output_dir, desired_basename)
+                existing_file.rename(new_path)
+                print(f"  renamed: {existing_file.name} -> {new_path.name}")
+                existing_file = new_path
+                renamed += 1
+
             existing_body = extract_body(existing_file)
             with open(existing_file, "r", encoding="utf-8") as f:
                 content = f.read(2000)
@@ -105,13 +115,7 @@ def main():
         else:
             org_id = str(uuid.uuid4())
             note_content = build_org_note(contact, org_id, vcard_uid)
-            filename = sanitize_filename(fn) + ".org"
-            filepath = output_dir / filename
-
-            counter = 2
-            while filepath.exists():
-                filepath = output_dir / f"{sanitize_filename(fn)}-{counter}.org"
-                counter += 1
+            filepath = unique_filepath(output_dir, sanitize_filename(fn))
 
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(note_content)
@@ -127,7 +131,7 @@ def main():
     save_manifest(output_dir, manifest)
 
     print(f"Done: {created} created, {updated} updated, "
-          f"{unchanged} unchanged, {skipped} skipped")
+          f"{unchanged} unchanged, {skipped} skipped, {renamed} renamed")
     print(f"Output: {output_dir}")
     print("Notes use plain Org IDs and should appear once org-node refreshes its cache.")
 
