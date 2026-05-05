@@ -180,6 +180,23 @@ def build_drawer_pairs(contact, org_id, vcard_uid):
     if bday:
         pairs.append(("BIRTHDAY", bday))
 
+    # Apple's X-ABDATE: non-birthday dates (anniversaries, etc.) live
+    # in itemN. groups alongside an X-ABLABEL describing the occasion.
+    # Emit as :DATE_<LABEL>: when a label is present, :DATE: / :DATE_N:
+    # otherwise. Year-omitted dates use the same Apple sentinel as BDAY.
+    date_idx = 0
+    for fields in (contact.get("_groups") or {}).values():
+        date_value = fields.get("X-ABDATE", "").strip()
+        if not date_value:
+            continue
+        formatted = format_birthday(date_value)
+        if not formatted:
+            continue
+        label = fields.get("X-ABLABEL", "")
+        clean_label = label.replace("_$!<", "").replace(">!$_", "").strip()
+        pairs.append((f"DATE{_label_suffix(clean_label, date_idx)}", formatted))
+        date_idx += 1
+
     note = contact.get("NOTE", "").strip()
     if note:
         # Flatten newlines (vCard escapes them as backslash-n; the
