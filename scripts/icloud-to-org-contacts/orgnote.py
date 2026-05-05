@@ -147,6 +147,19 @@ def build_drawer_pairs(contact, org_id, vcard_uid):
     if bday:
         pairs.append(("BIRTHDAY", bday))
 
+    note = contact.get("NOTE", "").strip()
+    if note:
+        # Flatten newlines (vCard escapes them as backslash-n; the
+        # parser may also leave literal newlines from folded lines)
+        # so the value fits on a single property-drawer line. Cap at
+        # 200 chars; the full note is still written into the body on
+        # first import via format_org_note.
+        flat = re.sub(r"\\n|\n", " / ", note)
+        flat = re.sub(r"\s+", " ", flat).strip()
+        if len(flat) > 200:
+            flat = flat[:197] + "..."
+        pairs.append(("NOTE", flat))
+
     return pairs
 
 
