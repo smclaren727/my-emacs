@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
-"""Import Apple Contacts vCard export into plain Org contact notes.
+"""Import Apple Contacts vCard exports into plain Org contact notes.
 
 Usage:
-    python3 vcf-to-org-contacts.py <input.vcf> [output-dir]
+    vcf-to-org-contacts.py <input>... [-o OUTPUT_DIR] [--no-archive]
 
-Output directory defaults to ~/All-The-Things/50-Resources/Contacts/.
+Each <input> is either a .vcf file or a directory containing .vcf
+files (globbed non-recursively). Multiple positional arguments are
+accepted; their parsed contacts are unioned and treated as the
+authoritative dataset for the deletion sweep.
 
-On re-import, matches contacts by vCard UID.  Updates properties and
-title but preserves any body text (backlinks, notes) you've added
-below the header.
+Output defaults to ~/All-The-Things/50-Resources/Contacts/.
+
+On re-import, matches contacts by vCard UID. Updates properties and
+title but preserves any body text and any hand-added drawer keys.
 
 A manifest file (.import-state.json) in the output directory tracks
-per-contact content hashes so unchanged contacts are skipped on
-subsequent runs.
+per-contact content hashes so unchanged contacts are skipped.
 """
 
+import argparse
 import sys
 import uuid
 from datetime import date
@@ -42,21 +46,60 @@ from manifest import (
 from lifecycle import archive_contact, resurrect_contact
 
 
+DEFAULT_OUTPUT_DIR = Path.home() / "All-The-Things" / "50-Resources" / "Contacts"
+
+
+def _resolve_inputs(raw_inputs):
+    """Expand each positional argument into a list of .vcf file paths.
+
+    A directory contributes its top-level *.vcf files (sorted, not
+    recursive); a regular file contributes itself. Missing paths or
+    directories with no .vcf files raise SystemExit.
+    """
+    paths = []
+    for raw in raw_inputs:
+        p = Path(raw)
+        if not p.exists():
+            print(f"Error: {p} not found")
+            sys.exit(1)
+        if p.is_dir():
+            found = sorted(p.glob("*.vcf"))
+            if not found:
+                print(f"Warning: no .vcf files in {p}")
+            paths.extend(found)
+        else:
+            paths.append(p)
+    if not paths:
+        print("Error: no input VCF files")
+        sys.exit(1)
+    return paths
+
+
 def main():
-    if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} <input.vcf> [output-dir]")
-        sys.exit(1)
-
-    vcf_path = Path(sys.argv[1])
-    output_dir = (
-        Path(sys.argv[2])
-        if len(sys.argv) > 2
-        else Path.home() / "All-The-Things" / "50-Resources" / "Contacts"
+    parser = argparse.ArgumentParser(
+        description="Import Apple Contacts vCard exports into Org notes.",
     )
+    parser.add_argument(
+        "inputs",
+        nargs="+",
+        help="One or more .vcf files or directories containing them.",
+    )
+    parser.add_argument(
+        "-o", "--output-dir",
+        default=str(DEFAULT_OUTPUT_DIR),
+        help="Output directory for Org notes (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--no-archive",
+        action="store_true",
+        help="Do not archive contacts that are absent from this run. "
+             "Use for partial / incremental imports against an "
+             "existing dataset.",
+    )
+    args = parser.parse_args()
 
-    if not vcf_path.exists():
-        print(f"Error: {vcf_path} not found")
-        sys.exit(1)
+    output_dir = Path(args.output_dir)
+    vcf_paths = _resolve_inputs(args.inputs)
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -69,8 +112,25 @@ def main():
     if settings_changed:
         print("Output settings changed — rewriting all contacts.")
 
-    contacts = parse_vcards(str(vcf_path))
-    print(f"Parsed {len(contacts)} contacts from {vcf_path.name}")
+    # Parse every input VCF and union the results. A contact appearing
+    # in multiple files (same UID) keeps its last-seen entry — newer
+    # exports win.
+    by_uid = {}
+    extras = []
+    for vcf_path in vcf_paths:
+        these = parse_vcards(str(vcf_path))
+        print(f"Parsed {len(these)} contacts from {vcf_path.name}")
+        for c in these:
+            uid = c.get("UID", "")
+            if uid:
+                by_uid[uid] = c
+            else:
+                # Should not happen post-2d-2 (synth-UID is always
+                # injected for FN-bearing contacts) but kept defensive.
+                extras.append(c)
+    contacts = list(by_uid.values()) + extras
+    print(f"Total: {len(contacts)} unique contacts across "
+          f"{len(vcf_paths)} file(s)")
 
     created = 0
     updated = 0
@@ -177,28 +237,35 @@ def main():
     # Deletion sweep: any UID we tracked previously but didn't see in
     # this run is archived (unless already archived, or its file is
     # already gone — in which case we just drop the manifest entry).
-    seen_uids = {
-        c.get("UID", "") for c in contacts
-        if c.get("UID") and c.get("FN", "").strip()
-    }
-    for uid, entry in list(manifest["contacts"].items()):
-        if uid in seen_uids:
-            continue
-        file_path = output_dir / entry["path"]
-        if entry.get("archived"):
-            # Already archived: just confirm the file still exists,
-            # otherwise drop the stale manifest entry.
+    # Skipped entirely when --no-archive is passed for a partial import.
+    if args.no_archive:
+        if any(uid for uid in manifest["contacts"]
+               if uid not in {c.get("UID", "") for c in contacts}):
+            print("--no-archive: deletion sweep skipped; "
+                  "manifest may have stale entries.")
+    else:
+        seen_uids = {
+            c.get("UID", "") for c in contacts
+            if c.get("UID") and c.get("FN", "").strip()
+        }
+        for uid, entry in list(manifest["contacts"].items()):
+            if uid in seen_uids:
+                continue
+            file_path = output_dir / entry["path"]
+            if entry.get("archived"):
+                # Already archived: just confirm the file still exists,
+                # otherwise drop the stale manifest entry.
+                if not file_path.exists():
+                    del manifest["contacts"][uid]
+                continue
             if not file_path.exists():
+                # User deleted the file manually before it was archived.
                 del manifest["contacts"][uid]
-            continue
-        if not file_path.exists():
-            # User deleted the file manually before it was archived.
-            del manifest["contacts"][uid]
-            continue
-        new_path = archive_contact(file_path, output_dir, today)
-        entry["path"] = str(new_path.relative_to(output_dir))
-        entry["archived"] = True
-        archived += 1
+                continue
+            new_path = archive_contact(file_path, output_dir, today)
+            entry["path"] = str(new_path.relative_to(output_dir))
+            entry["archived"] = True
+            archived += 1
 
     manifest["output_settings_hash"] = settings_hash
     save_manifest(output_dir, manifest)
