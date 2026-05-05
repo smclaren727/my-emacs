@@ -3,11 +3,17 @@
 Pure functions over the dicts produced by vcard.parse_vcards plus
 small filesystem helpers (find/extract). Owns the on-disk note shape:
 property drawer, title, filetags, body preservation.
+
+The drawer is built as a list of (key, value) pairs so the CLI can
+do a 3-way merge against an existing file's drawer: keys we never
+emitted (= user-added) are preserved across imports.
 """
 
 import re
 
 from vcard import format_address, format_birthday, format_phone
+
+_DRAWER_LINE_RE = re.compile(r"^:([A-Z_][A-Z_0-9]*):\s*(.*)$")
 
 
 def sanitize_filename(name):
@@ -53,7 +59,6 @@ def extract_body(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    # Find the end of the property drawer.
     end_idx = -1
     for i, line in enumerate(lines):
         if line.strip() == ":END:":
@@ -63,12 +68,9 @@ def extract_body(filepath):
         body = "".join(lines)
         return body if body.strip() else ""
 
-    # Skip trailing `#+keyword:` lines (title, filetags, etc.).
     i = end_idx + 1
     while i < len(lines) and lines[i].lstrip().startswith("#+"):
         i += 1
-
-    # Skip a single separator blank line.
     if i < len(lines) and lines[i].strip() == "":
         i += 1
 
@@ -76,60 +78,132 @@ def extract_body(filepath):
     return body if body.strip() else ""
 
 
-def build_org_note(contact, org_id, vcard_uid, existing_body=None):
-    """Build the Org note content for a contact."""
-    fn = contact.get("FN", "Unknown")
+def parse_existing_drawer(filepath):
+    """Parse :PROPERTIES: drawer into a list of (key, value) pairs.
 
-    props = [f":ID:       {org_id}"]
+    Preserves order. Keys are upper-case without surrounding colons;
+    values have leading/trailing whitespace stripped. Returns [] if
+    no drawer is present.
+    """
+    with open(filepath, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    pairs = []
+    in_drawer = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped == ":PROPERTIES:":
+            in_drawer = True
+            continue
+        if stripped == ":END:":
+            break
+        if not in_drawer:
+            continue
+        m = _DRAWER_LINE_RE.match(stripped)
+        if m:
+            pairs.append((m.group(1), m.group(2).strip()))
+    return pairs
+
+
+def build_drawer_pairs(contact, org_id, vcard_uid):
+    """Compute the property drawer key-value pairs we want to emit.
+
+    Returns list of (key, value) tuples. Keys are upper-case without
+    surrounding colons. Values are pre-formatted strings.
+    """
+    pairs = [("ID", org_id)]
     if vcard_uid:
-        props.append(f":VCARD_UID: {vcard_uid}")
+        pairs.append(("VCARD_UID", vcard_uid))
 
-    emails = contact.get("EMAIL", [])
-    for i, (label, value) in enumerate(emails):
+    for i, (label, value) in enumerate(contact.get("EMAIL", [])):
         suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
-        props.append(f":EMAIL{suffix}: {value}")
+        pairs.append((f"EMAIL{suffix}", value))
 
-    phones = contact.get("TEL", [])
-    for i, (label, value) in enumerate(phones):
+    for i, (label, value) in enumerate(contact.get("TEL", [])):
         suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
-        props.append(f":PHONE{suffix}: {format_phone(value)}")
+        pairs.append((f"PHONE{suffix}", format_phone(value)))
 
     org = contact.get("ORG", "")
     if org:
         org_name = org.split(";")[0].strip()
         if org_name:
-            props.append(f":COMPANY:  {org_name}")
+            pairs.append(("COMPANY", org_name))
 
     title = contact.get("TITLE", "")
     if title:
-        props.append(f":ROLE:     {title}")
+        pairs.append(("ROLE", title))
 
-    addrs = contact.get("ADR", [])
-    for i, (label, value) in enumerate(addrs):
+    for i, (label, value) in enumerate(contact.get("ADR", [])):
         formatted = format_address(value)
         if formatted:
             suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
-            props.append(f":ADDRESS{suffix}: {formatted}")
+            pairs.append((f"ADDRESS{suffix}", formatted))
 
     bday = format_birthday(contact.get("BDAY", ""))
     if bday:
-        props.append(f":BIRTHDAY: {bday}")
+        pairs.append(("BIRTHDAY", bday))
 
+    return pairs
+
+
+def merge_drawer_pairs(existing_pairs, old_emitted_keys, new_pairs):
+    """3-way merge of property drawer state.
+
+    Inputs:
+      existing_pairs    — what's currently in the file's drawer.
+      old_emitted_keys  — keys we wrote on the previous run.
+      new_pairs         — keys+values we want to write this run.
+
+    Output: ordered list of (key, value) pairs comprising:
+      1. new_pairs in their canonical order (our values win for any
+         key we currently emit).
+      2. user-added keys preserved from existing_pairs in their
+         original order — i.e. any key in the drawer that wasn't in
+         old_emitted_keys and isn't in new_pairs.
+    """
+    old_emitted = set(old_emitted_keys)
+    new_keys = {k for k, _ in new_pairs}
+
+    user_keys = [
+        (k, v) for k, v in existing_pairs
+        if k not in old_emitted and k not in new_keys
+    ]
+    return list(new_pairs) + user_keys
+
+
+def format_org_note(drawer_pairs, fn, *, body="", vcard_note=""):
+    """Format a complete org file from drawer pairs + title/filetags + body."""
     lines = [":PROPERTIES:"]
-    lines.extend(props)
+    for key, value in drawer_pairs:
+        lines.append(f":{key}: {value}".rstrip())
     lines.append(":END:")
     lines.append(f"#+title: {fn}")
     lines.append("#+filetags: :contact:")
     lines.append("")
 
-    note = contact.get("NOTE", "")
-    if note and not existing_body:
-        note_text = note.replace("\\n", "\n").strip()
+    if vcard_note and not body:
+        note_text = vcard_note.replace("\\n", "\n").strip()
         lines.append(note_text)
         lines.append("")
 
-    if existing_body:
-        lines.append(existing_body.rstrip())
+    if body:
+        lines.append(body.rstrip())
         lines.append("")
 
     return "\n".join(lines)
+
+
+def build_org_note(contact, org_id, vcard_uid, existing_body=None):
+    """Build a fresh org note (no drawer merge — for new contacts).
+
+    Returns (note_text, emitted_keys).
+    """
+    pairs = build_drawer_pairs(contact, org_id, vcard_uid)
+    fn = contact.get("FN", "Unknown")
+    text = format_org_note(
+        pairs,
+        fn,
+        body=existing_body or "",
+        vcard_note=contact.get("NOTE", ""),
+    )
+    return text, [k for k, _ in pairs]

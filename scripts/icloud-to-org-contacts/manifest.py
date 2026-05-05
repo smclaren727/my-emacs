@@ -23,7 +23,7 @@ MANIFEST_VERSION = 1
 # Schema version of the on-disk Org note shape produced by orgnote.py.
 # Bump when build_org_note's output format changes (new keys, renamed
 # keys, different drawer layout) so existing contacts get rewritten.
-OUTPUT_SCHEMA_VERSION = "tier-1"
+OUTPUT_SCHEMA_VERSION = "tier-2c"
 
 # vCard fields whose values change on every Apple Contacts re-export
 # even when nothing of substance changed. Excluded from content hash.

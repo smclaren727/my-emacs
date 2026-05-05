@@ -15,7 +15,6 @@ per-contact content hashes so unchanged contacts are skipped on
 subsequent runs.
 """
 
-import re
 import sys
 import uuid
 from datetime import date
@@ -23,9 +22,13 @@ from pathlib import Path
 
 from vcard import parse_vcards
 from orgnote import (
+    build_drawer_pairs,
     build_org_note,
     extract_body,
     find_existing_note,
+    format_org_note,
+    merge_drawer_pairs,
+    parse_existing_drawer,
     sanitize_filename,
     unique_filepath,
 )
@@ -120,19 +123,44 @@ def main():
                 existing_file = new_path
                 renamed += 1
 
+            existing_pairs = parse_existing_drawer(existing_file)
+            existing_id = next(
+                (v for k, v in existing_pairs if k == "ID"), None
+            )
+            org_id = existing_id or str(uuid.uuid4())
             existing_body = extract_body(existing_file)
-            with open(existing_file, "r", encoding="utf-8") as f:
-                content = f.read(2000)
-            id_match = re.search(r":ID:\s+(.+)", content)
-            org_id = id_match.group(1).strip() if id_match else str(uuid.uuid4())
-            note_content = build_org_note(contact, org_id, vcard_uid, existing_body)
+
+            new_pairs = build_drawer_pairs(contact, org_id, vcard_uid)
+
+            # Migration: pre-2c manifests have empty emitted_keys. The
+            # safe heuristic is "anything in the drawer that we'd emit
+            # today was put there by us" — that way hand-added keys
+            # (which the current code wouldn't emit) are preserved.
+            old_emitted = (prev or {}).get("emitted_keys") or []
+            if not old_emitted and existing_pairs:
+                today_keys = {k for k, _ in new_pairs}
+                drawer_keys = {k for k, _ in existing_pairs}
+                old_emitted = list(today_keys & drawer_keys)
+
+            merged_pairs = merge_drawer_pairs(
+                existing_pairs, old_emitted, new_pairs
+            )
+            note_content = format_org_note(
+                merged_pairs,
+                fn,
+                body=existing_body,
+                vcard_note=contact.get("NOTE", ""),
+            )
             with open(existing_file, "w", encoding="utf-8") as f:
                 f.write(note_content)
             updated += 1
             filepath = existing_file
+            emitted_keys = [k for k, _ in new_pairs]
         else:
             org_id = str(uuid.uuid4())
-            note_content = build_org_note(contact, org_id, vcard_uid)
+            note_content, emitted_keys = build_org_note(
+                contact, org_id, vcard_uid
+            )
             filepath = unique_filepath(output_dir, sanitize_filename(fn))
 
             with open(filepath, "w", encoding="utf-8") as f:
@@ -143,6 +171,7 @@ def main():
             manifest["contacts"][vcard_uid] = make_entry(
                 str(filepath.relative_to(output_dir)),
                 chash,
+                emitted_keys=emitted_keys,
             )
 
     # Deletion sweep: any UID we tracked previously but didn't see in
