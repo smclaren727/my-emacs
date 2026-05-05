@@ -94,7 +94,8 @@ def output_settings_hash(extra=None):
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def make_entry(path_relative, chash, *, etag=None, url=None, emitted_keys=None):
+def make_entry(path_relative, chash, *, etag=None, url=None,
+               emitted_keys=None, archived=False):
     """Build a manifest entry in the canonical shape."""
     return {
         "path": path_relative,
@@ -102,4 +103,5 @@ def make_entry(path_relative, chash, *, etag=None, url=None, emitted_keys=None):
         "etag": etag,
         "url": url,
         "emitted_keys": list(emitted_keys or []),
+        "archived": archived,
     }

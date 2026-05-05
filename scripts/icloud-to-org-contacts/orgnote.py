@@ -46,29 +46,33 @@ def find_existing_note(output_dir, vcard_uid):
 def extract_body(filepath):
     """Extract user-written body text (everything after the header block).
 
-    Header = properties drawer + title + filetags. Body starts at the
-    first blank line after filetags (or title if no filetags).
+    Header = property drawer + any number of `#+keyword:` lines. Body
+    is everything after that, minus a single optional separator blank
+    line. Returns "" if the file has no body content.
     """
     with open(filepath, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    body_start = 0
-    past_drawer = False
+    # Find the end of the property drawer.
+    end_idx = -1
     for i, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped == ":END:":
-            past_drawer = True
-            continue
-        if past_drawer and stripped.startswith("#+"):
-            continue
-        if past_drawer and stripped == "":
-            body_start = i + 1
+        if line.strip() == ":END:":
+            end_idx = i
             break
-        if past_drawer:
-            body_start = i
-            break
+    if end_idx < 0:
+        body = "".join(lines)
+        return body if body.strip() else ""
 
-    body = "".join(lines[body_start:])
+    # Skip trailing `#+keyword:` lines (title, filetags, etc.).
+    i = end_idx + 1
+    while i < len(lines) and lines[i].lstrip().startswith("#+"):
+        i += 1
+
+    # Skip a single separator blank line.
+    if i < len(lines) and lines[i].strip() == "":
+        i += 1
+
+    body = "".join(lines[i:])
     return body if body.strip() else ""
 
 

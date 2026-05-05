@@ -18,6 +18,7 @@ subsequent runs.
 import re
 import sys
 import uuid
+from datetime import date
 from pathlib import Path
 
 from vcard import parse_vcards
@@ -35,6 +36,7 @@ from manifest import (
     output_settings_hash,
     save_manifest,
 )
+from lifecycle import archive_contact, resurrect_contact
 
 
 def main():
@@ -72,6 +74,9 @@ def main():
     unchanged = 0
     skipped = 0
     renamed = 0
+    archived = 0
+    resurrected = 0
+    today = date.today().isoformat()
 
     for contact in contacts:
         fn = contact.get("FN", "").strip()
@@ -83,7 +88,20 @@ def main():
         chash = content_hash(contact)
         prev = manifest["contacts"].get(vcard_uid) if vcard_uid else None
 
-        if (vcard_uid
+        # Resurrect first: a previously-archived contact reappearing
+        # in the source is moved back out of Archive/ and gets archive
+        # markers stripped before the normal create/update flow runs.
+        was_archived = bool(prev and prev.get("archived"))
+        if was_archived:
+            archived_path = output_dir / prev["path"]
+            if archived_path.exists():
+                new_path = resurrect_contact(archived_path, output_dir)
+                prev["path"] = str(new_path.relative_to(output_dir))
+                resurrected += 1
+            prev["archived"] = False
+
+        if (not was_archived
+                and vcard_uid
                 and prev
                 and not settings_changed
                 and prev.get("content_hash") == chash
@@ -127,11 +145,38 @@ def main():
                 chash,
             )
 
+    # Deletion sweep: any UID we tracked previously but didn't see in
+    # this run is archived (unless already archived, or its file is
+    # already gone — in which case we just drop the manifest entry).
+    seen_uids = {
+        c.get("UID", "") for c in contacts
+        if c.get("UID") and c.get("FN", "").strip()
+    }
+    for uid, entry in list(manifest["contacts"].items()):
+        if uid in seen_uids:
+            continue
+        file_path = output_dir / entry["path"]
+        if entry.get("archived"):
+            # Already archived: just confirm the file still exists,
+            # otherwise drop the stale manifest entry.
+            if not file_path.exists():
+                del manifest["contacts"][uid]
+            continue
+        if not file_path.exists():
+            # User deleted the file manually before it was archived.
+            del manifest["contacts"][uid]
+            continue
+        new_path = archive_contact(file_path, output_dir, today)
+        entry["path"] = str(new_path.relative_to(output_dir))
+        entry["archived"] = True
+        archived += 1
+
     manifest["output_settings_hash"] = settings_hash
     save_manifest(output_dir, manifest)
 
     print(f"Done: {created} created, {updated} updated, "
-          f"{unchanged} unchanged, {skipped} skipped, {renamed} renamed")
+          f"{unchanged} unchanged, {skipped} skipped, {renamed} renamed, "
+          f"{archived} archived, {resurrected} resurrected")
     print(f"Output: {output_dir}")
     print("Notes use plain Org IDs and should appear once org-node refreshes its cache.")
 
