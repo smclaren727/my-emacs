@@ -105,6 +105,35 @@ def parse_existing_drawer(filepath):
     return pairs
 
 
+def _label_suffix(label, idx):
+    """Render a property-key suffix from a label string.
+
+    Sanitises non-alphanumeric chars to underscores so labels like
+    "Best Friend" yield ":EMAIL_BEST_FRIEND:". Falls back to a numeric
+    suffix for entries past the first when no label is available.
+    """
+    if label:
+        safe = re.sub(r"[^A-Za-z0-9]", "_", label).upper().strip("_")
+        if safe:
+            return f"_{safe}"
+    return f"_{idx + 1}" if idx > 0 else ""
+
+
+def _resolve_label(label, group, contact):
+    """Effective label for a multi-value entry.
+
+    If the entry has a group (Apple `itemN.` prefix) and that group has
+    an X-ABLABEL, use it instead of the type= label. Apple's standard
+    labels are wrapped in `_$!<...>!$_` — strip that. User-defined
+    labels (e.g. "Bestie") come through bare.
+    """
+    if group:
+        x = contact.get("_groups", {}).get(group, {}).get("X-ABLABEL", "")
+        if x:
+            return x.replace("_$!<", "").replace(">!$_", "").strip()
+    return label
+
+
 def build_drawer_pairs(contact, org_id, vcard_uid):
     """Compute the property drawer key-value pairs we want to emit.
 
@@ -119,13 +148,13 @@ def build_drawer_pairs(contact, org_id, vcard_uid):
     if nickname:
         pairs.append(("NICKNAME", nickname))
 
-    for i, (label, value, _group) in enumerate(contact.get("EMAIL", [])):
-        suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
-        pairs.append((f"EMAIL{suffix}", value))
+    for i, (label, value, group) in enumerate(contact.get("EMAIL", [])):
+        eff_label = _resolve_label(label, group, contact)
+        pairs.append((f"EMAIL{_label_suffix(eff_label, i)}", value))
 
-    for i, (label, value, _group) in enumerate(contact.get("TEL", [])):
-        suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
-        pairs.append((f"PHONE{suffix}", format_phone(value)))
+    for i, (label, value, group) in enumerate(contact.get("TEL", [])):
+        eff_label = _resolve_label(label, group, contact)
+        pairs.append((f"PHONE{_label_suffix(eff_label, i)}", format_phone(value)))
 
     org = contact.get("ORG", "")
     if org:
@@ -137,11 +166,11 @@ def build_drawer_pairs(contact, org_id, vcard_uid):
     if title:
         pairs.append(("ROLE", title))
 
-    for i, (label, value, _group) in enumerate(contact.get("ADR", [])):
+    for i, (label, value, group) in enumerate(contact.get("ADR", [])):
         formatted = format_address(value)
         if formatted:
-            suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
-            pairs.append((f"ADDRESS{suffix}", formatted))
+            eff_label = _resolve_label(label, group, contact)
+            pairs.append((f"ADDRESS{_label_suffix(eff_label, i)}", formatted))
 
     bday = format_birthday(contact.get("BDAY", ""))
     if bday:
