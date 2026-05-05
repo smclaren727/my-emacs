@@ -9,6 +9,10 @@ Output directory defaults to ~/All-The-Things/50-Resources/Contacts/.
 On re-import, matches contacts by vCard UID.  Updates properties and
 title but preserves any body text (backlinks, notes) you've added
 below the header.
+
+A manifest file (.import-state.json) in the output directory tracks
+per-contact content hashes so unchanged contacts are skipped on
+subsequent runs.
 """
 
 import re
@@ -22,6 +26,13 @@ from orgnote import (
     extract_body,
     find_existing_note,
     sanitize_filename,
+)
+from manifest import (
+    content_hash,
+    load_manifest,
+    make_entry,
+    output_settings_hash,
+    save_manifest,
 )
 
 
@@ -43,11 +54,21 @@ def main():
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    manifest = load_manifest(output_dir)
+    settings_hash = output_settings_hash()
+    settings_changed = (
+        manifest.get("output_settings_hash") is not None
+        and manifest["output_settings_hash"] != settings_hash
+    )
+    if settings_changed:
+        print("Output settings changed — rewriting all contacts.")
+
     contacts = parse_vcards(str(vcf_path))
     print(f"Parsed {len(contacts)} contacts from {vcf_path.name}")
 
     created = 0
     updated = 0
+    unchanged = 0
     skipped = 0
 
     for contact in contacts:
@@ -57,6 +78,17 @@ def main():
             continue
 
         vcard_uid = contact.get("UID", "")
+        chash = content_hash(contact)
+        prev = manifest["contacts"].get(vcard_uid) if vcard_uid else None
+
+        if (vcard_uid
+                and prev
+                and not settings_changed
+                and prev.get("content_hash") == chash
+                and (output_dir / prev["path"]).exists()):
+            unchanged += 1
+            continue
+
         existing_file = find_existing_note(output_dir, vcard_uid)
 
         if existing_file:
@@ -69,6 +101,7 @@ def main():
             with open(existing_file, "w", encoding="utf-8") as f:
                 f.write(note_content)
             updated += 1
+            filepath = existing_file
         else:
             org_id = str(uuid.uuid4())
             note_content = build_org_note(contact, org_id, vcard_uid)
@@ -84,7 +117,17 @@ def main():
                 f.write(note_content)
             created += 1
 
-    print(f"Done: {created} created, {updated} updated, {skipped} skipped")
+        if vcard_uid:
+            manifest["contacts"][vcard_uid] = make_entry(
+                str(filepath.relative_to(output_dir)),
+                chash,
+            )
+
+    manifest["output_settings_hash"] = settings_hash
+    save_manifest(output_dir, manifest)
+
+    print(f"Done: {created} created, {updated} updated, "
+          f"{unchanged} unchanged, {skipped} skipped")
     print(f"Output: {output_dir}")
     print("Notes use plain Org IDs and should appear once org-node refreshes its cache.")
 
