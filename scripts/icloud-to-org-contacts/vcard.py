@@ -36,6 +36,23 @@ def synthesize_uid(contact):
     return "synth-" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
+def _strip_uri_scheme(value):
+    """Drop Apple's `x-apple:` or `xmpp:` URI scheme from an IMPP/social value."""
+    for prefix in ("x-apple:", "xmpp:"):
+        if value.lower().startswith(prefix):
+            return value[len(prefix):]
+    return value
+
+
+def _extract_param(key_part, name):
+    """Return the value of a single vCard parameter (case-insensitive)."""
+    target = name.upper() + "="
+    for piece in key_part.upper().split(";")[1:]:
+        if piece.startswith(target):
+            return piece[len(target):]
+    return ""
+
+
 def _extract_type(key_part):
     """Extract a human-readable type label from vCard parameters.
 
@@ -127,6 +144,17 @@ def parse_vcards(vcf_path):
                 existing = current.get(base_key, [])
                 existing.append((type_label, value, group))
                 current[base_key] = existing
+            elif base_key == "IMPP":
+                # X-SERVICE-TYPE names the messaging service (Skype,
+                # iMessage, etc.); xmpp:/x-apple: schemes are stripped.
+                service = _extract_param(key_part, "X-SERVICE-TYPE")
+                impp_list = current.setdefault("_impp", [])
+                impp_list.append((service, _strip_uri_scheme(value)))
+            elif base_key == "X-SOCIALPROFILE":
+                # type= names the social network (twitter, linkedin, ...).
+                network = _extract_param(key_part, "type")
+                social_list = current.setdefault("_social", [])
+                social_list.append((network, _strip_uri_scheme(value)))
             elif group:
                 # Grouped non-multi-value key (X-ABLABEL, X-ABADR, etc.)
                 # — store under _groups so it can be looked up later.

@@ -156,6 +156,14 @@ def build_drawer_pairs(contact, org_id, vcard_uid):
         eff_label = _resolve_label(label, group, contact)
         pairs.append((f"PHONE{_label_suffix(eff_label, i)}", format_phone(value)))
 
+    # Instant-message handles (IMPP) and social profiles
+    # (X-SOCIALPROFILE) — populated by the parser as (label, value)
+    # pairs under contact["_impp"] / contact["_social"].
+    for i, (service, value) in enumerate(contact.get("_impp") or []):
+        pairs.append((f"IM{_label_suffix(service, i)}", value))
+    for i, (network, value) in enumerate(contact.get("_social") or []):
+        pairs.append((f"SOCIAL{_label_suffix(network, i)}", value))
+
     org = contact.get("ORG", "")
     if org:
         org_name = org.split(";")[0].strip()
