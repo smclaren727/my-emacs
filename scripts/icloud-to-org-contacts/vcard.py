@@ -84,6 +84,17 @@ def parse_vcards(vcf_path):
                 continue
 
             if line == "END:VCARD":
+                # Apple occasionally ships company-only contacts with
+                # FN unset. Fall back to NICKNAME, then to the org
+                # name, before deciding whether to keep the contact.
+                if not current.get("FN"):
+                    fallback = (
+                        current.get("NICKNAME", "").strip()
+                        or (current.get("ORG", "").split(";")[0].strip()
+                            if current.get("ORG") else "")
+                    )
+                    if fallback:
+                        current["FN"] = fallback
                 if current.get("FN"):
                     if not current.get("UID"):
                         current["UID"] = synthesize_uid(current)

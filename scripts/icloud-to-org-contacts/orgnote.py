@@ -115,6 +115,10 @@ def build_drawer_pairs(contact, org_id, vcard_uid):
     if vcard_uid:
         pairs.append(("VCARD_UID", vcard_uid))
 
+    nickname = contact.get("NICKNAME", "").strip()
+    if nickname:
+        pairs.append(("NICKNAME", nickname))
+
     for i, (label, value, _group) in enumerate(contact.get("EMAIL", [])):
         suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
         pairs.append((f"EMAIL{suffix}", value))
