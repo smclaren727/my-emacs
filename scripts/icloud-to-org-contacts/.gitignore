@@ -1,0 +1,2 @@
+# Sample / fixture VCFs are personal data; never commit them.
+*.vcf

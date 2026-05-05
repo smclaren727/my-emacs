@@ -3,7 +3,17 @@
 Pure functions over vCard text. No I/O of Org-mode files, no manifest
 awareness. Output is a list of dicts whose shape matches the on-disk
 vCard fields with light normalisation.
+
+Apple Contacts uses an `itemN.` prefix to group a property with its
+companion fields (e.g. `item1.TEL` paired with `item1.X-ABLABEL` for
+custom labels, or `item1.ADR` paired with `item1.X-ABADR` for the
+country code). The parser strips the prefix from base_key but keeps
+the group name so downstream code can look up the companion fields.
 """
+
+import re
+
+_GROUP_RE = re.compile(r"^(item\d+)\.(.+)$", re.IGNORECASE)
 
 
 def _extract_type(key_part):
@@ -64,6 +74,14 @@ def parse_vcards(vcf_path):
                 continue
 
             key_part, value = line.split(":", 1)
+
+            # Strip itemN. group prefix (Apple grouping mechanism).
+            group = ""
+            m = _GROUP_RE.match(key_part)
+            if m:
+                group = m.group(1).lower()
+                key_part = m.group(2)
+
             base_key = key_part.split(";")[0].upper()
 
             # Skip binary blobs (photos)
@@ -74,8 +92,15 @@ def parse_vcards(vcf_path):
             if base_key in ("TEL", "EMAIL", "ADR"):
                 type_label = _extract_type(key_part)
                 existing = current.get(base_key, [])
-                existing.append((type_label, value))
+                existing.append((type_label, value, group))
                 current[base_key] = existing
+            elif group:
+                # Grouped non-multi-value key (X-ABLABEL, X-ABADR, etc.)
+                # — store under _groups so it can be looked up later.
+                groups = current.setdefault("_groups", {})
+                groups.setdefault(group, {})[base_key] = value
+                current_key = None
+                continue
             else:
                 current[base_key] = value
 

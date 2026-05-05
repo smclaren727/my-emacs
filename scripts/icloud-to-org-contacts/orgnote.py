@@ -115,11 +115,11 @@ def build_drawer_pairs(contact, org_id, vcard_uid):
     if vcard_uid:
         pairs.append(("VCARD_UID", vcard_uid))
 
-    for i, (label, value) in enumerate(contact.get("EMAIL", [])):
+    for i, (label, value, _group) in enumerate(contact.get("EMAIL", [])):
         suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
         pairs.append((f"EMAIL{suffix}", value))
 
-    for i, (label, value) in enumerate(contact.get("TEL", [])):
+    for i, (label, value, _group) in enumerate(contact.get("TEL", [])):
         suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
         pairs.append((f"PHONE{suffix}", format_phone(value)))
 
@@ -133,7 +133,7 @@ def build_drawer_pairs(contact, org_id, vcard_uid):
     if title:
         pairs.append(("ROLE", title))
 
-    for i, (label, value) in enumerate(contact.get("ADR", [])):
+    for i, (label, value, _group) in enumerate(contact.get("ADR", [])):
         formatted = format_address(value)
         if formatted:
             suffix = f"_{label.upper()}" if label else (f"_{i+1}" if i > 0 else "")
