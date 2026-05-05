@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Import Apple Contacts vCard export into plain Org contact notes.
+
+Usage:
+    python3 vcf-to-org-contacts.py <input.vcf> [output-dir]
+
+Output directory defaults to ~/All-The-Things/50-Resources/Contacts/.
+
+On re-import, matches contacts by vCard UID.  Updates properties and
+title but preserves any body text (backlinks, notes) you've added
+below the header.
+"""
+
+import re
+import sys
+import uuid
+from pathlib import Path
+
+from vcard import parse_vcards
+from orgnote import (
+    build_org_note,
+    extract_body,
+    find_existing_note,
+    sanitize_filename,
+)
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <input.vcf> [output-dir]")
+        sys.exit(1)
+
+    vcf_path = Path(sys.argv[1])
+    output_dir = (
+        Path(sys.argv[2])
+        if len(sys.argv) > 2
+        else Path.home() / "All-The-Things" / "50-Resources" / "Contacts"
+    )
+
+    if not vcf_path.exists():
+        print(f"Error: {vcf_path} not found")
+        sys.exit(1)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    contacts = parse_vcards(str(vcf_path))
+    print(f"Parsed {len(contacts)} contacts from {vcf_path.name}")
+
+    created = 0
+    updated = 0
+    skipped = 0
+
+    for contact in contacts:
+        fn = contact.get("FN", "").strip()
+        if not fn:
+            skipped += 1
+            continue
+
+        vcard_uid = contact.get("UID", "")
+        existing_file = find_existing_note(output_dir, vcard_uid)
+
+        if existing_file:
+            existing_body = extract_body(existing_file)
+            with open(existing_file, "r", encoding="utf-8") as f:
+                content = f.read(2000)
+            id_match = re.search(r":ID:\s+(.+)", content)
+            org_id = id_match.group(1).strip() if id_match else str(uuid.uuid4())
+            note_content = build_org_note(contact, org_id, vcard_uid, existing_body)
+            with open(existing_file, "w", encoding="utf-8") as f:
+                f.write(note_content)
+            updated += 1
+        else:
+            org_id = str(uuid.uuid4())
+            note_content = build_org_note(contact, org_id, vcard_uid)
+            filename = sanitize_filename(fn) + ".org"
+            filepath = output_dir / filename
+
+            counter = 2
+            while filepath.exists():
+                filepath = output_dir / f"{sanitize_filename(fn)}-{counter}.org"
+                counter += 1
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(note_content)
+            created += 1
+
+    print(f"Done: {created} created, {updated} updated, {skipped} skipped")
+    print(f"Output: {output_dir}")
+    print("Notes use plain Org IDs and should appear once org-node refreshes its cache.")
+
+
+if __name__ == "__main__":
+    main()
