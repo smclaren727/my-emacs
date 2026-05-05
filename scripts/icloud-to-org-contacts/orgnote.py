@@ -172,6 +172,10 @@ def build_drawer_pairs(contact, org_id, vcard_uid):
             eff_label = _resolve_label(label, group, contact)
             pairs.append((f"ADDRESS{_label_suffix(eff_label, i)}", formatted))
 
+    for i, (label, value, group) in enumerate(contact.get("URL", [])):
+        eff_label = _resolve_label(label, group, contact)
+        pairs.append((f"URL{_label_suffix(eff_label, i)}", value))
+
     bday = format_birthday(contact.get("BDAY", ""))
     if bday:
         pairs.append(("BIRTHDAY", bday))

@@ -122,7 +122,7 @@ def parse_vcards(vcf_path):
                 current_key = None
                 continue
 
-            if base_key in ("TEL", "EMAIL", "ADR"):
+            if base_key in ("TEL", "EMAIL", "ADR", "URL"):
                 type_label = _extract_type(key_part)
                 existing = current.get(base_key, [])
                 existing.append((type_label, value, group))
