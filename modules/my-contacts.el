@@ -1,8 +1,8 @@
 ;;; my-contacts.el --- Apple Contacts to Org import -*- lexical-binding: t; -*-
 
-;; Wraps the icloud-to-org-contacts Python script so vCard exports
-;; from Apple Contacts (or any CardDAV source, once tier 6 lands)
-;; can be imported into the org notes tree without leaving Emacs.
+;; Wraps the standalone icloud-to-org-contacts command so vCard
+;; exports and CardDAV contacts can be imported into the org notes
+;; tree without leaving Emacs.
 ;;
 ;; The script handles its own state (manifest, archive folder,
 ;; errors.org) under `my-contacts-output-dir'.  This module is just
@@ -15,15 +15,7 @@
 
 (defvar my-contacts-command nil
   "Optional executable for icloud-to-org-contacts.
-When nil, prefer `icloud-to-org-contacts' from PATH and fall back to
-`my-contacts-python' plus `my-contacts-script'.")
-
-(defvar my-contacts-python "python3"
-  "Python executable used when the contacts console script is unavailable.")
-
-(defvar my-contacts-script
-  (my-emacs-source-file "scripts/icloud-to-org-contacts/vcf-to-org-contacts.py")
-  "Path to the icloud-to-org-contacts compatibility wrapper.")
+When nil, use `icloud-to-org-contacts' from PATH.")
 
 (defvar my-contacts-output-dir
   (expand-file-name "50-Resources/Contacts" my-notes-directory)
@@ -50,10 +42,8 @@ When nil, prefer `icloud-to-org-contacts' from PATH and fall back to
     (list my-contacts-command))
    ((executable-find "icloud-to-org-contacts")
     (list (executable-find "icloud-to-org-contacts")))
-   ((file-exists-p my-contacts-script)
-    (list my-contacts-python my-contacts-script))
    (t
-    (user-error "Contacts importer not found; install scripts/icloud-to-org-contacts"))))
+    (user-error "Contacts importer not found; install icloud-to-org-contacts"))))
 
 (defun my-contacts--run (label args)
   "Run contacts importer with LABEL and ARGS."

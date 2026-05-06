@@ -51,6 +51,7 @@ no Spacemacs).  Every package solves a concrete problem.
     my-bookmarks.el      — org-backed bookmark manager (provides 'my-bookmarks)
     my-ai.el             — gptel + agent-shell: LLM chat, Claude Code, Codex (provides 'my-ai)
     my-mail.el           — mu4e, Org contact completion, mbsync, msmtp, org-msg, dashboard, org mail capture (provides 'my-mail)
+    my-contacts.el       — Emacs wrapper for standalone icloud-to-org-contacts CLI (provides 'my-contacts)
     my-node.el           — shared node-only hooks selected by host profile (provides 'my-node)
     my-ops.el            — placeholder, flag disabled (provides 'my-ops)
   elisp/
@@ -63,7 +64,6 @@ no Spacemacs).  Every package solves a concrete problem.
     bootstrap-mail-config.sh — idempotent local mail bootstrap helper
     mail-auth-value      — authinfo reader for mbsync/msmtp password helpers
     mail-sync            — launchd-friendly mail sync/index helper
-    vcf-to-org-contacts.py — one-off VCF to org contact conversion helper
 ```
 
 ## Load Order
