@@ -39,6 +39,17 @@ def response(href, *props):
 </D:response>"""
 
 
+def response_status(href, status_text, *props):
+    return f"""
+<D:response>
+  <D:href>{href}</D:href>
+  <D:propstat>
+    <D:prop>{''.join(props)}</D:prop>
+    <D:status>{status_text}</D:status>
+  </D:propstat>
+</D:response>"""
+
+
 def test_parse_multistatus_extracts_href_status_and_props():
     xml = multistatus(
         response(
@@ -129,3 +140,59 @@ def test_carddav_client_discovers_addressbook_and_fetches_vcards():
     auth_header = session.calls[0][2]["headers"]["Authorization"]
     assert auth_header.startswith("Basic ")
     assert session.calls[-1][2]["headers"]["Depth"] == "1"
+
+
+def test_carddav_client_falls_back_when_well_known_has_no_principal():
+    session = FakeSession(
+        {
+            ("PROPFIND", "https://contacts.example/.well-known/carddav"): FakeResponse(
+                207,
+                multistatus(
+                    response_status(
+                        "/.well-known/carddav/",
+                        "HTTP/1.1 404 Not Found",
+                        "<D:current-user-principal />",
+                    )
+                ),
+            ),
+            ("PROPFIND", "https://contacts.example/"): FakeResponse(
+                207,
+                multistatus(
+                    response(
+                        "/",
+                        "<D:current-user-principal><D:href>/principal/</D:href></D:current-user-principal>",
+                    )
+                ),
+            ),
+            ("PROPFIND", "https://contacts.example/principal/"): FakeResponse(
+                207,
+                multistatus(
+                    response(
+                        "/principal/",
+                        "<C:addressbook-home-set><D:href>/addressbooks/</D:href></C:addressbook-home-set>",
+                    )
+                ),
+            ),
+            ("PROPFIND", "https://contacts.example/addressbooks/"): FakeResponse(
+                207,
+                multistatus(
+                    response(
+                        "/addressbooks/card/",
+                        "<D:displayname>Contacts</D:displayname>",
+                        "<D:resourcetype><D:collection /><C:addressbook /></D:resourcetype>",
+                    )
+                ),
+            ),
+        }
+    )
+    client = CardDAVClient(
+        "https://contacts.example",
+        "user@example.com",
+        "app-password",
+        session=session,
+    )
+
+    [book] = client.addressbooks()
+
+    assert book.url == "https://contacts.example/addressbooks/card/"
+    assert session.calls[1][1] == "https://contacts.example/"

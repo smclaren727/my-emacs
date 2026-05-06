@@ -178,7 +178,12 @@ class CardDAVClient:
         response = self._request("PROPFIND", well_known, body=body, depth="0")
         if 300 <= response.status_code < 400 and response.headers.get("Location"):
             return urljoin(self.server_url, response.headers["Location"])
-        return well_known if response.status_code == 207 else self.server_url
+        if response.status_code == 207:
+            responses = parse_multistatus(response.text)
+            for entry in responses:
+                if entry.ok and entry.props.get("current-user-principal"):
+                    return well_known
+        return self.server_url
 
     def principal_url(self, root_url):
         responses = self._propfind(
