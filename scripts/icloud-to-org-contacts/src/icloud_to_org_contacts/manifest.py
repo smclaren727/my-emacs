@@ -23,7 +23,7 @@ MANIFEST_VERSION = 1
 # Schema version of the on-disk Org note shape produced by orgnote.py.
 # Bump when build_org_note's output format changes (new keys, renamed
 # keys, different drawer layout) so existing contacts get rewritten.
-OUTPUT_SCHEMA_VERSION = "v1-parser-vobject"
+OUTPUT_SCHEMA_VERSION = "v2-single-line-properties"
 
 # vCard fields whose values change on every Apple Contacts re-export
 # even when nothing of substance changed. Excluded from content hash.

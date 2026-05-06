@@ -37,6 +37,11 @@ def unique_filepath(directory, basename, suffix=".org"):
     return path
 
 
+def _property_value(value):
+    """Return VALUE as one physical line for an Org property drawer."""
+    return re.sub(r"\s+", " ", str(value)).strip()
+
+
 def find_existing_note(output_dir, vcard_uid):
     """Find an existing contact note matching a vCard UID."""
     if not vcard_uid or not output_dir.exists():
@@ -315,7 +320,7 @@ def format_org_note(drawer_pairs, fn, *, body="", vcard_note="", filetags=None):
 
     lines = [":PROPERTIES:"]
     for key, value in drawer_pairs:
-        lines.append(f":{key}: {value}".rstrip())
+        lines.append(f":{key}: {_property_value(value)}".rstrip())
     lines.append(":END:")
     lines.append(f"#+title: {fn}")
     lines.append(f"#+filetags: {filetag_line}")

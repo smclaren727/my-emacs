@@ -123,6 +123,29 @@ def test_vcard_parser_handles_folding_and_comma_type_params(tmp_path):
     assert ":ADDRESS_HOME: 123 Long Street Continued, Town, ST, 12345, USA\n" in note
 
 
+def test_property_drawer_values_are_single_line(tmp_path):
+    vcf = write_vcf(
+        tmp_path / "contacts.vcf",
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "UID:person-multiline-address",
+        "FN:Multiline Address",
+        r"ADR;TYPE=WORK:;;605 Highway 169 N\nSuite 400;Minneapolis;MN;55441;",
+        "END:VCARD",
+    )
+    output_dir = tmp_path / "out"
+
+    run_cli(vcf, "-o", output_dir)
+
+    note = (output_dir / "multiline-address.org").read_text(encoding="utf-8")
+    assert (
+        ":ADDRESS_WORK: 605 Highway 169 N Suite 400, Minneapolis, MN, 55441\n"
+        in note
+    )
+    drawer = note.split(":END:", 1)[0]
+    assert "\nSuite 400" not in drawer
+
+
 def test_vcard_parser_uses_structured_name_when_fn_is_missing(tmp_path):
     vcf = write_vcf(
         tmp_path / "contacts.vcf",
