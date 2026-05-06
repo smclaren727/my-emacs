@@ -1,6 +1,16 @@
+from uuid import UUID
+
 from icloud_to_org_contacts.manifest import load_manifest
 
 from conftest import run_cli, write_vcf
+
+
+def assert_org_id_property(note):
+    for line in note.splitlines():
+        if line.startswith(":ID: "):
+            UUID(line.removeprefix(":ID: ").strip())
+            return
+    raise AssertionError("Org ID property missing")
 
 
 def test_vcf_import_emits_org_property_drawer(tmp_path):
@@ -31,6 +41,7 @@ def test_vcf_import_emits_org_property_drawer(tmp_path):
     assert "Done: 1 created" in result.stdout
     note = (output_dir / "alice-smith.org").read_text(encoding="utf-8")
     assert note.startswith(":PROPERTIES:\n")
+    assert_org_id_property(note)
     assert ":VCARD_UID: person-1\n" in note
     assert ":NICKNAME: Al\n" in note
     assert ":EMAIL_WORK: alice@example.com\n" in note
@@ -47,6 +58,8 @@ def test_vcf_import_emits_org_property_drawer(tmp_path):
     assert "#+filetags: :contact:\n" in note
     assert "#+begin_src" not in note
     assert "Line one\nLine two" in note
+    manifest = load_manifest(output_dir)
+    assert manifest["contacts"]["person-1"]["emitted_keys"][0] == "ID"
 
 
 def test_reimport_preserves_user_drawer_keys_and_body(tmp_path):

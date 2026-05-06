@@ -1,6 +1,16 @@
+from uuid import UUID
+
 from icloud_to_org_contacts import cli
 from icloud_to_org_contacts.carddav import DAVCard
 from icloud_to_org_contacts.manifest import load_manifest
+
+
+def assert_org_id_property(note):
+    for line in note.splitlines():
+        if line.startswith(":ID: "):
+            UUID(line.removeprefix(":ID: ").strip())
+            return
+    raise AssertionError("Org ID property missing")
 
 
 class FakeCardDAVClient:
@@ -68,6 +78,7 @@ def test_sync_carddav_writes_vcard_url_etag_and_properties(monkeypatch, tmp_path
     ])
 
     note = (tmp_path / "alice-carddav.org").read_text(encoding="utf-8")
+    assert_org_id_property(note)
     assert ":VCARD_UID: alice\n" in note
     assert ":VCARD_URL: https://contacts.example/card/alice.vcf\n" in note
     assert ":EMAIL_WORK: alice@example.com\n" in note
@@ -76,6 +87,7 @@ def test_sync_carddav_writes_vcard_url_etag_and_properties(monkeypatch, tmp_path
     entry = manifest["contacts"]["alice"]
     assert entry["etag"] == '"etag-1"'
     assert entry["url"] == "https://contacts.example/card/alice.vcf"
+    assert entry["emitted_keys"][0] == "ID"
     assert entry["emitted_tags"] == ["team"]
     assert FakeCardDAVClient.calls[0]["username"] == "alice@example.com"
     assert FakeCardDAVClient.calls[0]["password"] == "app-pass"
