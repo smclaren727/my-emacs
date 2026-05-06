@@ -81,8 +81,8 @@
   (org-blank-before-new-entry '((heading . always)
                                 (plain-list-item . nil)))
 
-  ;; Show one blank line between headings when the outline is folded.
-  (org-cycle-separator-lines 1)
+  ;; Show blank lines between headings when the outline is folded.
+  (org-cycle-separator-lines 2)
 
   ;; Use a visible folded-subtree indicator.
   (org-ellipsis " ▼")
