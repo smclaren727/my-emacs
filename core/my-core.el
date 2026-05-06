@@ -124,6 +124,19 @@
 ;; (elfeed-protocol, mail clients).  Falls back to plaintext.
 (setq auth-sources '("~/.authinfo.gpg" "~/.authinfo"))
 
+;; GUI Emacs does not have a useful controlling terminal for GPG's
+;; default pinentry flow.  Loopback lets EasyPG prompt in Emacs
+;; instead, provided gpg-agent allows loopback pinentry.
+(use-package epg
+  :ensure nil
+  :custom
+  (epg-pinentry-mode 'loopback))
+
+(use-package epa-file
+  :ensure nil
+  :config
+  (epa-file-enable))
+
 ;;; External tool check ------------------------------------------------
 ;; Warn at startup if expected external tools are missing.
 (defvar my-core--expected-tools '("curl" "pandoc" "rg")
