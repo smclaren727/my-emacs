@@ -1,0 +1,18 @@
+[project]
+name = "icloud-to-org-contacts"
+version = "0.1.0"
+description = "Import iCloud and vCard contacts into Org-mode contact notes."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Sean McLaren" }
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
