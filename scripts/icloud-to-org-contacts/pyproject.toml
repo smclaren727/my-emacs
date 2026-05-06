@@ -9,6 +9,8 @@ authors = [
   { name = "Sean McLaren" }
 ]
 dependencies = [
+  "defusedxml>=0.7.1",
+  "requests>=2.32",
   "vobject>=0.9.9",
 ]
 
