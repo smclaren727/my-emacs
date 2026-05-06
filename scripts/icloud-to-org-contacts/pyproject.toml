@@ -8,6 +8,9 @@ license = { text = "MIT" }
 authors = [
   { name = "Sean McLaren" }
 ]
+dependencies = [
+  "vobject>=0.9.9",
+]
 
 [project.optional-dependencies]
 test = [

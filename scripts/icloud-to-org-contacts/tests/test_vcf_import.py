@@ -17,6 +17,8 @@ def test_vcf_import_emits_org_property_drawer(tmp_path):
         "TITLE:Engineer",
         "item1.ADR;TYPE=HOME:;;100 Main St;Springfield;IL;62701;USA",
         "item1.X-ABLABEL:_$!<Home>!$_",
+        "item2.X-ABRELATEDNAMES:Bob Smith",
+        "item2.X-ABLABEL:_$!<Spouse>!$_",
         "URL;TYPE=HOME:https://alice.example.com",
         "BDAY:1985-04-12",
         r"NOTE:Line one\nLine two",
@@ -34,7 +36,9 @@ def test_vcf_import_emits_org_property_drawer(tmp_path):
     assert ":EMAIL_WORK: alice@example.com\n" in note
     assert ":PHONE_CELL: +15550001\n" in note
     assert ":COMPANY: Acme Corp\n" in note
+    assert ":DEPARTMENT: Platform\n" in note
     assert ":ROLE: Engineer\n" in note
+    assert ":RELATED_SPOUSE: Bob Smith\n" in note
     assert ":ADDRESS_HOME: 100 Main St, Springfield, IL, 62701, USA\n" in note
     assert ":URL_HOME: https://alice.example.com\n" in note
     assert ":BIRTHDAY: 1985-04-12\n" in note
@@ -81,6 +85,48 @@ def test_reimport_preserves_user_drawer_keys_and_body(tmp_path):
     assert ":EMAIL_WORK: bob@example.com\n" not in note
     assert ":USER_KEY: keep me\n" in note
     assert note.endswith("User-owned body.\n")
+
+
+def test_vcard_parser_handles_folding_and_comma_type_params(tmp_path):
+    vcf = write_vcf(
+        tmp_path / "contacts.vcf",
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "UID:person-folded",
+        "FN:Folded Person",
+        "EMAIL;TYPE=INTERNET,WORK:folded@example.com",
+        "TEL;TYPE=CELL,VOICE:+15551234567",
+        "ADR;TYPE=HOME:;;123 Long Street ",
+        " Continued;Town;ST;12345;USA",
+        "END:VCARD",
+    )
+    output_dir = tmp_path / "out"
+
+    run_cli(vcf, "-o", output_dir)
+
+    note = (output_dir / "folded-person.org").read_text(encoding="utf-8")
+    assert ":EMAIL_WORK: folded@example.com\n" in note
+    assert ":PHONE_CELL: +15551234567\n" in note
+    assert ":ADDRESS_HOME: 123 Long Street Continued, Town, ST, 12345, USA\n" in note
+
+
+def test_vcard_parser_uses_structured_name_when_fn_is_missing(tmp_path):
+    vcf = write_vcf(
+        tmp_path / "contacts.vcf",
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "UID:person-name",
+        "N:Doe;Jane;Q.;Dr.;PhD",
+        "EMAIL;TYPE=HOME:jane@example.com",
+        "END:VCARD",
+    )
+    output_dir = tmp_path / "out"
+
+    run_cli(vcf, "-o", output_dir)
+
+    note = (output_dir / "dr-jane-q-doe-phd.org").read_text(encoding="utf-8")
+    assert "#+title: Dr. Jane Q. Doe PhD\n" in note
+    assert ":EMAIL_HOME: jane@example.com\n" in note
 
 
 def test_group_cards_emit_filetags_and_manifest(tmp_path):

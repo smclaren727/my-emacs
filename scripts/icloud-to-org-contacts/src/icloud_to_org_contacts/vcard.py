@@ -12,9 +12,8 @@ the group name so downstream code can look up the companion fields.
 """
 
 import hashlib
-import re
 
-_GROUP_RE = re.compile(r"^(item\d+)\.(.+)$", re.IGNORECASE)
+import vobject
 
 
 def split_contacts_and_groups(records):
@@ -75,30 +74,38 @@ def _strip_uri_scheme(value):
     return value
 
 
-def _extract_param(key_part, name):
-    """Return the value of a single vCard parameter (case-insensitive)."""
-    target = name.upper() + "="
-    for piece in key_part.upper().split(";")[1:]:
-        if piece.startswith(target):
-            return piece[len(target):]
+def _extract_param(params, name):
+    """Return the first value of a vCard parameter (case-insensitive)."""
+    target = name.upper()
+    for key, values in params.items():
+        if key.upper() != target:
+            continue
+        if isinstance(values, list):
+            return str(values[0]) if values else ""
+        return str(values)
     return ""
 
 
-def _extract_type(key_part):
+def _extract_type(params):
     """Extract a human-readable type label from vCard parameters.
 
-    e.g., 'TEL;type=CELL;type=VOICE;type=pref' -> 'cell'
-          'EMAIL;type=INTERNET;type=WORK'       -> 'work'
+    e.g., TYPE=CELL,VOICE -> 'cell'
+          TYPE=INTERNET,WORK -> 'work'
     Prefers meaningful labels (home, work, cell, mobile) over
     generic ones (voice, internet, pref).
     """
-    params = key_part.upper().split(";")[1:]
     types = []
-    for param in params:
-        if param.startswith("TYPE="):
-            types.append(param[5:].lower())
-        elif "=" not in param:
-            types.append(param.lower())
+    for key, values in params.items():
+        if key.upper() != "TYPE":
+            continue
+        if not isinstance(values, list):
+            values = [values]
+        for value in values:
+            types.extend(
+                piece.strip().lower()
+                for piece in str(value).split(",")
+                if piece.strip()
+            )
 
     meaningful = {"home", "work", "cell", "mobile", "main", "fax",
                   "iphone", "other", "school"}
@@ -108,103 +115,132 @@ def _extract_type(key_part):
     return ""
 
 
-def parse_vcards(vcf_path):
-    """Parse a .vcf file into a list of dicts, one per contact."""
+def _value_to_string(value):
+    """Return a stable vCard-ish string for simple and structured values."""
+    if hasattr(value, "family") and hasattr(value, "given"):
+        return ";".join([
+            value.family or "",
+            value.given or "",
+            value.additional or "",
+            value.prefix or "",
+            value.suffix or "",
+        ])
+    if isinstance(value, list):
+        return ";".join(str(v) for v in value)
+    return str(value)
+
+
+def _address_to_string(value):
+    """Return ADR as the seven semicolon-separated vCard fields."""
+    if hasattr(value, "street") and hasattr(value, "city"):
+        return ";".join([
+            value.box or "",
+            value.extended or "",
+            value.street or "",
+            value.city or "",
+            value.region or "",
+            value.code or "",
+            value.country or "",
+        ])
+    return str(value)
+
+
+def _name_to_full_name(value):
+    """Build FN fallback text from a structured N value."""
+    if not (hasattr(value, "family") and hasattr(value, "given")):
+        return ""
+    pieces = [
+        value.prefix,
+        value.given,
+        value.additional,
+        value.family,
+        value.suffix,
+    ]
+    return " ".join(str(p).strip() for p in pieces if str(p).strip())
+
+
+def parse_vcard_text(vcf_text):
+    """Parse vCard text into a list of dicts, one per contact."""
     contacts = []
-    current = {}
-    current_key = None
+    for component in vobject.readComponents(vcf_text):
+        contact = {}
 
-    with open(vcf_path, "r", encoding="utf-8") as f:
-        for raw_line in f:
-            line = raw_line.rstrip("\r\n")
+        for children in component.contents.values():
+            for child in children:
+                base_key = child.name.upper()
+                group = (getattr(child, "group", "") or "").lower()
+                params = getattr(child, "params", {}) or {}
 
-            if not line:
-                continue
+                if base_key == "PHOTO":
+                    continue
 
-            # Folded continuation lines start with space/tab
-            if line[0] in (" ", "\t") and current_key:
-                current[current_key] += line[1:]
-                continue
-
-            if line == "BEGIN:VCARD":
-                current = {}
-                current_key = None
-                continue
-
-            if line == "END:VCARD":
-                # Apple occasionally ships company-only contacts with
-                # FN unset. Fall back to NICKNAME, then to the org
-                # name, before deciding whether to keep the contact.
-                if not current.get("FN"):
-                    fallback = (
-                        current.get("NICKNAME", "").strip()
-                        or (current.get("ORG", "").split(";")[0].strip()
-                            if current.get("ORG") else "")
+                if base_key in ("TEL", "EMAIL", "URL"):
+                    existing = contact.get(base_key, [])
+                    existing.append(
+                        (_extract_type(params), _value_to_string(child.value), group)
                     )
-                    if fallback:
-                        current["FN"] = fallback
-                if current.get("FN"):
-                    if not current.get("UID"):
-                        current["UID"] = synthesize_uid(current)
-                    contacts.append(current)
-                current = {}
-                current_key = None
-                continue
+                    contact[base_key] = existing
+                elif base_key == "ADR":
+                    existing = contact.get(base_key, [])
+                    existing.append(
+                        (_extract_type(params), _address_to_string(child.value), group)
+                    )
+                    contact[base_key] = existing
+                elif base_key == "IMPP":
+                    service = _extract_param(params, "X-SERVICE-TYPE")
+                    impp_list = contact.setdefault("_impp", [])
+                    impp_list.append((service, _strip_uri_scheme(str(child.value))))
+                elif base_key == "X-SOCIALPROFILE":
+                    network = _extract_param(params, "type")
+                    social_list = contact.setdefault("_social", [])
+                    social_list.append((network, _strip_uri_scheme(str(child.value))))
+                elif base_key == "X-ABRELATEDNAMES":
+                    related_list = contact.setdefault("_related", [])
+                    related_list.append((group, _value_to_string(child.value)))
+                elif base_key == "X-ADDRESSBOOKSERVER-MEMBER":
+                    members = contact.setdefault("_members", [])
+                    members.append(_value_to_string(child.value))
+                elif base_key == "X-ABDATE":
+                    groups = contact.setdefault("_groups", {})
+                    date_group = group or f"date{len(groups) + 1}"
+                    groups.setdefault(date_group, {})[base_key] = _value_to_string(
+                        child.value
+                    )
+                elif group:
+                    groups = contact.setdefault("_groups", {})
+                    groups.setdefault(group, {})[base_key] = _value_to_string(
+                        child.value
+                    )
+                else:
+                    contact[base_key] = _value_to_string(child.value)
+                    if base_key == "N" and not contact.get("_N_FULL_NAME"):
+                        contact["_N_FULL_NAME"] = _name_to_full_name(child.value)
 
-            if ":" not in line:
-                continue
+        # Apple occasionally ships company-only contacts with FN unset.
+        # Fall back to NICKNAME, N, then the organization name.
+        if not contact.get("FN"):
+            fallback = (
+                contact.get("NICKNAME", "").strip()
+                or contact.get("_N_FULL_NAME", "").strip()
+                or (contact.get("ORG", "").split(";")[0].strip()
+                    if contact.get("ORG") else "")
+            )
+            if fallback:
+                contact["FN"] = fallback
+        contact.pop("_N_FULL_NAME", None)
 
-            key_part, value = line.split(":", 1)
-
-            # Strip itemN. group prefix (Apple grouping mechanism).
-            group = ""
-            m = _GROUP_RE.match(key_part)
-            if m:
-                group = m.group(1).lower()
-                key_part = m.group(2)
-
-            base_key = key_part.split(";")[0].upper()
-
-            # Skip binary blobs (photos)
-            if "ENCODING=b" in key_part or "ENCODING=B" in key_part:
-                current_key = None
-                continue
-
-            if base_key in ("TEL", "EMAIL", "ADR", "URL"):
-                type_label = _extract_type(key_part)
-                existing = current.get(base_key, [])
-                existing.append((type_label, value, group))
-                current[base_key] = existing
-            elif base_key == "IMPP":
-                # X-SERVICE-TYPE names the messaging service (Skype,
-                # iMessage, etc.); xmpp:/x-apple: schemes are stripped.
-                service = _extract_param(key_part, "X-SERVICE-TYPE")
-                impp_list = current.setdefault("_impp", [])
-                impp_list.append((service, _strip_uri_scheme(value)))
-            elif base_key == "X-SOCIALPROFILE":
-                # type= names the social network (twitter, linkedin, ...).
-                network = _extract_param(key_part, "type")
-                social_list = current.setdefault("_social", [])
-                social_list.append((network, _strip_uri_scheme(value)))
-            elif base_key == "X-ADDRESSBOOKSERVER-MEMBER":
-                # Group cards list members on multiple lines; collect
-                # them all under _members so split_contacts_and_groups
-                # can build the membership index.
-                members = current.setdefault("_members", [])
-                members.append(value)
-            elif group:
-                # Grouped non-multi-value key (X-ABLABEL, X-ABADR, etc.)
-                # — store under _groups so it can be looked up later.
-                groups = current.setdefault("_groups", {})
-                groups.setdefault(group, {})[base_key] = value
-                current_key = None
-                continue
-            else:
-                current[base_key] = value
-
-            current_key = base_key
+        if contact.get("FN"):
+            if not contact.get("UID"):
+                contact["UID"] = synthesize_uid(contact)
+            contacts.append(contact)
 
     return contacts
+
+
+def parse_vcards(vcf_path):
+    """Parse a .vcf file into a list of dicts, one per contact."""
+    with open(vcf_path, "r", encoding="utf-8") as f:
+        return parse_vcard_text(f.read())
 
 
 def format_phone(phone):
