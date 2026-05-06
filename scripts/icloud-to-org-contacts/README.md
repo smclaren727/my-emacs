@@ -1,111 +1,134 @@
 # icloud-to-org-contacts
 
-Import Apple/iCloud or generic CardDAV contacts into Org-mode contact
-notes. The project is inspired by
-[obsidian-icloud-contacts](https://github.com/Trulsaa/obsidian-icloud-contacts),
-but uses Org property drawers, filetags, and `org-id` instead of
-Obsidian frontmatter and wikilinks.
+Import Apple/iCloud or generic CardDAV contacts into Org-mode notes.
 
-The importer supports both local `.vcf` exports and live read-only
-CardDAV sync. It never embeds raw vCard payloads in Org files; parsed
-contact fields become drawer properties, and server metadata stays in
-the manifest except for the visible `:VCARD_URL:` property.
+The tool can import local `.vcf` exports or sync read-only from a
+CardDAV server. Each contact becomes one `.org` file with an Org
+property drawer, a stable `:ID:`, and contact filetags.
 
 ## Features
 
-- Import single `.vcf` files, multi-contact `.vcf` files, or directories
-  of `.vcf` files.
-- Sync read-only contacts from iCloud, Nextcloud, or another CardDAV
-  server.
-- Emit one `<sanitized-name>.org` per contact with stable Org property
-  drawers and `#+filetags:`.
-- Preserve user-owned drawer keys, body content, and hand-added
-  filetags across re-imports.
-- Track per-contact content hashes, CardDAV ETags, URLs, emitted
-  drawer keys, and emitted tags in `.import-state.json`.
-- Archive contacts absent from a full run into `<output_dir>/Archive/`
-  with `:STATUS: archived`; resurrect them if they return.
-- Log per-contact failures to `<output_dir>/errors.org`.
+- Import one `.vcf` file, many `.vcf` files, or a directory of `.vcf`
+  files.
+- Sync contacts from iCloud, Nextcloud, or another CardDAV server.
+- Write one Org note per contact using properties instead of embedded
+  raw vCard data.
+- Preserve user-added drawer properties, body text, and filetags across
+  re-imports.
+- Archive contacts that disappear from a full sync and restore them if
+  they return.
 
 ## Install
 
 From this directory:
 
 ```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install -e .
+```
+
+For development and tests:
+
+```sh
 python3 -m pip install -e ".[test]"
+python3 -m pytest
 ```
 
-That installs the `icloud-to-org-contacts` console command and the test
-dependencies. For runtime-only use, `python3 -m pip install -e .` is
-enough.
+The install provides the `icloud-to-org-contacts` command.
 
-## Usage
+## Configure CardDAV Credentials
 
-### VCF Import
-
-```sh
-# Single file
-icloud-to-org-contacts import-vcf /path/to/contacts.vcf
-
-# Multiple files
-icloud-to-org-contacts import-vcf file1.vcf file2.vcf
-
-# Directory of .vcf files, non-recursive
-icloud-to-org-contacts import-vcf ~/Downloads/icloud-export/
-
-# Custom output dir
-icloud-to-org-contacts import-vcf contacts.vcf -o ~/notes/contacts/
-
-# Partial import: do not archive contacts missing from this run
-icloud-to-org-contacts import-vcf one-new-contact.vcf --no-archive
-```
-
-The legacy checkout wrapper still works after installing dependencies:
-
-```sh
-python3 vcf-to-org-contacts.py /path/to/contacts.vcf
-```
-
-### CardDAV Sync
-
-Credentials are read from `~/.authinfo.gpg` or `~/.authinfo`. For iCloud,
-use an Apple ID plus an app-specific password:
+Credentials are read from `~/.authinfo.gpg` or `~/.authinfo`. For
+iCloud, use your Apple ID and an app-specific password:
 
 ```text
 machine contacts.icloud.com login you@example.com password app-specific-password
 ```
 
-Then sync:
+Plain `~/.authinfo` works, but encrypted `~/.authinfo.gpg` is strongly
+preferred.
+
+## Quick Start
+
+Import a local vCard export:
 
 ```sh
-icloud-to-org-contacts sync-carddav
+icloud-to-org-contacts import-vcf ~/Downloads/contacts.vcf -o ~/notes/Contacts
 ```
 
-Useful options:
+Sync from iCloud/CardDAV:
 
 ```sh
-# Custom server, for example Nextcloud
-icloud-to-org-contacts sync-carddav --server-url https://cloud.example.com/remote.php/dav
+icloud-to-org-contacts sync-carddav -o ~/notes/Contacts
+```
+
+List available CardDAV groups:
+
+```sh
+icloud-to-org-contacts list-groups
+```
+
+Use `--help` on the main command or any subcommand to see all options:
+
+```sh
+icloud-to-org-contacts --help
+icloud-to-org-contacts sync-carddav --help
+```
+
+## Common Options
+
+```sh
+# Sync from a non-iCloud CardDAV endpoint
+icloud-to-org-contacts sync-carddav \
+  --server-url https://cloud.example.com/remote.php/dav
 
 # Use a specific authinfo machine name
 icloud-to-org-contacts sync-carddav --auth-machine contacts.icloud.com
 
-# Rewrite all contacts even if ETags match
+# Rewrite every managed contact
 icloud-to-org-contacts sync-carddav --full-refresh
 
-# Restrict to selected group names or UIDs; repeatable
-icloud-to-org-contacts sync-carddav --group Family --group group-uuid
+# Import a one-off VCF without archiving missing contacts
+icloud-to-org-contacts import-vcf one-contact.vcf --no-archive
 
-# List available groups as UID, name, member count
-icloud-to-org-contacts list-groups
+# Sync only selected CardDAV groups by exact name or UID
+icloud-to-org-contacts sync-carddav --group Family --group group-uid
 ```
 
-`--username` and `--password` exist for testing or one-off use, but
-authinfo is preferred so secrets do not appear in shell history.
+`--username` and `--password` are available for diagnostics and tests,
+but authinfo is preferred for real use so secrets do not appear in shell
+history.
 
-### Emacs
+## Output
 
-`modules/my-contacts.el` adds interactive commands:
+A generated contact note looks like this:
+
+```org
+:PROPERTIES:
+:ID: 4c6f4ea6-df6c-4d27-bdcf-7f3126c4a7c5
+:VCARD_UID: contact-upstream-id
+:VCARD_URL: https://contacts.icloud.com/...
+:EMAIL_WORK: alice@example.com
+:PHONE_CELL: +15550001
+:COMPANY: Acme Corp
+:END:
+#+title: Alice Smith
+#+filetags: :contact:
+```
+
+The importer stores sync state in `.import-state.json` in the output
+directory. Do not edit that file unless you intend to reset or repair
+import state.
+
+See [docs/reference.md](docs/reference.md) for the full output contract,
+manifest details, archive behavior, Apple Contacts quirks, and project
+architecture.
+
+## Emacs
+
+The parent Emacs configuration includes `modules/my-contacts.el`, which
+exposes these commands:
 
 ```text
 M-x my-contacts-import-vcf
@@ -113,131 +136,24 @@ M-x my-contacts-sync-carddav
 M-x my-contacts-list-carddav-groups
 ```
 
-The module prefers an installed `icloud-to-org-contacts` executable and
-falls back to the checkout wrapper. Output appears in `*contacts-import*`.
+That wrapper prefers an installed `icloud-to-org-contacts` executable
+and falls back to the checkout wrapper. Output appears in the
+`*contacts-import*` buffer.
 
-Key variables:
-
-- `my-contacts-output-dir`
-- `my-contacts-carddav-server-url`
-- `my-contacts-carddav-auth-machine`
-- `my-contacts-carddav-groups`
-
-## Output Format
-
-Each contact becomes one `.org` file:
-
-```org
-:PROPERTIES:
-:ID: <org-id-uuid>
-:VCARD_UID: <real-or-synth-uid>
-:VCARD_URL: https://contacts.icloud.com/...
-:NICKNAME: Alex
-:EMAIL_HOME: alice@example.com
-:EMAIL_WORK: alice@work.com
-:PHONE_CELL: +15550001
-:IM_SKYPE: alice-skype
-:SOCIAL_TWITTER: https://twitter.com/alice
-:RELATED_SPOUSE: Bob Smith
-:COMPANY: Acme Corp
-:DEPARTMENT: Platform
-:ROLE: Engineer
-:ADDRESS_HOME: 100 Main St, Springfield, IL, 62701, USA
-:URL_HOME: https://alice.example.com
-:BIRTHDAY: 1985-04-12
-:DATE_ANNIVERSARY: 2010-06-15
-:NOTE: One-line flattened summary of the vCard NOTE
-:END:
-#+title: Alice Smith
-#+filetags: :contact:family:work:
-
-body text is user-owned after first import
-```
-
-Drawer order is stable: identity, contact methods, IM/social/related,
-employment, location, date fields, and NOTE summary.
-
-## Architecture
+Some Emacs configurations hide Org property drawers by default. If a
+generated note looks empty, reveal drawers with your normal Org folding
+commands or with the helper from this Emacs config:
 
 ```text
-scripts/icloud-to-org-contacts/
-  pyproject.toml
-  vcf-to-org-contacts.py
-  src/icloud_to_org_contacts/
-    authinfo.py
-    carddav.py
-    cli.py
-    lifecycle.py
-    manifest.py
-    orgnote.py
-    vcard.py
-  tests/
+M-x my-org-show-property-drawers
 ```
 
-The CardDAV client is read-only. The importer writes only Org notes,
-`errors.org`, `Archive/`, and `.import-state.json` under the configured
-output directory.
+## Limits
 
-## Manifest
-
-State lives at `<output_dir>/.import-state.json`:
-
-```json
-{
-  "version": 1,
-  "last_run": "2026-05-05T19:24:04+00:00",
-  "output_settings_hash": "sha256...",
-  "contacts": {
-    "<vcard_uid>": {
-      "path": "alice-smith.org",
-      "content_hash": "sha256...",
-      "etag": "\"abc123\"",
-      "url": "https://contacts.icloud.com/...",
-      "emitted_keys": ["ID", "VCARD_UID", "EMAIL_HOME"],
-      "emitted_tags": ["family"],
-      "archived": false
-    }
-  }
-}
-```
-
-`emitted_keys` and `emitted_tags` power the 3-way merges that preserve
-user-owned Org metadata while allowing the importer to remove stale
-fields or group tags it previously emitted.
-
-## Apple Quirks Handled
-
-- Missing UIDs in macOS `.vcf` exports get a synthetic `synth-<hash>`
-  UID from stable contact fields.
-- Folded vCard lines and comma-style `TYPE=INTERNET,WORK` parameters
-  are parsed via `vobject`.
-- Apple `itemN.` grouped fields preserve custom labels such as Spouse
-  or Bestie.
-- Apple's `1604-` omit-year sentinel becomes Org's `--MM-DD` shape.
-- Address Book group cards become contact filetags.
-- `xmpp:` and `x-apple:` prefixes are stripped from IMPP/social values.
-- Volatile fields such as `REV`, `PRODID`, `PHOTO`, and `VERSION` are
-  ignored for content-hash dirty checks.
-
-## Known Limits
-
-- The sync is one-way into Org; it does not write changes back to
+- Sync is one-way into Org; it never writes contact changes back to
   CardDAV.
-- Synthetic UIDs from VCF exports can change if the name, structured
-  name, phone list, or email list changes. CardDAV URLs/ETags avoid
-  this for live sync.
 - Photos are intentionally dropped.
-- Related names are plain `RELATED_*` properties, not automatic
-  `org-id` links.
-- The full vCard NOTE is written into the body on first import only;
-  later upstream NOTE changes update the `:NOTE:` drawer summary.
-
-## Testing
-
-```sh
-python3 -m pip install -e ".[test]"
-python3 -m pytest
-```
-
-Tests use synthetic vCards and mocked CardDAV responses so personal
-contact data never needs to be committed.
+- Related names are plain `RELATED_*` properties, not automatic Org
+  links.
+- The full vCard note body is written only on first import. Later
+  upstream note changes update the one-line `:NOTE:` property summary.
