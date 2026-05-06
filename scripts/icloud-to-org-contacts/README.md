@@ -105,12 +105,12 @@ authinfo is preferred so secrets do not appear in shell history.
 
 ### Emacs
 
-`modules/my-contacts.el` adds:
+`modules/my-contacts.el` adds interactive commands:
 
 ```text
-SPC SPC m i   import VCF file/directory
-SPC SPC m I   sync CardDAV contacts
-SPC SPC m G   list CardDAV groups
+M-x my-contacts-import-vcf
+M-x my-contacts-sync-carddav
+M-x my-contacts-list-carddav-groups
 ```
 
 The module prefers an installed `icloud-to-org-contacts` executable and
