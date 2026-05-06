@@ -1,30 +1,24 @@
 #!/usr/bin/env python3
-"""Import Apple Contacts vCard exports into plain Org contact notes.
-
-Usage:
-    vcf-to-org-contacts.py <input>... [-o OUTPUT_DIR] [--no-archive]
-
-Each <input> is either a .vcf file or a directory containing .vcf
-files (globbed non-recursively). Multiple positional arguments are
-accepted; their parsed contacts are unioned and treated as the
-authoritative dataset for the deletion sweep.
-
-Output defaults to ~/All-The-Things/50-Resources/Contacts/.
-
-On re-import, matches contacts by vCard UID. Updates properties and
-title but preserves any body text and any hand-added drawer keys.
-
-A manifest file (.import-state.json) in the output directory tracks
-per-contact content hashes so unchanged contacts are skipped.
-"""
+"""CLI for importing vCard/CardDAV contacts into Org notes."""
 
 import argparse
 import sys
 import uuid
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
 
-from .vcard import parse_vcards, split_contacts_and_groups
+from .authinfo import CredentialError, load_authinfo_credential
+from .carddav import CardDAVClient, CardDAVError
+from .lifecycle import archive_contact, resurrect_contact
+from .manifest import (
+    content_hash,
+    load_manifest,
+    make_entry,
+    output_settings_hash,
+    save_manifest,
+)
 from .orgnote import (
     build_drawer_pairs,
     build_org_note,
@@ -39,28 +33,25 @@ from .orgnote import (
     sanitize_filename,
     unique_filepath,
 )
-from .manifest import (
-    content_hash,
-    load_manifest,
-    make_entry,
-    output_settings_hash,
-    save_manifest,
-)
-from .lifecycle import archive_contact, resurrect_contact
+from .vcard import parse_vcard_text, parse_vcards, split_contacts_and_groups
 
 
 DEFAULT_OUTPUT_DIR = Path.home() / "All-The-Things" / "50-Resources" / "Contacts"
+DEFAULT_CARDDAV_URL = "https://contacts.icloud.com"
 ERRORS_FILENAME = "errors.org"
+COMMANDS = {"import-vcf", "sync-carddav", "list-groups"}
+
+
+@dataclass(frozen=True)
+class SourceMeta:
+    """Metadata for one upstream vCard resource."""
+
+    etag: str = ""
+    url: str = ""
 
 
 def _append_error(output_dir, heading, exception, data=None):
-    """Append a heading describing a per-contact failure to errors.org.
-
-    The file is created on first write with a small header. Subsequent
-    failures append additional `* date - heading` sections containing
-    the exception type, message, and an example block dumping the
-    contact data for debugging.
-    """
+    """Append a heading describing a per-contact failure to errors.org."""
     errors_path = output_dir / ERRORS_FILENAME
     is_new = not errors_path.exists()
     today = date.today().isoformat()
@@ -70,7 +61,7 @@ def _append_error(output_dir, heading, exception, data=None):
         chunk.append("#+title: Contact import errors")
         chunk.append("#+filetags: :contacts-errors:")
         chunk.append("")
-    chunk.append(f"* {today} — {heading}")
+    chunk.append(f"* {today} - {heading}")
     chunk.append(f"  {type(exception).__name__}: {exception}")
     if data is not None:
         chunk.append("")
@@ -85,18 +76,12 @@ def _append_error(output_dir, heading, exception, data=None):
 
 
 def _resolve_inputs(raw_inputs):
-    """Expand each positional argument into a list of .vcf file paths.
-
-    A directory contributes its top-level *.vcf files (sorted, not
-    recursive); a regular file contributes itself. Missing paths or
-    directories with no .vcf files raise SystemExit.
-    """
+    """Expand each positional argument into a list of .vcf file paths."""
     paths = []
     for raw in raw_inputs:
         p = Path(raw)
         if not p.exists():
-            print(f"Error: {p} not found")
-            sys.exit(1)
+            raise SystemExit(f"Error: {p} not found")
         if p.is_dir():
             found = sorted(p.glob("*.vcf"))
             if not found:
@@ -105,38 +90,105 @@ def _resolve_inputs(raw_inputs):
         else:
             paths.append(p)
     if not paths:
-        print("Error: no input VCF files")
-        sys.exit(1)
+        raise SystemExit("Error: no input VCF files")
     return paths
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Import Apple Contacts vCard exports into Org notes.",
-    )
-    parser.add_argument(
-        "inputs",
-        nargs="+",
-        help="One or more .vcf files or directories containing them.",
-    )
-    parser.add_argument(
-        "-o", "--output-dir",
-        default=str(DEFAULT_OUTPUT_DIR),
-        help="Output directory for Org notes (default: %(default)s).",
-    )
-    parser.add_argument(
-        "--no-archive",
-        action="store_true",
-        help="Do not archive contacts that are absent from this run. "
-             "Use for partial / incremental imports against an "
-             "existing dataset.",
-    )
-    args = parser.parse_args()
+def _records_from_vcf_paths(vcf_paths):
+    """Parse VCF files, de-duping records by UID with last-seen wins."""
+    by_uid = {}
+    extras = []
+    for vcf_path in vcf_paths:
+        these = parse_vcards(str(vcf_path))
+        print(f"Parsed {len(these)} records from {vcf_path.name}")
+        for record in these:
+            uid = record.get("UID", "")
+            if uid:
+                by_uid[uid] = record
+            else:
+                extras.append(record)
+    return list(by_uid.values()) + extras
 
-    output_dir = Path(args.output_dir)
-    vcf_paths = _resolve_inputs(args.inputs)
 
+def _records_from_dav_cards(cards):
+    """Parse fetched CardDAV cards into records and UID metadata."""
+    by_uid = {}
+    extras = []
+    metadata_by_uid = {}
+    for card in cards:
+        for record in parse_vcard_text(card.data):
+            uid = record.get("UID", "")
+            if uid:
+                by_uid[uid] = record
+                metadata_by_uid[uid] = SourceMeta(etag=card.etag, url=card.url)
+            else:
+                extras.append(record)
+    return list(by_uid.values()) + extras, metadata_by_uid
+
+
+def _member_uid(member_uri):
+    return member_uri.replace("urn:uuid:", "").strip()
+
+
+def _group_records(records):
+    return [
+        record for record in records
+        if record.get("X-ADDRESSBOOKSERVER-KIND") == "group"
+    ]
+
+
+def _filter_records_by_groups(records, selectors):
+    """Return only contacts and group cards selected by UID or name."""
+    wanted = {selector.strip() for selector in selectors if selector.strip()}
+    if not wanted:
+        return records
+
+    selected_groups = [
+        group for group in _group_records(records)
+        if group.get("UID") in wanted or group.get("FN") in wanted
+    ]
+    selected_contact_uids = {
+        _member_uid(member)
+        for group in selected_groups
+        for member in group.get("_members", [])
+        if _member_uid(member)
+    }
+    return [
+        record for record in records
+        if (
+            record in selected_groups
+            or (
+                record.get("X-ADDRESSBOOKSERVER-KIND") != "group"
+                and record.get("UID") in selected_contact_uids
+            )
+        )
+    ]
+
+
+def _source_unchanged(prev, chash, metadata):
+    if not prev:
+        return False
+    if metadata.etag:
+        return (
+            prev.get("etag") == metadata.etag
+            and prev.get("url") == metadata.url
+        )
+    return prev.get("content_hash") == chash
+
+
+def import_records(
+    records,
+    output_dir,
+    *,
+    no_archive=False,
+    force=False,
+    metadata_by_uid=None,
+    source_summary="",
+):
+    """Import parsed contact records into OUTPUT_DIR."""
+    output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    metadata_by_uid = metadata_by_uid or {}
 
     manifest = load_manifest(output_dir)
     settings_hash = output_settings_hash()
@@ -145,47 +197,19 @@ def main():
         and manifest["output_settings_hash"] != settings_hash
     )
     if settings_changed:
-        print("Output settings changed — rewriting all contacts.")
+        print("Output settings changed - rewriting all contacts.")
 
-    # Parse every input VCF and union the results. A contact appearing
-    # in multiple files (same UID) keeps its last-seen entry — newer
-    # exports win.
-    by_uid = {}
-    extras = []
-    for vcf_path in vcf_paths:
-        these = parse_vcards(str(vcf_path))
-        print(f"Parsed {len(these)} records from {vcf_path.name}")
-        for c in these:
-            uid = c.get("UID", "")
-            if uid:
-                by_uid[uid] = c
-            else:
-                # Should not happen post-2d-2 (synth-UID is always
-                # injected for FN-bearing contacts) but kept defensive.
-                extras.append(c)
-    records = list(by_uid.values()) + extras
-
-    # Split out group cards. `membership` maps each contact's UID to
-    # the list of groups it belongs to. When the import contains no
-    # group cards at all, membership is empty — we use that as a
-    # signal not to touch filetags on existing contact files (so a
-    # partial export doesn't blow away tags from an earlier full one).
     contacts, membership = split_contacts_and_groups(records)
-    have_group_data = any(
-        r.get("X-ADDRESSBOOKSERVER-KIND") == "group" for r in records
+    group_count = sum(
+        1 for record in records
+        if record.get("X-ADDRESSBOOKSERVER-KIND") == "group"
     )
-    print(f"Total: {len(contacts)} unique contacts, "
-          f"{sum(1 for r in records if r.get('X-ADDRESSBOOKSERVER-KIND') == 'group')} group cards "
-          f"across {len(vcf_paths)} file(s)")
+    have_group_data = group_count > 0
+    suffix = f" {source_summary}" if source_summary else ""
+    print(f"Total: {len(contacts)} unique contacts, {group_count} group cards{suffix}")
 
-    created = 0
-    updated = 0
-    unchanged = 0
-    skipped = 0
-    renamed = 0
-    archived = 0
-    resurrected = 0
-    errors = 0
+    created = updated = unchanged = skipped = 0
+    renamed = archived = resurrected = errors = 0
     today = date.today().isoformat()
 
     for contact in contacts:
@@ -197,6 +221,7 @@ def main():
         try:
             vcard_uid = contact.get("UID", "")
             chash = content_hash(contact)
+            metadata = metadata_by_uid.get(vcard_uid, SourceMeta())
             prev = manifest["contacts"].get(vcard_uid) if vcard_uid else None
             desired_emitted_tags = (
                 normalize_filetags(membership.get(vcard_uid, []))
@@ -208,9 +233,6 @@ def main():
                 and (prev.get("emitted_tags") or []) != desired_emitted_tags
             )
 
-            # Resurrect first: a previously-archived contact reappearing
-            # in the source is moved back out of Archive/ and gets archive
-            # markers stripped before the normal create/update flow runs.
             was_archived = bool(prev and prev.get("archived"))
             if was_archived:
                 archived_path = output_dir / prev["path"]
@@ -220,12 +242,13 @@ def main():
                     resurrected += 1
                 prev["archived"] = False
 
-            if (not was_archived
+            if (not force
+                    and not was_archived
                     and vcard_uid
                     and prev
                     and not settings_changed
                     and not tags_changed
-                    and prev.get("content_hash") == chash
+                    and _source_unchanged(prev, chash, metadata)
                     and (output_dir / prev["path"]).exists()):
                 unchanged += 1
                 continue
@@ -248,12 +271,13 @@ def main():
                 org_id = existing_id or str(uuid.uuid4())
                 existing_body = extract_body(existing_file)
 
-                new_pairs = build_drawer_pairs(contact, org_id, vcard_uid)
+                new_pairs = build_drawer_pairs(
+                    contact,
+                    org_id,
+                    vcard_uid,
+                    metadata.url,
+                )
 
-                # Migration: pre-2c manifests have empty emitted_keys. The
-                # safe heuristic is "anything in the drawer that we'd emit
-                # today was put there by us" — that way hand-added keys
-                # (which the current code wouldn't emit) are preserved.
                 old_emitted = (prev or {}).get("emitted_keys") or []
                 if not old_emitted and existing_pairs:
                     today_keys = {k for k, _ in new_pairs}
@@ -261,15 +285,11 @@ def main():
                     old_emitted = list(today_keys & drawer_keys)
 
                 merged_pairs = merge_drawer_pairs(
-                    existing_pairs, old_emitted, new_pairs
+                    existing_pairs,
+                    old_emitted,
+                    new_pairs,
                 )
 
-                # Filetags policy: when the import contains group cards we
-                # trust membership data and emit `:contact:<group-slugs>:`.
-                # When no group cards are present (partial export, etc.)
-                # we preserve whatever non-contact, non-archived tags are
-                # already on the file so a partial run doesn't blow them
-                # away.
                 if have_group_data:
                     new_filetags = desired_emitted_tags or []
                     existing_filetags = parse_existing_filetags(existing_file)
@@ -307,7 +327,11 @@ def main():
                 filetags = desired_emitted_tags if have_group_data else []
                 emitted_tags = list(filetags)
                 note_content, emitted_keys = build_org_note(
-                    contact, org_id, vcard_uid, filetags=filetags
+                    contact,
+                    org_id,
+                    vcard_uid,
+                    filetags=filetags,
+                    vcard_url=metadata.url,
                 )
                 filepath = unique_filepath(output_dir, sanitize_filename(fn))
 
@@ -319,6 +343,8 @@ def main():
                 manifest["contacts"][vcard_uid] = make_entry(
                     str(filepath.relative_to(output_dir)),
                     chash,
+                    etag=metadata.etag or None,
+                    url=metadata.url or None,
                     emitted_keys=emitted_keys,
                     emitted_tags=emitted_tags,
                 )
@@ -337,15 +363,10 @@ def main():
                 },
             )
 
-    # Deletion sweep: any UID we tracked previously but didn't see in
-    # this run is archived (unless already archived, or its file is
-    # already gone — in which case we just drop the manifest entry).
-    # Skipped entirely when --no-archive is passed for a partial import.
-    if args.no_archive:
-        if any(uid for uid in manifest["contacts"]
-               if uid not in {c.get("UID", "") for c in contacts}):
-            print("--no-archive: deletion sweep skipped; "
-                  "manifest may have stale entries.")
+    if no_archive:
+        seen = {c.get("UID", "") for c in contacts}
+        if any(uid for uid in manifest["contacts"] if uid not in seen):
+            print("--no-archive: deletion sweep skipped; manifest may have stale entries.")
     else:
         seen_uids = {
             c.get("UID", "") for c in contacts
@@ -356,13 +377,10 @@ def main():
                 continue
             file_path = output_dir / entry["path"]
             if entry.get("archived"):
-                # Already archived: just confirm the file still exists,
-                # otherwise drop the stale manifest entry.
                 if not file_path.exists():
                     del manifest["contacts"][uid]
                 continue
             if not file_path.exists():
-                # User deleted the file manually before it was archived.
                 del manifest["contacts"][uid]
                 continue
             try:
@@ -389,6 +407,180 @@ def main():
     if errors:
         print(f"Errors logged to: {output_dir / ERRORS_FILENAME}")
     print("Notes use plain Org IDs and should appear once org-node refreshes its cache.")
+
+
+def _credential_from_args(args):
+    if args.username and args.password:
+        return args.username, args.password
+    if args.password and not args.username:
+        raise SystemExit("--password requires --username")
+
+    parsed = urlparse(args.server_url)
+    machine = args.auth_machine or parsed.hostname or "contacts.icloud.com"
+    try:
+        credential = load_authinfo_credential(machine, args.username)
+    except CredentialError as exc:
+        raise SystemExit(str(exc)) from exc
+    return credential.login, credential.password
+
+
+def _carddav_client_from_args(args):
+    username, password = _credential_from_args(args)
+    return CardDAVClient(args.server_url, username, password)
+
+
+def run_import_vcf(args):
+    vcf_paths = _resolve_inputs(args.inputs)
+    records = _records_from_vcf_paths(vcf_paths)
+    import_records(
+        records,
+        args.output_dir,
+        no_archive=args.no_archive,
+        force=args.full_refresh,
+        source_summary=f"across {len(vcf_paths)} file(s)",
+    )
+
+
+def run_sync_carddav(args):
+    try:
+        client = _carddav_client_from_args(args)
+        cards = client.fetch_vcards(args.addressbook_url)
+    except (CardDAVError, CredentialError) as exc:
+        raise SystemExit(str(exc)) from exc
+
+    records, metadata_by_uid = _records_from_dav_cards(cards)
+    records = _filter_records_by_groups(records, args.group)
+    import_records(
+        records,
+        args.output_dir,
+        no_archive=args.no_archive,
+        force=args.full_refresh,
+        metadata_by_uid=metadata_by_uid,
+        source_summary=f"from {len(cards)} CardDAV card(s)",
+    )
+
+
+def run_list_groups(args):
+    try:
+        client = _carddav_client_from_args(args)
+        cards = client.fetch_vcards(args.addressbook_url)
+    except (CardDAVError, CredentialError) as exc:
+        raise SystemExit(str(exc)) from exc
+
+    records, _ = _records_from_dav_cards(cards)
+    for group in _group_records(records):
+        members = len(group.get("_members", []))
+        print(f"{group.get('UID', '')}\t{group.get('FN', '')}\t{members}")
+
+
+def _add_common_output_options(parser):
+    parser.add_argument(
+        "-o", "--output-dir",
+        default=str(DEFAULT_OUTPUT_DIR),
+        help="Output directory for Org notes (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--no-archive",
+        action="store_true",
+        help="Do not archive contacts absent from this run.",
+    )
+    parser.add_argument(
+        "--full-refresh",
+        action="store_true",
+        help="Rewrite all contacts even when upstream state is unchanged.",
+    )
+
+
+def _add_carddav_options(parser):
+    parser.add_argument(
+        "--server-url",
+        default=DEFAULT_CARDDAV_URL,
+        help="CardDAV server URL (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--auth-machine",
+        default=None,
+        help="authinfo machine name (default: hostname from --server-url).",
+    )
+    parser.add_argument("--username", default=None, help="CardDAV username.")
+    parser.add_argument(
+        "--password",
+        default=None,
+        help="CardDAV password. Prefer authinfo for real use.",
+    )
+    parser.add_argument(
+        "--addressbook-url",
+        default=None,
+        help="Specific address book collection URL.",
+    )
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(
+        description="Import CardDAV or vCard contacts into Org notes.",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    import_vcf = subparsers.add_parser(
+        "import-vcf",
+        help="Import one or more .vcf files or directories.",
+    )
+    import_vcf.add_argument(
+        "inputs",
+        nargs="+",
+        help="One or more .vcf files or directories containing them.",
+    )
+    _add_common_output_options(import_vcf)
+    import_vcf.set_defaults(func=run_import_vcf)
+
+    sync = subparsers.add_parser(
+        "sync-carddav",
+        help="Fetch contacts from CardDAV and write Org notes.",
+    )
+    _add_common_output_options(sync)
+    _add_carddav_options(sync)
+    sync.add_argument(
+        "--group",
+        action="append",
+        default=[],
+        help="Only sync contacts in a group UID or exact group name. Repeatable.",
+    )
+    sync.set_defaults(func=run_sync_carddav)
+
+    list_groups = subparsers.add_parser(
+        "list-groups",
+        help="List CardDAV groups as UID, name, member count.",
+    )
+    _add_carddav_options(list_groups)
+    list_groups.set_defaults(func=run_list_groups)
+
+    return parser
+
+
+def build_legacy_parser():
+    parser = argparse.ArgumentParser(
+        description="Import Apple Contacts vCard exports into Org notes.",
+    )
+    parser.add_argument(
+        "inputs",
+        nargs="+",
+        help="One or more .vcf files or directories containing them.",
+    )
+    _add_common_output_options(parser)
+    parser.set_defaults(func=run_import_vcf)
+    return parser
+
+
+def main(argv=None):
+    raw_args = list(sys.argv[1:] if argv is None else argv)
+    if raw_args and raw_args[0] in COMMANDS:
+        parser = build_parser()
+    elif raw_args and raw_args[0] in ("-h", "--help"):
+        parser = build_parser()
+    else:
+        parser = build_legacy_parser()
+    args = parser.parse_args(raw_args)
+    args.func(args)
 
 
 if __name__ == "__main__":

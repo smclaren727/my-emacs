@@ -151,7 +151,7 @@ def _resolve_label(label, group, contact):
     return label
 
 
-def build_drawer_pairs(contact, org_id, vcard_uid):
+def build_drawer_pairs(contact, org_id, vcard_uid, vcard_url=""):
     """Compute the property drawer key-value pairs we want to emit.
 
     Returns list of (key, value) tuples. Keys are upper-case without
@@ -160,6 +160,8 @@ def build_drawer_pairs(contact, org_id, vcard_uid):
     pairs = [("ID", org_id)]
     if vcard_uid:
         pairs.append(("VCARD_UID", vcard_uid))
+    if vcard_url:
+        pairs.append(("VCARD_URL", vcard_url))
 
     nickname = contact.get("NICKNAME", "").strip()
     if nickname:
@@ -331,12 +333,19 @@ def format_org_note(drawer_pairs, fn, *, body="", vcard_note="", filetags=None):
     return "\n".join(lines)
 
 
-def build_org_note(contact, org_id, vcard_uid, existing_body=None, filetags=None):
+def build_org_note(
+    contact,
+    org_id,
+    vcard_uid,
+    existing_body=None,
+    filetags=None,
+    vcard_url="",
+):
     """Build a fresh org note (no drawer merge — for new contacts).
 
     Returns (note_text, emitted_keys).
     """
-    pairs = build_drawer_pairs(contact, org_id, vcard_uid)
+    pairs = build_drawer_pairs(contact, org_id, vcard_uid, vcard_url)
     fn = contact.get("FN", "Unknown")
     text = format_org_note(
         pairs,
