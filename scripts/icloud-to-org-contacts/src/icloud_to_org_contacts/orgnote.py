@@ -11,7 +11,7 @@ emitted (= user-added) are preserved across imports.
 
 import re
 
-from vcard import format_address, format_birthday, format_phone
+from .vcard import format_address, format_birthday, format_phone
 
 _DRAWER_LINE_RE = re.compile(r"^:([A-Z_][A-Z_0-9]*):\s*(.*)$")
 

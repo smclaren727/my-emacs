@@ -1,4 +1,4 @@
-from manifest import load_manifest
+from icloud_to_org_contacts.manifest import load_manifest
 
 from conftest import run_cli, write_vcf
 

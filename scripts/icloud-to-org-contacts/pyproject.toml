@@ -14,5 +14,15 @@ test = [
   "pytest>=8.0",
 ]
 
+[project.scripts]
+icloud-to-org-contacts = "icloud_to_org_contacts.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

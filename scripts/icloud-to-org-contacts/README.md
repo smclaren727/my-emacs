@@ -38,11 +38,15 @@ modules and on-disk format.
 
 ```
 scripts/icloud-to-org-contacts/
-  vcard.py                   — parse vCard text → list of contact dicts
-  orgnote.py                 — build / merge org file content
-  lifecycle.py               — archive + resurrect transitions
-  manifest.py                — JSON state file (.import-state.json)
-  vcf-to-org-contacts.py     — thin CLI orchestrating the above
+  pyproject.toml             — package metadata, console script, test config
+  vcf-to-org-contacts.py     — compatibility wrapper for checkout usage
+  src/icloud_to_org_contacts/
+    cli.py                   — thin CLI orchestrating the import
+    vcard.py                 — parse vCard text → list of contact dicts
+    orgnote.py               — build / merge org file content
+    lifecycle.py             — archive + resurrect transitions
+    manifest.py              — JSON state file (.import-state.json)
+  tests/                     — pytest coverage for import behavior
   .gitignore                 — *.vcf (sample data never committed)
 ```
 
@@ -54,8 +58,14 @@ them; no shared mutable state; no class hierarchies.
 ### From the command line
 
 ```sh
+# From a checkout
+python3 -m pip install -e ".[test]"
+
 # Single file
 python3 vcf-to-org-contacts.py /path/to/contacts.vcf
+
+# Or, after install
+icloud-to-org-contacts /path/to/contacts.vcf
 
 # Multiple positionals
 python3 vcf-to-org-contacts.py file1.vcf file2.vcf
@@ -322,20 +332,16 @@ format (new keys, reordering, etc.).
 
 ## Testing approach
 
-No formal test suite. Each slice was verified end-to-end against
-either:
+Run the fixture suite from this directory:
 
-- A 9-contact real sample (5 `.vcf` files exported from the user's
-  macOS Contacts.app, since deleted), or
-- A targeted synthetic VCF crafted to exercise the slice's specific
-  behavior (X-ABLABEL variants, multi-line NOTE truncation, etc.).
+```sh
+python3 -m pip install -e ".[test]"
+python3 -m pytest
+```
 
-Each verification confirms (a) the new behavior on a positive case,
-and (b) regression-clean output on the existing sample. Every
-commit message records the verification scenarios.
-
-For Tier 6, a similar approach plus a small fixture set of mocked
-CardDAV responses would be appropriate.
+Tests use synthetic, non-personal vCards so sample contact data never
+needs to be committed. Coverage currently checks property-drawer
+output, user edit preservation, group filetags, and manifest state.
 
 ## Layout notes
 

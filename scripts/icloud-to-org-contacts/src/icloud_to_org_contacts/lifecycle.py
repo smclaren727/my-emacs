@@ -11,7 +11,7 @@ The on-disk filename is preserved across the move so external links
 
 import re
 
-from orgnote import unique_filepath
+from .orgnote import unique_filepath
 
 ARCHIVE_DIR_NAME = "Archive"
 
