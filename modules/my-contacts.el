@@ -131,11 +131,5 @@ PROC is the process object; EVENT is the change description."
           (insert (format "\n[process %s]\n" trimmed))))
       (message "contacts import: %s" trimmed))))
 
-;;; Leader bindings -----------------------------------------------------
-
-(my-leader-define "m i" #'my-contacts-import-vcf)
-(my-leader-define "m I" #'my-contacts-sync-carddav)
-(my-leader-define "m G" #'my-contacts-list-carddav-groups)
-
 (provide 'my-contacts)
 ;;; my-contacts.el ends here
