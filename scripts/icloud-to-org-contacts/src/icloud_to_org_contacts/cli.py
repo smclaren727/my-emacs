@@ -32,6 +32,8 @@ from .orgnote import (
     find_existing_note,
     format_org_note,
     merge_drawer_pairs,
+    merge_filetags,
+    normalize_filetags,
     parse_existing_drawer,
     parse_existing_filetags,
     sanitize_filename,
@@ -196,6 +198,15 @@ def main():
             vcard_uid = contact.get("UID", "")
             chash = content_hash(contact)
             prev = manifest["contacts"].get(vcard_uid) if vcard_uid else None
+            desired_emitted_tags = (
+                normalize_filetags(membership.get(vcard_uid, []))
+                if have_group_data else None
+            )
+            tags_changed = (
+                have_group_data
+                and prev
+                and (prev.get("emitted_tags") or []) != desired_emitted_tags
+            )
 
             # Resurrect first: a previously-archived contact reappearing
             # in the source is moved back out of Archive/ and gets archive
@@ -213,6 +224,7 @@ def main():
                     and vcard_uid
                     and prev
                     and not settings_changed
+                    and not tags_changed
                     and prev.get("content_hash") == chash
                     and (output_dir / prev["path"]).exists()):
                 unchanged += 1
@@ -259,9 +271,24 @@ def main():
                 # already on the file so a partial run doesn't blow them
                 # away.
                 if have_group_data:
-                    filetags = membership.get(vcard_uid, [])
+                    new_filetags = desired_emitted_tags or []
+                    existing_filetags = parse_existing_filetags(existing_file)
+                    old_emitted_tags = (prev or {}).get("emitted_tags") or []
+                    if not old_emitted_tags and existing_filetags:
+                        new_filetag_set = set(new_filetags)
+                        old_emitted_tags = [
+                            tag for tag in existing_filetags
+                            if tag in new_filetag_set
+                        ]
+                    filetags = merge_filetags(
+                        existing_filetags,
+                        old_emitted_tags,
+                        new_filetags,
+                    )
+                    emitted_tags = new_filetags
                 else:
                     filetags = parse_existing_filetags(existing_file)
+                    emitted_tags = (prev or {}).get("emitted_tags") or []
 
                 note_content = format_org_note(
                     merged_pairs,
@@ -277,7 +304,8 @@ def main():
                 emitted_keys = [k for k, _ in new_pairs]
             else:
                 org_id = str(uuid.uuid4())
-                filetags = membership.get(vcard_uid, []) if have_group_data else []
+                filetags = desired_emitted_tags if have_group_data else []
+                emitted_tags = list(filetags)
                 note_content, emitted_keys = build_org_note(
                     contact, org_id, vcard_uid, filetags=filetags
                 )
@@ -292,6 +320,7 @@ def main():
                     str(filepath.relative_to(output_dir)),
                     chash,
                     emitted_keys=emitted_keys,
+                    emitted_tags=emitted_tags,
                 )
         except Exception as exc:
             errors += 1

@@ -159,3 +159,98 @@ def test_group_cards_emit_filetags_and_manifest(tmp_path):
         "VCARD_UID",
         "EMAIL_HOME",
     ]
+    assert manifest["contacts"]["person-3"]["emitted_tags"] == [
+        "friends-family",
+    ]
+
+
+def test_full_import_replaces_owned_group_tags_and_preserves_user_tags(tmp_path):
+    vcf = tmp_path / "contacts.vcf"
+    output_dir = tmp_path / "out"
+    write_vcf(
+        vcf,
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "UID:person-4",
+        "FN:Dana Groups",
+        "EMAIL;TYPE=HOME:dana@example.com",
+        "END:VCARD",
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "UID:group-1",
+        "FN:Friends",
+        "X-ADDRESSBOOKSERVER-KIND:group",
+        "X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:person-4",
+        "END:VCARD",
+    )
+    run_cli(vcf, "-o", output_dir)
+
+    note_path = output_dir / "dana-groups.org"
+    note_path.write_text(
+        note_path.read_text(encoding="utf-8").replace(
+            "#+filetags: :contact:friends:",
+            "#+filetags: :contact:friends:hand-added:",
+        ),
+        encoding="utf-8",
+    )
+
+    write_vcf(
+        vcf,
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "UID:person-4",
+        "FN:Dana Groups",
+        "EMAIL;TYPE=HOME:dana@example.com",
+        "END:VCARD",
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "UID:group-2",
+        "FN:Work",
+        "X-ADDRESSBOOKSERVER-KIND:group",
+        "X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:person-4",
+        "END:VCARD",
+    )
+    run_cli(vcf, "-o", output_dir)
+
+    note = note_path.read_text(encoding="utf-8")
+    assert "#+filetags: :contact:work:hand-added:\n" in note
+    manifest = load_manifest(output_dir)
+    assert manifest["contacts"]["person-4"]["emitted_tags"] == ["work"]
+
+
+def test_partial_import_preserves_filetags_and_manifest_owned_tags(tmp_path):
+    vcf = tmp_path / "contacts.vcf"
+    output_dir = tmp_path / "out"
+    write_vcf(
+        vcf,
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "UID:person-5",
+        "FN:Eli Partial",
+        "EMAIL;TYPE=HOME:eli@example.com",
+        "END:VCARD",
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "UID:group-1",
+        "FN:Family",
+        "X-ADDRESSBOOKSERVER-KIND:group",
+        "X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:person-5",
+        "END:VCARD",
+    )
+    run_cli(vcf, "-o", output_dir)
+
+    write_vcf(
+        vcf,
+        "BEGIN:VCARD",
+        "VERSION:3.0",
+        "UID:person-5",
+        "FN:Eli Partial",
+        "EMAIL;TYPE=HOME:eli.updated@example.com",
+        "END:VCARD",
+    )
+    run_cli(vcf, "-o", output_dir, "--no-archive")
+
+    note = (output_dir / "eli-partial.org").read_text(encoding="utf-8")
+    assert "#+filetags: :contact:family:\n" in note
+    manifest = load_manifest(output_dir)
+    assert manifest["contacts"]["person-5"]["emitted_tags"] == ["family"]

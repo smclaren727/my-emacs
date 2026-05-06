@@ -274,6 +274,33 @@ def _slugify_group(name):
     return re.sub(r"[^A-Za-z0-9]+", "-", name).strip("-").lower()
 
 
+def normalize_filetags(filetags):
+    """Return de-duplicated non-core filetag slugs in stable order."""
+    tags = []
+    for raw in (filetags or []):
+        slug = _slugify_group(raw)
+        if slug and slug not in ("contact", "archived") and slug not in tags:
+            tags.append(slug)
+    return tags
+
+
+def merge_filetags(existing_tags, old_emitted_tags, new_emitted_tags):
+    """3-way merge filetags, preserving user-owned tags.
+
+    `existing_tags` should exclude core tags such as contact/archived.
+    `old_emitted_tags` are tags the importer wrote on the last run, and
+    `new_emitted_tags` are the group-derived tags it wants now.
+    """
+    old_emitted = set(old_emitted_tags or [])
+    new_tags = normalize_filetags(new_emitted_tags)
+    new_set = set(new_tags)
+    user_tags = [
+        tag for tag in existing_tags
+        if tag not in old_emitted and tag not in new_set
+    ]
+    return new_tags + user_tags
+
+
 def format_org_note(drawer_pairs, fn, *, body="", vcard_note="", filetags=None):
     """Format a complete org file from drawer pairs + title/filetags + body.
 
@@ -281,11 +308,7 @@ def format_org_note(drawer_pairs, fn, *, body="", vcard_note="", filetags=None):
     Each gets slug-ified (lowercased, non-alphanumerics → hyphens) and
     de-duplicated. Pass None or [] to emit just `:contact:`.
     """
-    tags = ["contact"]
-    for raw in (filetags or []):
-        slug = _slugify_group(raw)
-        if slug and slug not in tags:
-            tags.append(slug)
+    tags = ["contact"] + normalize_filetags(filetags)
     filetag_line = ":" + ":".join(tags) + ":"
 
     lines = [":PROPERTIES:"]
