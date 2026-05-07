@@ -37,10 +37,12 @@
   ;; disruptive, especially in Dirvish buffers that briefly visit many files.
   (treesit-auto-install nil)
   :config
-  (let (unready-ts-modes)
+  (let (ready-langs unready-ts-modes)
     (dolist (recipe treesit-auto-recipe-list)
-      (unless (treesit-ready-p (treesit-auto-recipe-lang recipe) t)
+      (if (treesit-ready-p (treesit-auto-recipe-lang recipe) t)
+          (push (treesit-auto-recipe-lang recipe) ready-langs)
         (push (treesit-auto-recipe-ts-mode recipe) unready-ts-modes)))
+    (setq treesit-auto-langs (nreverse ready-langs))
     (setq auto-mode-alist
           (delq nil
                 (mapcar (lambda (entry)
@@ -50,8 +52,10 @@
   ;; Only register tree-sitter modes whose grammars are actually installed.
   ;; Missing grammars fall back to regular modes instead of warning during
   ;; file previews, for example when Dirvish previews JSON files.
-  (treesit-auto-add-to-auto-mode-alist)
-  (global-treesit-auto-mode 1))
+  ;; Avoid `global-treesit-auto-mode' here: it advises `set-auto-mode-0',
+  ;; so unrelated file scans such as `org-refile' target collection can end
+  ;; up recomputing tree-sitter remaps for every visited file.
+  (treesit-auto-add-to-auto-mode-alist treesit-auto-langs))
 
 ;;; LSP via Eglot -----------------------------------------------------
 ;; Language servers must be installed separately:
