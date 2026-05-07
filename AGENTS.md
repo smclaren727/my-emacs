@@ -118,6 +118,53 @@ no Spacemacs).  Every package solves a concrete problem.
 - GitHub-only packages may use `use-package :vc` / package-vc; prefer ELPA/MELPA when available
 - One package at a time.  Each must solve a concrete problem.
 
+## Emacs As An Inspection Tool
+
+- Prefer asking the running Emacs daemon before guessing about Emacs Lisp APIs,
+  package behavior, keybindings, variables, or loaded features.  Use
+  `emacsclient --eval` first because it sees the same runtime state the user is
+  actually using.
+- Keep inspection forms read-only unless the task explicitly requires mutation.
+  Use Emacs as a source of truth, not as a place to make hidden state changes.
+- Use `emacs --batch -l ~/.emacs.d/init.el --eval ...` only when the daemon is
+  unavailable or startup itself is under investigation.  Use `emacs -Q --batch`
+  when comparing against vanilla Emacs behavior.
+- Prefer Emacs' self-documenting APIs over memory or invented helper code:
+  `documentation`, `documentation-property`, `apropos-internal`,
+  `where-is-internal`, `key-binding`, `symbol-file`, `find-function-noselect`,
+  `find-variable-noselect`, `boundp`, `fboundp`, `featurep`, `locate-library`,
+  `symbol-value`, `default-value`, and `macroexpand-1`.
+- In an interactive Emacs session, use the normal help system as well:
+  `describe-function`, `describe-variable`, `describe-key`,
+  `describe-symbol`, `apropos`, and `info`.
+- For package questions, check whether the package is loaded with `featurep`,
+  whether it can be found with `locate-library`, where a symbol comes from with
+  `symbol-file`, and what the local value/customization is with `symbol-value`
+  or `default-value`.
+- For keybinding questions, inspect both command bindings and keymaps.  Use
+  `where-is-internal` to find keys for a command, `key-binding` to resolve a
+  key sequence, and then inspect this repo for the durable definition.
+- For hooks, modes, and package setup, inspect the live value first, then read
+  the defining source.  This helps distinguish configured behavior from package
+  defaults.
+- Example client inspections:
+
+  ```sh
+  emacsclient --eval "(documentation 'consult-ripgrep)"
+  emacsclient --eval "(apropos-internal \"ripgrep\" 'fboundp)"
+  emacsclient --eval "(where-is-internal 'consult-ripgrep)"
+  emacsclient --eval "(symbol-file 'consult-ripgrep 'defun)"
+  emacsclient --eval "(boundp 'my-notes-directory)"
+  emacsclient --eval "(symbol-value 'my-notes-directory)"
+  emacsclient --eval "(locate-library \"org-node\")"
+  emacsclient --eval "(macroexpand-1 '(use-package consult :commands consult-ripgrep))"
+  ```
+
+Use CLI tools for broad repository search (`rg` first), and use Emacs
+inspection for Emacs semantics.  The best workflow is usually: search the repo,
+ask Emacs what is live, then edit the smallest source file that owns the
+behavior.
+
 ## Platform
 
 - Supported platforms: macOS, Linux, and Windows via OS-specific modules
