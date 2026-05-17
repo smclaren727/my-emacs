@@ -156,14 +156,14 @@
 
 (defun my-ui--set-font-defaults ()
   "Set face defaults used by future graphical frames."
-  (when-let ((mono (my-ui--first-available-font my-ui-monospace-fonts)))
+  (when-let* ((mono (my-ui--first-available-font my-ui-monospace-fonts)))
     (set-face-attribute 'default nil
                         :family mono
                         :height my-ui-monospace-height)
     (set-face-attribute 'fixed-pitch nil
                         :family mono
                         :height my-ui-monospace-height))
-  (when-let ((variable (my-ui--first-available-font my-ui-variable-pitch-fonts)))
+  (when-let* ((variable (my-ui--first-available-font my-ui-variable-pitch-fonts)))
     (set-face-attribute 'variable-pitch nil
                         :family variable
                         :height my-ui-variable-pitch-height)))
@@ -171,14 +171,14 @@
 (defun my-ui--set-font-for-frame (frame)
   "Set mono and variable-pitch fonts on FRAME."
   (when (display-graphic-p frame)
-    (when-let ((mono (my-ui--first-available-font my-ui-monospace-fonts frame)))
+    (when-let* ((mono (my-ui--first-available-font my-ui-monospace-fonts frame)))
       (set-face-attribute 'default frame
                           :family mono
                           :height my-ui-monospace-height)
       (set-face-attribute 'fixed-pitch frame
                           :family mono
                           :height my-ui-monospace-height))
-    (when-let ((variable (my-ui--first-available-font my-ui-variable-pitch-fonts frame)))
+    (when-let* ((variable (my-ui--first-available-font my-ui-variable-pitch-fonts frame)))
       (set-face-attribute 'variable-pitch frame
                           :family variable
                           :height my-ui-variable-pitch-height))))
@@ -246,6 +246,11 @@
   ;; Use mood-line's pretty Unicode glyphs instead of the ASCII fallback.
   (mood-line-glyph-alist mood-line-glyphs-fira-code)
   :config
+  ;; Emacs 31/native-comp can trip over mood-line's lazy hook segment stubs
+  ;; during major-mode changes; load the hook-backed segments before enabling.
+  (require 'mood-line-segment-checker)
+  (require 'mood-line-segment-vc)
+
   (setq mood-line-format
         (mood-line-defformat
          :left

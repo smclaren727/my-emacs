@@ -177,7 +177,7 @@
   (defun my-org-touch-updated-property-before-save ()
     "Refresh a document-level UPDATED property before saving the current buffer."
     (when (derived-mode-p 'org-mode)
-      (when-let ((position (my-org--document-updated-property-heading-position)))
+      (when-let* ((position (my-org--document-updated-property-heading-position)))
         (save-excursion
           (goto-char position)
           (org-entry-put (point)

@@ -66,7 +66,7 @@ When BEG and END are nil, show property drawers in the current buffer."
     (pcase state
       ('all-with-property-drawers nil)
       ((or 'children 'subtree 'folded)
-       (if-let ((bounds (my-org-property-drawers--subtree-bounds)))
+       (if-let* ((bounds (my-org-property-drawers--subtree-bounds)))
            (my-org-hide-property-drawers (car bounds) (cdr bounds))
          (my-org-hide-property-drawers)))
       (_ (my-org-hide-property-drawers)))))

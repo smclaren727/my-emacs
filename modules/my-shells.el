@@ -78,7 +78,7 @@ Useful for maintaining multiple shells (build, logs, remote)."
 (defun my-shell-kill ()
   "Kill the current shell buffer and its process."
   (interactive)
-  (when-let ((proc (get-buffer-process (current-buffer))))
+  (when-let* ((proc (get-buffer-process (current-buffer))))
     (delete-process proc))
   (kill-buffer (current-buffer)))
 

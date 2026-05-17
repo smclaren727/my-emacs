@@ -79,17 +79,17 @@
       :init
       (setq gptel-use-curl t)
       :config
-      (when-let ((openai-key (my-ai--openai-api-key)))
+      (when-let* ((openai-key (my-ai--openai-api-key)))
         (my-ai--set-gptel-default-backend
          (gptel-make-openai "OpenAI"
            :key (lambda () openai-key)
            :stream t)))
-      (when-let ((anthropic-key (my-ai--anthropic-api-key)))
+      (when-let* ((anthropic-key (my-ai--anthropic-api-key)))
         (my-ai--set-gptel-default-backend
          (gptel-make-anthropic "Claude"
            :key (lambda () anthropic-key)
            :stream t)))
-      (when-let ((openrouter-key (my-ai--openrouter-api-key)))
+      (when-let* ((openrouter-key (my-ai--openrouter-api-key)))
         (my-ai--set-gptel-default-backend
          (gptel-make-openai "OpenRouter"
            :host "openrouter.ai"
@@ -106,17 +106,17 @@
     :init
     (setq gptel-use-curl t)
     :config
-    (when-let ((openai-key (my-ai--openai-api-key)))
+    (when-let* ((openai-key (my-ai--openai-api-key)))
       (my-ai--set-gptel-default-backend
        (gptel-make-openai "OpenAI"
          :key (lambda () openai-key)
          :stream t)))
-    (when-let ((anthropic-key (my-ai--anthropic-api-key)))
+    (when-let* ((anthropic-key (my-ai--anthropic-api-key)))
       (my-ai--set-gptel-default-backend
        (gptel-make-anthropic "Claude"
          :key (lambda () anthropic-key)
          :stream t)))
-    (when-let ((openrouter-key (my-ai--openrouter-api-key)))
+    (when-let* ((openrouter-key (my-ai--openrouter-api-key)))
       (my-ai--set-gptel-default-backend
        (gptel-make-openai "OpenRouter"
          :host "openrouter.ai"

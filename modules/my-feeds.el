@@ -267,7 +267,7 @@ Downcase, replace non-alphanumeric runs with hyphens, trim edges."
     (elfeed-entry-link elfeed-show-entry))
    ;; In the search buffer — use entry at point.
    ((derived-mode-p 'elfeed-search-mode)
-    (when-let ((entry (elfeed-search-selected :single)))
+    (when-let* ((entry (elfeed-search-selected :single)))
       (elfeed-entry-link entry)))))
 
 (defun my-feeds--entry-at-point ()
@@ -303,8 +303,8 @@ Downcase, replace non-alphanumeric runs with hyphens, trim edges."
   (elfeed-untag entry 'unread)
   (when (derived-mode-p 'elfeed-search-mode)
     (elfeed-search-update-entry entry))
-  (when-let ((search-buffer (and (fboundp 'elfeed-search-buffer)
-                                 (get-buffer (elfeed-search-buffer)))))
+  (when-let* ((search-buffer (and (fboundp 'elfeed-search-buffer)
+                                  (get-buffer (elfeed-search-buffer)))))
     (with-current-buffer search-buffer
       (elfeed-search-update-entry entry))))
 
@@ -411,7 +411,7 @@ In `elfeed-search-mode', open all selected entries.  In
     (unless entries
       (user-error "No elfeed entry at point"))
     (dolist (entry entries)
-      (when-let ((url (elfeed-entry-link entry)))
+      (when-let* ((url (elfeed-entry-link entry)))
         (my-feeds--browse-url-background url)
         (my-feeds--mark-entry-read entry)))
     (when (derived-mode-p 'elfeed-search-mode)

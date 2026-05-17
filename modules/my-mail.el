@@ -147,8 +147,8 @@ See etc/mail-accounts.example.el for an override example.")
 
 (defun my-mail--sync-command ()
   "Return the shell command used for manual sync/index refreshes."
-  (when-let ((mbsync (my-mail--find-executable "mbsync" "/opt/homebrew/bin/mbsync"))
-             (mu (my-mail--find-executable "mu" "/opt/homebrew/bin/mu")))
+  (when-let* ((mbsync (my-mail--find-executable "mbsync" "/opt/homebrew/bin/mbsync"))
+              (mu (my-mail--find-executable "mu" "/opt/homebrew/bin/mu")))
     (format "%s && %s index"
             (if my-mail-sync-channels
                 (mapconcat
@@ -164,7 +164,7 @@ See etc/mail-accounts.example.el for an override example.")
 (defun my-mail-sync-now ()
   "Run mbsync and mu index manually."
   (interactive)
-  (if-let ((command (my-mail--sync-command)))
+  (if-let* ((command (my-mail--sync-command)))
       (async-shell-command command "*mail-sync*")
     (user-error "mbsync or mu is not installed yet")))
 
@@ -201,7 +201,7 @@ When LIMIT is non-nil, temporarily limit the number of results."
   (require 'mu4e)
   (with-selected-window (or (my-mail-dashboard--mail-window)
                             (selected-window))
-    (when-let ((command-window (selected-window)))
+    (when-let* ((command-window (selected-window)))
       (set-window-parameter command-window
                             'my-mail-dashboard-mail-window t))
     (if limit
@@ -266,7 +266,7 @@ When LIMIT is non-nil, temporarily limit the number of results."
      :match-func
      (lambda (msg)
        (when msg
-         (when-let ((message-maildir (mu4e-message-field msg :maildir)))
+         (when-let* ((message-maildir (mu4e-message-field msg :maildir)))
            (string-prefix-p maildir message-maildir))))
      :vars `((user-mail-address . ,email)
              (user-full-name . ,full-name)
@@ -412,7 +412,7 @@ When LIMIT is non-nil, temporarily limit the number of results."
 
 (defun my-mail--contact-capf-bounds ()
   "Return completion bounds for the current address at point."
-  (when-let ((header-name (my-mail--current-message-header-name)))
+  (when-let* ((header-name (my-mail--current-message-header-name)))
     (when (member header-name my-mail-address-headers)
       (let ((end (point))
             (value-start (my-mail--current-message-header-value-start)))
@@ -427,7 +427,7 @@ When LIMIT is non-nil, temporarily limit the number of results."
 
 (defun my-mail-contact-capf ()
   "Complete org contact addresses while composing email."
-  (when-let ((bounds (my-mail--contact-capf-bounds)))
+  (when-let* ((bounds (my-mail--contact-capf-bounds)))
     (list (car bounds)
           (cdr bounds)
           #'my-mail--contact-completion-table

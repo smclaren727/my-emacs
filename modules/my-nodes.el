@@ -91,7 +91,7 @@ electric-pair-mode which inserts ]] immediately after [[."
                     :exclusive 'no
                     :exit-function
                     (lambda (text _)
-                      (when-let ((id (gethash text org-mem--title<>id)))
+                      (when-let* ((id (gethash text org-mem--title<>id)))
                         (atomic-change-group
                           ;; Find [[ before and ]] after the completed
                           ;; text relative to current point, since the
