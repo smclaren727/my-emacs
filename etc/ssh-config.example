@@ -2,14 +2,29 @@
 # Copy this file to ~/.ssh/config on each machine and customize as needed.
 #
 # Required:
-# - The Host alias (`nixnode`) should match `my-tramp-default-host`.
+# - Host aliases should match the names used by `modules/my-tramp.el`.
+# - `loxley` is the local-network alias.
+# - `loxley-ts` pins the Tailscale address for remote access.
 # - Keep real secrets/keys out of this repository.
 
-Host nixnode
-  HostName 100.127.210.84
-  User sean
+Host loxley nixnode
+  HostName loxley
+  User loxley
   IdentitiesOnly yes
   # IdentityFile ~/.ssh/id_ed25519
   ServerAliveInterval 30
   ServerAliveCountMax 3
+  ControlMaster auto
+  ControlPersist 10m
+  ControlPath ~/.ssh/controlmasters/%r@%h:%p
 
+Host loxley-ts nixnode-ts
+  HostName 100.127.210.84
+  User loxley
+  IdentitiesOnly yes
+  # IdentityFile ~/.ssh/id_ed25519
+  ServerAliveInterval 30
+  ServerAliveCountMax 3
+  ControlMaster auto
+  ControlPersist 10m
+  ControlPath ~/.ssh/controlmasters/%r@%h:%p

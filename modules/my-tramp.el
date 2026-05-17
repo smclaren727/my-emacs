@@ -5,6 +5,7 @@
 ;; and provides interactive commands for SSH/sudo workflows
 ;; targeted at NixOS hosts.
 
+(require 'seq)
 (require 'subr-x)
 
 ;;; Core TRAMP behavior -----------------------------------------------
@@ -25,36 +26,55 @@
     (add-to-list 'tramp-remote-path path 'append)))
 
 ;;; Nix host shortcuts ------------------------------------------------
-(defvar my-tramp-default-host "nixnode"
+(defvar my-tramp-local-host "loxley"
+  "SSH alias for the Nix node on the local network.")
+
+(defvar my-tramp-tailscale-host "loxley-ts"
+  "SSH alias for the Nix node over Tailscale.")
+
+(defvar my-tramp-default-host my-tramp-local-host
   "Default SSH alias used by TRAMP helper commands.")
 
+(defvar my-tramp-known-hosts
+  '("loxley" "loxley-ts" "nixnode" "nixnode-ts")
+  "SSH aliases offered by TRAMP helper commands.")
+
 (defvar my-tramp-nixos-config-candidates
-  '("/etc/nixos/flake.nix"
+  '("/srv/loxley/nixos/flake.nix"
+    "/etc/nixos/flake.nix"
     "/etc/nixos/configuration.nix"
     "/etc/nixos/loxley.nix")
   "Candidate paths for the main NixOS configuration file.")
 
-(defvar my-tramp-nixos-directory "/etc/nixos/"
+(defvar my-tramp-nixos-directory "/srv/loxley/nixos/"
   "Directory containing NixOS configuration files on remote hosts.")
 
-(defvar my-tramp-nixos-modules-directory "/etc/nixos/modules/"
+(defvar my-tramp-nixos-modules-directory "/srv/loxley/nixos/modules/"
   "Directory containing NixOS module files on remote hosts.")
 
 (defun my-tramp--read-host (&optional prompt-host)
   "Return remote host alias, prompting when PROMPT-HOST is non-nil."
   (if prompt-host
-      (read-string
-       (format "TRAMP host (default %s): " my-tramp-default-host)
-       nil nil my-tramp-default-host)
+      (let ((hosts (cons my-tramp-default-host
+                         (seq-remove
+                          (lambda (host)
+                            (string= host my-tramp-default-host))
+                          my-tramp-known-hosts))))
+        (completing-read
+         (format "TRAMP host (default %s): " my-tramp-default-host)
+         hosts nil nil nil nil my-tramp-default-host))
     my-tramp-default-host))
 
 (defun my-tramp--remote-file (host path &optional sudo-p)
   "Return TRAMP file path on HOST for PATH.
 When SUDO-P is non-nil, use a sudo hop as root."
-  (let ((absolute-path (if (string-prefix-p "/" path) path (concat "/" path))))
+  (let ((remote-path (cond
+                      ((string-prefix-p "~" path) path)
+                      ((string-prefix-p "/" path) path)
+                      (t (concat "/" path)))))
     (if sudo-p
-        (format "/ssh:%s|sudo:root@%s:%s" host host absolute-path)
-      (format "/ssh:%s:%s" host absolute-path))))
+        (format "/ssh:%s|sudo:root@%s:%s" host host remote-path)
+      (format "/ssh:%s:%s" host remote-path))))
 
 (defun my-tramp--resolve-nixos-config-file (host)
   "Return best-available NixOS config path for HOST.
@@ -92,17 +112,31 @@ Falls back to `my-tramp-nixos-directory' when modules dir is missing."
   (let ((host (my-tramp--read-host prompt-host)))
     (dired (my-tramp--remote-file host my-tramp-nixos-directory))))
 
-(defun my-tramp-open-shell (&optional prompt-host)
-  "Open an Eshell at remote home directory.  With prefix, prompt for host."
-  (interactive "P")
-  (let* ((host (my-tramp--read-host prompt-host))
-         (default-directory (my-tramp--remote-file host "~/"))
+(defun my-tramp--open-shell-for-host (host)
+  "Open an Eshell at HOST's remote home directory."
+  (let* ((default-directory (my-tramp--remote-file host "~/"))
          (buffer-name (format "*eshell:%s*" host)))
     (if (get-buffer buffer-name)
         (pop-to-buffer buffer-name)
       (progn
         (eshell t)
         (rename-buffer buffer-name t)))))
+
+(defun my-tramp-open-shell (&optional prompt-host)
+  "Open an Eshell on the default remote host.
+With prefix, prompt for the host alias."
+  (interactive "P")
+  (my-tramp--open-shell-for-host (my-tramp--read-host prompt-host)))
+
+(defun my-tramp-open-local-shell ()
+  "Open an Eshell on the local-network Nix node alias."
+  (interactive)
+  (my-tramp--open-shell-for-host my-tramp-local-host))
+
+(defun my-tramp-open-tailscale-shell ()
+  "Open an Eshell on the Tailscale Nix node alias."
+  (interactive)
+  (my-tramp--open-shell-for-host my-tramp-tailscale-host))
 
 (defun my-tramp-sudo-edit-current-file ()
   "Reopen current remote file as root using a sudo TRAMP hop."
