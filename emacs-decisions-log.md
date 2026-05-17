@@ -312,6 +312,19 @@ is a direct NS-port callback — instant, no polling, no extra dependency.
 
 ---
 
+### Measured responsiveness before visual rollback
+
+**Chosen:** Improve redisplay and long-line behavior first with
+`redisplay-skip-fontification-on-input`, `jit-lock-defer-time`, and targeted
+`so-long` handling for long Org files.
+
+**Why:** Local testing showed long Org lines and fontification during movement
+are plausible lag sources, while the current frame blur, transparency,
+`mood-line`, and `ultra-scroll` remain part of the intended daily UI. Heavier
+visual cuts should wait for profiling or a specific reproduced bottleneck.
+
+---
+
 ### `mood-line`
 
 **Chosen:** `mood-line`, enabled globally with `mood-line-mode`.

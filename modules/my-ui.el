@@ -353,6 +353,12 @@
               (delq (assq 'continuation fringe-indicator-alist)
                     fringe-indicator-alist))
 
+;;; Responsiveness ----------------------------------------------------
+;; Keep scrolling and repeated cursor movement responsive by letting redisplay
+;; defer nonessential fontification work while input is pending.
+(setq redisplay-skip-fontification-on-input t
+      jit-lock-defer-time 0.1)
+
 ;;; Navigation feedback -----------------------------------------------
 
 (use-package pulsar

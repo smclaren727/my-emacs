@@ -12,6 +12,9 @@
 (declare-function my-emacs-state-file "my-core" (path))
 (defvar my-package-vc-enabled nil
   "Non-nil when `use-package :vc' may install packages on this host.")
+(defvar so-long-action)
+(defvar so-long-minor-modes)
+(defvar so-long-variable-overrides)
 
 ;;; Org setup ---------------------------------------------------------
 (use-package org
@@ -247,6 +250,27 @@ doesn't already exist."
   :config
   (org-id-locations-load)
   (add-hook 'org-capture-prepare-finalize-hook #'org-id-get-create))
+
+;;; Long-line protection ----------------------------------------------
+(defun my-org-configure-so-long ()
+  "Use gentle long-line mitigation in Org buffers."
+  (setq-local so-long-action 'so-long-minor-mode)
+  (setq-local so-long-minor-modes
+              (cl-remove-duplicates
+               (cons 'org-bars-mode so-long-minor-modes)
+               :test #'eq))
+  (setq-local so-long-variable-overrides
+              (assq-delete-all 'buffer-read-only
+                                (copy-tree so-long-variable-overrides))))
+
+(use-package so-long
+  :ensure nil
+  :after org
+  :demand t
+  :hook (org-mode . my-org-configure-so-long)
+  :config
+  (add-to-list 'so-long-target-modes 'org-mode)
+  (global-so-long-mode 1))
 
 ;;; Org export --------------------------------------------------------
 ;; Keep Org's standard LaTeX -> PDF path for native PDF export, while
