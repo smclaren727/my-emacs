@@ -1,0 +1,227 @@
+#!/usr/bin/env python3
+"""Fetch readable/full snapshots for read-later capture items."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import html.parser
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+
+USER_AGENT = "Mozilla/5.0 read-later-snapshot/1.0"
+
+
+def iso_timestamp() -> str:
+    return dt.datetime.now(dt.timezone.utc).isoformat()
+
+
+def default_root() -> Path:
+    root = os.environ.get("MY_READING_ROOT")
+    if root:
+        return Path(root).expanduser()
+    return Path("~/All-The-Things/50-Resources/Read-Later").expanduser()
+
+
+class TextExtractor(html.parser.HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: list[str] = []
+        self.skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag in {"script", "style", "noscript"}:
+            self.skip_depth += 1
+        if tag in {"p", "br", "div", "section", "article", "h1", "h2", "h3", "li"}:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"script", "style", "noscript"} and self.skip_depth:
+            self.skip_depth -= 1
+        if tag in {"p", "div", "section", "article", "li"}:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if not self.skip_depth:
+            text = data.strip()
+            if text:
+                self.parts.append(text + " ")
+
+    def text(self) -> str:
+        raw = "".join(self.parts)
+        raw = re.sub(r"[ \t]+", " ", raw)
+        raw = re.sub(r"\n{3,}", "\n\n", raw)
+        return raw.strip()
+
+
+def read_item_property(path: Path, key: str) -> str:
+    pattern = re.compile(rf"^:{re.escape(key)}:\s*(.*?)\s*$")
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            match = pattern.match(line)
+            if match:
+                return match.group(1)
+    return ""
+
+
+def replace_property(text: str, key: str, value: str) -> str:
+    pattern = re.compile(rf"^:{re.escape(key)}:\s*.*$", re.MULTILINE)
+    replacement = f":{key}: {value}"
+    if pattern.search(text):
+        return pattern.sub(replacement, text, count=1)
+    return text
+
+
+def fetch_html(url: str) -> str:
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=45) as response:
+        raw = response.read()
+        encoding = response.headers.get_content_charset() or "utf-8"
+    return raw.decode(encoding, errors="replace")
+
+
+def html_to_org(html: str) -> str:
+    pandoc = shutil.which("pandoc")
+    if pandoc:
+        result = subprocess.run(
+            [pandoc, "-f", "html", "-t", "org"],
+            input=html,
+            text=True,
+            capture_output=True,
+            timeout=60,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    extractor = TextExtractor()
+    extractor.feed(html)
+    text = extractor.text()
+    return text or "Snapshot conversion produced no readable text."
+
+
+def snapshot_item(root: Path, item_path: Path, mode: str) -> dict:
+    item_path = item_path.expanduser()
+    url = read_item_property(item_path, "URL")
+    item_id = read_item_property(item_path, "READ_LATER_ID") or item_path.stem
+    if not url:
+        raise ValueError(f"{item_path} does not contain a URL property")
+
+    html = fetch_html(url)
+    html_path = root / "snapshots" / "html" / f"{item_id}.html"
+    html_path.parent.mkdir(parents=True, exist_ok=True)
+    html_path.write_text(html, encoding="utf-8")
+
+    org_content = html_to_org(html)
+    readable_path = root / "snapshots" / "readable" / f"{item_id}.org"
+    readable_path.parent.mkdir(parents=True, exist_ok=True)
+    readable_path.write_text(org_content + "\n", encoding="utf-8")
+
+    marker_begin = "# READ-LATER-SNAPSHOT-BEGIN"
+    marker_end = "# READ-LATER-SNAPSHOT-END"
+    fetched = dt.datetime.now().astimezone().strftime("[%Y-%m-%d %a %H:%M]")
+    section = (
+        f"\n{marker_begin}\n"
+        "* Readable Snapshot\n"
+        ":PROPERTIES:\n"
+        f":FETCHED: {fetched}\n"
+        f":HTML_PATH: {html_path}\n"
+        f":READABLE_PATH: {readable_path}\n"
+        f":SNAPSHOT_MODE: {mode}\n"
+        ":END:\n\n"
+        f"{org_content}\n"
+        f"{marker_end}\n"
+    )
+
+    item_text = item_path.read_text(encoding="utf-8")
+    item_text = replace_property(item_text, "SNAPSHOT_STATUS", "ok")
+    if marker_begin in item_text and marker_end in item_text:
+        before = item_text.split(marker_begin, 1)[0].rstrip()
+        after = item_text.split(marker_end, 1)[1].lstrip()
+        item_text = before + section + after
+    else:
+        item_text = item_text.rstrip() + section
+    item_path.write_text(item_text, encoding="utf-8")
+
+    return {
+        "item_path": str(item_path),
+        "url": url,
+        "html_path": str(html_path),
+        "readable_path": str(readable_path),
+        "mode": mode,
+        "snapshotted_at": iso_timestamp(),
+    }
+
+
+def process_queue_file(root: Path, queue_path: Path) -> dict:
+    payload = json.loads(queue_path.read_text(encoding="utf-8"))
+    item_path = Path(payload["item_path"])
+    mode = payload.get("archive_mode") or "readable"
+    try:
+        result = snapshot_item(root, item_path, mode)
+    except Exception as exc:  # noqa: BLE001 - CLI should persist failures.
+        failure_dir = root / "failures"
+        failure_dir.mkdir(parents=True, exist_ok=True)
+        payload["error"] = str(exc)
+        payload["failed_at"] = iso_timestamp()
+        failure_path = failure_dir / f"{queue_path.stem}.json"
+        failure_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if item_path.exists():
+            text = item_path.read_text(encoding="utf-8")
+            item_path.write_text(replace_property(text, "SNAPSHOT_STATUS", "failed"), encoding="utf-8")
+        queue_path.unlink(missing_ok=True)
+        raise
+
+    processed = root / "logs" / "processed" / f"{queue_path.stem}.json"
+    processed.parent.mkdir(parents=True, exist_ok=True)
+    payload["processed_at"] = iso_timestamp()
+    payload["result"] = result
+    processed.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    queue_path.unlink(missing_ok=True)
+    return result
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", default="")
+    parser.add_argument("--item", default="")
+    parser.add_argument("--queue-file", default="")
+    parser.add_argument("--all", action="store_true")
+    parser.add_argument("--mode", choices=("readable", "full"), default="readable")
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+
+    root = Path(args.root).expanduser() if args.root else default_root()
+    results: list[dict] = []
+
+    if args.item:
+        results.append(snapshot_item(root, Path(args.item), args.mode))
+    elif args.queue_file:
+        results.append(process_queue_file(root, Path(args.queue_file)))
+    elif args.all:
+        for queue_path in sorted((root / "queue").glob("*.json")):
+            results.append(process_queue_file(root, queue_path))
+    else:
+        parser.error("Provide --item, --queue-file, or --all")
+
+    if args.json:
+        print(json.dumps(results, ensure_ascii=False, sort_keys=True))
+    else:
+        for result in results:
+            print(f"Snapshotted: {result['item_path']}")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except (OSError, urllib.error.URLError, subprocess.SubprocessError, ValueError) as error:
+        print(f"read-later-snapshot: {error}", file=sys.stderr)
+        sys.exit(1)

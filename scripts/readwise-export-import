@@ -1,0 +1,207 @@
+#!/usr/bin/env python3
+"""Import one-time Readwise/Reader exports into the read-later store."""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import zipfile
+from pathlib import Path
+from xml.etree import ElementTree
+
+
+def default_root() -> Path:
+    root = os.environ.get("MY_READING_ROOT")
+    if root:
+        return Path(root).expanduser()
+    return Path("~/All-The-Things/50-Resources/Read-Later").expanduser()
+
+
+def capture_script() -> Path:
+    return Path(__file__).resolve().with_name("read-later-capture")
+
+
+def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
+    if not text.startswith("---\n"):
+        return {}, text
+    _, rest = text.split("---\n", 1)
+    if "\n---\n" not in rest:
+        return {}, text
+    front, body = rest.split("\n---\n", 1)
+    data: dict[str, str] = {}
+    for line in front.splitlines():
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        data[key.strip().lower().replace(" ", "_")] = value.strip().strip('"')
+    return data, body
+
+
+def first_value(row: dict[str, str], *keys: str) -> str:
+    lowered = {key.lower().replace(" ", "_"): value for key, value in row.items()}
+    for key in keys:
+        value = lowered.get(key)
+        if value:
+            return value
+    return ""
+
+
+def pseudo_url(label: str, body: str) -> str:
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    return f"readwise-import://{label}/{digest[:16]}"
+
+
+def run_capture(root: Path, url: str, title: str, body_file: Path | None, tags: list[str], dry_run: bool) -> dict:
+    command = [
+        str(capture_script()),
+        "--root",
+        str(root),
+        "--url",
+        url,
+        "--title",
+        title or url,
+        "--source",
+        "readwise-import",
+        "--archive-mode",
+        "metadata",
+        "--tags",
+        ",".join(["readwise-import", *tags]),
+        "--json",
+    ]
+    if body_file:
+        command.extend(["--body-file", str(body_file), "--body-format", "markdown"])
+    if dry_run:
+        return {"url": url, "title": title, "dry_run": True}
+    result = subprocess.run(command, text=True, capture_output=True, check=True)
+    return json.loads(result.stdout)
+
+
+def import_markdown(root: Path, path: Path, dry_run: bool) -> dict:
+    text = path.read_text(encoding="utf-8")
+    meta, _body = parse_frontmatter(text)
+    url = first_value(meta, "url", "source_url", "source", "document_url")
+    if not url:
+        url = pseudo_url(path.stem, text)
+    title = first_value(meta, "title") or path.stem
+    tag_value = first_value(meta, "tags", "tag")
+    tags = [tag.strip(" []'\"") for tag in tag_value.split(",") if tag.strip(" []'\"")]
+    return run_capture(root, url, title, path, tags, dry_run)
+
+
+def import_csv(root: Path, path: Path, dry_run: bool) -> list[dict]:
+    results: list[dict] = []
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            url = first_value(row, "url", "source_url", "source url", "document_url", "document url")
+            title = first_value(row, "title", "document_title", "document title") or url
+            body = first_value(row, "text", "highlight", "content", "summary")
+            if not url:
+                url = pseudo_url("csv", json.dumps(row, sort_keys=True))
+            tags = [tag.strip() for tag in first_value(row, "tags", "tag").split(",") if tag.strip()]
+            body_file = None
+            if body:
+                tmp = tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".md", delete=False)
+                with tmp:
+                    tmp.write(body)
+                body_file = Path(tmp.name)
+            results.append(run_capture(root, url, title, body_file, tags, dry_run))
+    return results
+
+
+def outline_feeds(path: Path) -> list[tuple[str, str]]:
+    tree = ElementTree.parse(path)
+    feeds: list[tuple[str, str]] = []
+    for outline in tree.iter("outline"):
+        xml_url = outline.attrib.get("xmlUrl") or outline.attrib.get("xmlurl")
+        if not xml_url:
+            continue
+        title = outline.attrib.get("title") or outline.attrib.get("text") or xml_url
+        feeds.append((title, xml_url))
+    return feeds
+
+
+def append_feeds_org(feeds_org: Path, feeds: list[tuple[str, str]], dry_run: bool) -> None:
+    if dry_run or not feeds:
+        return
+    feeds_org.parent.mkdir(parents=True, exist_ok=True)
+    with feeds_org.open("a", encoding="utf-8") as handle:
+        handle.write("\n* Readwise Import :elfeed:readwise_import:\n")
+        for title, url in feeds:
+            safe_title = title.replace("]", "\\]")
+            handle.write(f"** [[{url}][{safe_title}]]\n")
+
+
+def import_opml(root: Path, path: Path, feeds_org: Path | None, dry_run: bool) -> dict:
+    feeds = outline_feeds(path)
+    imports_dir = root / "imports" / "readwise"
+    if not dry_run:
+        imports_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, imports_dir / path.name)
+        if feeds_org:
+            append_feeds_org(feeds_org, feeds, dry_run)
+    return {"opml": str(path), "feed_count": len(feeds), "feeds_org": str(feeds_org or "")}
+
+
+def import_zip(root: Path, path: Path, dry_run: bool) -> list[dict]:
+    results: list[dict] = []
+    imports_dir = root / "imports" / "readwise"
+    if not dry_run:
+        imports_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, imports_dir / path.name)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(path) as archive:
+            archive.extractall(tmpdir)
+        markdown_files = sorted(Path(tmpdir).rglob("*.md")) + sorted(Path(tmpdir).rglob("*.markdown"))
+        for markdown in markdown_files:
+            results.append(import_markdown(root, markdown, dry_run))
+    return results
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("paths", nargs="+")
+    parser.add_argument("--root", default="")
+    parser.add_argument("--feeds-org", default="")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+
+    root = Path(args.root).expanduser() if args.root else default_root()
+    feeds_org = Path(args.feeds_org).expanduser() if args.feeds_org else None
+    results: list[dict] = []
+
+    for raw_path in args.paths:
+        path = Path(raw_path).expanduser()
+        suffix = path.suffix.lower()
+        if suffix == ".zip":
+            results.extend(import_zip(root, path, args.dry_run))
+        elif suffix in {".md", ".markdown"}:
+            results.append(import_markdown(root, path, args.dry_run))
+        elif suffix == ".csv":
+            results.extend(import_csv(root, path, args.dry_run))
+        elif suffix == ".opml" or path.name.lower().endswith(".xml"):
+            results.append(import_opml(root, path, feeds_org, args.dry_run))
+        else:
+            results.append({"path": str(path), "skipped": True, "reason": "unsupported file type"})
+
+    if args.json:
+        print(json.dumps(results, ensure_ascii=False, sort_keys=True))
+    else:
+        print(f"Imported/planned {len(results)} Readwise records")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except (OSError, subprocess.CalledProcessError, zipfile.BadZipFile, ElementTree.ParseError) as error:
+        print(f"readwise-export-import: {error}", file=sys.stderr)
+        sys.exit(1)

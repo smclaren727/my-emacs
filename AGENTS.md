@@ -46,7 +46,8 @@ no Spacemacs).  Every package solves a concrete problem.
     my-org-mode.el       — org capture, agenda, refile, org-id, export, custom headline bullets, org-bars (provides 'my-org-mode)
     my-tramp.el          — TRAMP helpers and Nix host shortcuts (provides 'my-tramp)
     my-shells.el         — project-aware shell management (provides 'my-shells)
-    my-feeds.el          — Elfeed, elfeed-goodies, elfeed-tube, article saving (provides 'my-feeds)
+    my-feeds.el          — Elfeed, elfeed-goodies, elfeed-tube, feed browsing (provides 'my-feeds)
+    my-reading.el        — local-first read-later captures, snapshots, Reader migration (provides 'my-reading)
     my-nodes.el          — org-node networked notes, backlinks, node search (provides 'my-nodes)
     my-bookmarks.el      — org-backed bookmark manager (provides 'my-bookmarks)
     my-ai.el             — gptel + agent-shell: LLM chat, Claude Code, Codex (provides 'my-ai)
@@ -64,6 +65,10 @@ no Spacemacs).  Every package solves a concrete problem.
     bootstrap-mail-config.sh — idempotent local mail bootstrap helper
     mail-auth-value      — authinfo reader for mbsync/msmtp password helpers
     mail-sync            — launchd-friendly mail sync/index helper
+    read-later-capture   — canonical CLI capture entrypoint for URLs and metadata
+    read-later-safari    — Safari front-tab capture helper
+    read-later-snapshot  — fetch readable/full snapshots for queued captures
+    readwise-export-import — one-time Readwise/Reader export importer
 ```
 
 ## Load Order

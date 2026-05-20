@@ -1,0 +1,324 @@
+#!/usr/bin/env python3
+"""Capture a URL into the local-first read-later store."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+import re
+import sys
+import tempfile
+from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+
+TRACKING_PARAMS = {
+    "fbclid",
+    "gclid",
+    "igshid",
+    "mc_cid",
+    "mc_eid",
+    "mkt_tok",
+}
+
+
+AGENTS_TEXT = """# AGENTS.md - Read-Later Shared Folder
+
+This folder is the local-first read-later and web-clipping store shared by
+Mac, Emacs, iPhone shortcuts, and loxley.
+
+## Guardrails
+
+- Treat `items/` as the canonical capture archive.
+- Treat `queue/` as append-only ingest work for snapshot processors.
+- Do not delete `imports/`, `snapshots/`, `failures/`, or `logs/` during cleanup.
+- Preserve `SOURCE_APP`, `URL`, `CANONICAL_URL`, `CAPTURED`, and `READ_LATER_ID`
+  properties when editing captured Org files.
+- Keep secrets, browser cookies, and API tokens out of this folder.
+- Folder names here are a V1 staging contract; change them only with an explicit
+  shared-folder migration.
+"""
+
+
+def utc_now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def local_org_timestamp(moment: dt.datetime | None = None) -> str:
+    local = (moment or utc_now()).astimezone()
+    return local.strftime("[%Y-%m-%d %a %H:%M]")
+
+
+def iso_timestamp(moment: dt.datetime | None = None) -> str:
+    return (moment or utc_now()).astimezone(dt.timezone.utc).isoformat()
+
+
+def default_root() -> Path:
+    root = os.environ.get("MY_READING_ROOT")
+    if root:
+        return Path(root).expanduser()
+    return Path("~/All-The-Things/50-Resources/Read-Later").expanduser()
+
+
+def ensure_layout(root: Path) -> None:
+    for rel in (
+        "items",
+        "queue",
+        "snapshots/html",
+        "snapshots/readable",
+        "imports/readwise",
+        "failures",
+        "logs/processed",
+    ):
+        (root / rel).mkdir(parents=True, exist_ok=True)
+    agents = root / "AGENTS.md"
+    if not agents.exists():
+        agents.write_text(AGENTS_TEXT, encoding="utf-8")
+
+
+def slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug[:80] or "untitled"
+
+
+def normalize_url(url: str) -> str:
+    url = url.strip()
+    parts = urlsplit(url)
+    if not parts.scheme:
+        parts = urlsplit("https://" + url)
+
+    scheme = parts.scheme.lower()
+    netloc = parts.netloc.lower()
+    if (scheme == "https" and netloc.endswith(":443")) or (
+        scheme == "http" and netloc.endswith(":80")
+    ):
+        netloc = netloc.rsplit(":", 1)[0]
+
+    query = []
+    for key, value in parse_qsl(parts.query, keep_blank_values=True):
+        lowered = key.lower()
+        if lowered.startswith("utm_") or lowered in TRACKING_PARAMS:
+            continue
+        query.append((key, value))
+    query.sort()
+    return urlunsplit((scheme, netloc, parts.path or "/", urlencode(query), ""))
+
+
+def parse_tags(values: list[str]) -> list[str]:
+    tags: list[str] = []
+    for value in values:
+        for part in value.split(","):
+            tag = re.sub(r"[^A-Za-z0-9_@#.-]+", "-", part.strip()).strip("-")
+            if tag and tag not in tags:
+                tags.append(tag)
+    return tags
+
+
+def read_body(path: str | None) -> str:
+    if not path:
+        return ""
+    return Path(path).expanduser().read_text(encoding="utf-8")
+
+
+def content_sha256(*parts: str) -> str:
+    joined = "\n".join(part for part in parts if part)
+    if not joined:
+        return ""
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def jsonl_append(path: Path, value: dict) -> None:
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(value, ensure_ascii=False, sort_keys=True))
+        handle.write("\n")
+
+
+def atomic_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=str(path.parent), delete=False
+    ) as handle:
+        handle.write(text)
+        tmp = Path(handle.name)
+    tmp.replace(path)
+
+
+def index_by_id(root: Path) -> dict[str, Path]:
+    result: dict[str, Path] = {}
+    index = root / "logs" / "index.jsonl"
+    if not index.exists():
+        return result
+    with index.open(encoding="utf-8") as handle:
+        for line in handle:
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            item_id = row.get("id")
+            item_path = row.get("path")
+            if item_id and item_path:
+                path = Path(item_path)
+                if path.exists():
+                    result[item_id] = path
+    return result
+
+
+def org_property(value: str | None) -> str:
+    value = value or ""
+    return value.replace("\n", " ").strip()
+
+
+def org_section(name: str, value: str) -> str:
+    value = value.strip()
+    if not value:
+        return ""
+    return f"\n* {name}\n{value}\n"
+
+
+def make_org(args: argparse.Namespace, item_id: str, canonical_url: str, body: str) -> str:
+    title = args.title or args.url
+    tags = parse_tags(args.tags)
+    filetags = ":".join(tags)
+    captured = local_org_timestamp()
+    content_hash = content_sha256(args.note or "", args.selection or "", body)
+    lines = [
+        f"#+title: {title}",
+        f"#+source: {args.url}",
+        f"#+date: {captured}",
+    ]
+    if filetags:
+        lines.append(f"#+filetags: :{filetags}:")
+    lines.extend(
+        [
+            "",
+            ":PROPERTIES:",
+            f":READ_LATER_ID: {item_id}",
+            f":URL: {org_property(args.url)}",
+            f":CANONICAL_URL: {org_property(canonical_url)}",
+            f":SOURCE_APP: {org_property(args.source)}",
+            f":CAPTURED: {captured}",
+            f":ARCHIVE_MODE: {org_property(args.archive_mode)}",
+            f":CONTENT_SHA256: {content_hash}",
+            ":SNAPSHOT_STATUS: pending",
+            ":END:",
+            "",
+            "* Capture Log",
+            f"** {captured} {args.source}",
+        ]
+    )
+    if args.note:
+        lines.append(org_section("Note", args.note))
+    if args.selection:
+        lines.append(org_section("Selection", args.selection))
+    if body:
+        heading = "Imported Content"
+        if args.body_format:
+            heading = f"Imported Content ({args.body_format})"
+        lines.append(org_section(heading, body))
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def append_capture_log(path: Path, args: argparse.Namespace) -> None:
+    pieces = ["", "* Capture Log", f"** {local_org_timestamp()} {args.source}"]
+    if args.note:
+        pieces.append(org_section("Note", args.note))
+    if args.selection:
+        pieces.append(org_section("Selection", args.selection))
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write("\n".join(piece.rstrip() for piece in pieces if piece is not None))
+        handle.write("\n")
+
+
+def queue_snapshot(root: Path, path: Path, args: argparse.Namespace, item_id: str, canonical_url: str) -> Path:
+    queue_path = root / "queue" / f"{utc_now().strftime('%Y%m%dT%H%M%SZ')}-{item_id[:12]}.json"
+    payload = {
+        "id": item_id,
+        "item_path": str(path),
+        "url": args.url,
+        "canonical_url": canonical_url,
+        "title": args.title or args.url,
+        "source": args.source,
+        "tags": parse_tags(args.tags),
+        "archive_mode": args.archive_mode,
+        "queued_at": iso_timestamp(),
+    }
+    atomic_write(queue_path, json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+    return queue_path
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--url", required=True)
+    parser.add_argument("--title", default="")
+    parser.add_argument("--source", default="manual")
+    parser.add_argument("--tags", action="append", default=[])
+    parser.add_argument("--note", default="")
+    parser.add_argument("--selection", default="")
+    parser.add_argument("--archive-mode", choices=("metadata", "readable", "full", "defer"), default="readable")
+    parser.add_argument("--root", default="")
+    parser.add_argument("--body-file", default="")
+    parser.add_argument("--body-format", default="")
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+
+    root = Path(args.root).expanduser() if args.root else default_root()
+    ensure_layout(root)
+
+    canonical_url = normalize_url(args.url)
+    item_id = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
+    existing = index_by_id(root).get(item_id)
+    body = read_body(args.body_file)
+    duplicate = existing is not None
+
+    if duplicate:
+        path = existing
+        append_capture_log(path, args)
+    else:
+        slug = slugify(args.title or urlsplit(canonical_url).netloc or canonical_url)
+        path = root / "items" / f"{utc_now().strftime('%Y-%m-%d')}--{slug}--{item_id[:12]}.org"
+        atomic_write(path, make_org(args, item_id, canonical_url, body))
+        jsonl_append(
+            root / "logs" / "index.jsonl",
+            {
+                "id": item_id,
+                "path": str(path),
+                "url": args.url,
+                "canonical_url": canonical_url,
+                "title": args.title or args.url,
+                "created_at": iso_timestamp(),
+            },
+        )
+
+    queue_path = ""
+    if args.archive_mode in {"readable", "full", "defer"}:
+        queue_path = str(queue_snapshot(root, path, args, item_id, canonical_url))
+
+    event = {
+        "id": item_id,
+        "path": str(path),
+        "url": args.url,
+        "canonical_url": canonical_url,
+        "title": args.title or args.url,
+        "source": args.source,
+        "archive_mode": args.archive_mode,
+        "duplicate": duplicate,
+        "queue_path": queue_path,
+        "captured_at": iso_timestamp(),
+    }
+    jsonl_append(root / "logs" / "captures.jsonl", event)
+
+    if args.json:
+        print(json.dumps(event, ensure_ascii=False, sort_keys=True))
+    else:
+        state = "Updated" if duplicate else "Captured"
+        print(f"{state}: {path}")
+        if queue_path:
+            print(f"Queued snapshot: {queue_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -38,6 +38,9 @@
 (defvar my-flag-feeds t
   "Load feeds module (elfeed RSS reader).")
 
+(defvar my-flag-reading t
+  "Load local-first read-later capture module.")
+
 (defvar my-flag-nodes t
   "Load org-node module (networked notes, backlinks, node search).")
 
