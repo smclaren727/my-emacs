@@ -1,0 +1,188 @@
+* Local-First Read-Later Help
+:PROPERTIES:
+:CUSTOM_ID: local-first-read-later-help
+:END:
+This setup moves saved reading away from Readwise/Reader and into a
+shared local-first folder. Emacs, Safari, Elfeed, iPhone shortcuts, and
+loxley all write into the same read-later contract.
+
+** Storage Layout
+:PROPERTIES:
+:CUSTOM_ID: storage-layout
+:END:
+Mac default root:
+
+#+begin_src text
+~/All-The-Things/50-Resources/Read-Later/
+#+end_src
+
+Loxley root:
+
+#+begin_src text
+/srv/loxley/All-The-Things/50-Resources/Read-Later/
+#+end_src
+
+Folder roles:
+
+#+begin_src text
+AGENTS.md
+items/              canonical Org capture files
+queue/              pending snapshot/ingress work
+snapshots/html/     fetched HTML snapshots
+snapshots/readable/ readable Org conversions
+imports/readwise/   one-time Reader export material
+failures/           failed snapshot jobs
+logs/               capture/index/processed logs
+#+end_src
+
+Local captures create an Org item in =items/=, dedupe by normalized URL,
+and usually add a queue job for snapshotting. Duplicate saves append to
+the existing item's capture log.
+
+** Emacs Commands
+:PROPERTIES:
+:CUSTOM_ID: emacs-commands
+:END:
+Available with =M-x=:
+
+#+begin_src text
+my-reading-capture-dwim
+my-reading-capture-url
+my-reading-capture-current-page
+my-reading-capture-elfeed-entry
+my-reading-import-readwise-export
+my-reading-open-root
+my-reading-open-queue
+#+end_src
+
+Leader bindings, using =C-c u= or the double-space leader:
+
+#+begin_src text
+n d   capture DWIM
+n w   capture current Emacs browser/page
+n i   import Readwise/Reader export
+n q   open read-later queue
+n r   open read-later root
+#+end_src
+
+In Elfeed:
+
+#+begin_src text
+d     save current Elfeed item to read-later
+#+end_src
+
+** Shell Commands
+:PROPERTIES:
+:CUSTOM_ID: shell-commands
+:END:
+Capture a URL:
+
+#+begin_src sh
+~/.emacs.d/scripts/read-later-capture \
+  --url "https://example.com/article" \
+  --title "Article Title" \
+  --source manual \
+  --tags "emacs,reading" \
+  --note "Why I saved it"
+#+end_src
+
+Capture the front Safari tab:
+
+#+begin_src sh
+~/.emacs.d/scripts/read-later-safari
+#+end_src
+
+Process all queued local snapshots:
+
+#+begin_src sh
+~/.emacs.d/scripts/read-later-snapshot --all
+#+end_src
+
+Process one item:
+
+#+begin_src sh
+~/.emacs.d/scripts/read-later-snapshot \
+  --item ~/All-The-Things/50-Resources/Read-Later/items/some-item.org
+#+end_src
+
+Dry-run a Readwise/Reader export import:
+
+#+begin_src sh
+~/.emacs.d/scripts/readwise-export-import --dry-run /path/to/reader-export.zip
+#+end_src
+
+Import OPML into the Elfeed feeds file:
+
+#+begin_src sh
+~/.emacs.d/scripts/readwise-export-import \
+  --feeds-org ~/All-The-Things/50-Resources/feeds.org \
+  /path/to/subscriptions.opml
+#+end_src
+
+** Archive Modes
+:PROPERTIES:
+:CUSTOM_ID: archive-modes
+:END:
+=read-later-capture= supports:
+
+#+begin_src text
+metadata   create item only, no snapshot queue
+readable   create item and queue readable snapshot
+full       create item and queue fuller snapshot intent
+defer      create item and queue later processing
+#+end_src
+
+Default mode is =readable=.
+
+** Loxley Ingress
+:PROPERTIES:
+:CUSTOM_ID: loxley-ingress
+:END:
+Loxley runs:
+
+#+begin_src text
+loxley-read-later-ingress.service
+#+end_src
+
+Endpoint:
+
+#+begin_src text
+POST http://loxley:45741/capture
+#+end_src
+
+Required header:
+
+#+begin_src text
+Authorization: Bearer <read_later_ingress_token>
+#+end_src
+
+Example:
+
+#+begin_src sh
+curl -X POST http://loxley:45741/capture \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $READ_LATER_TOKEN" \
+  -d '{"url":"https://example.com","title":"Example","source":"iphone","tags":["mobile"]}'
+#+end_src
+
+Health check:
+
+#+begin_src sh
+curl http://loxley:45741/health
+#+end_src
+
+The token is stored on loxley via =sops-nix= as:
+
+#+begin_src text
+/run/secrets/read_later_ingress_token
+#+end_src
+
+** Current Boundary
+:PROPERTIES:
+:CUSTOM_ID: current-boundary
+:END:
+Loxley ingress writes raw capture JSON into =queue/=. Local Mac/Emacs
+captures already create =items/= plus snapshot queue jobs.
+
+A future worker should materialize loxley ingress queue entries into
+canonical =items/= files automatically.
