@@ -16,8 +16,7 @@
 (declare-function elfeed-tag "elfeed-db" (entry &rest tags))
 
 (defvar elfeed-show-entry)
-(defvar eww-current-title)
-(defvar eww-current-url)
+(defvar eww-data)
 
 ;;; Variables -----------------------------------------------------------
 
@@ -72,6 +71,28 @@
              path)
     path))
 
+;;; Browser helpers -----------------------------------------------------
+
+(defun my-reading--eww-data-value (property)
+  "Return PROPERTY from EWW's current page data, or nil."
+  (when (and (boundp 'eww-data) (listp eww-data))
+    (plist-get eww-data property)))
+
+(defun my-reading--current-page-url ()
+  "Return the current browser page URL or URL at point."
+  (cond
+   ((derived-mode-p 'eww-mode)
+    (my-reading--eww-data-value :url))
+   ((thing-at-point-url-at-point))))
+
+(defun my-reading--current-page-title (url)
+  "Return the current browser page title, falling back to URL."
+  (cond
+   ((derived-mode-p 'eww-mode)
+    (or (my-reading--eww-data-value :title) url))
+   (t
+    (read-string "Title: " nil nil url))))
+
 ;;; Capture commands ----------------------------------------------------
 
 (defun my-reading-capture-url (url title &optional source tags note selection archive-mode)
@@ -102,15 +123,13 @@ to the CLI capture contract."
 (defun my-reading-capture-current-page ()
   "Capture the current Emacs browser page or URL at point."
   (interactive)
-  (let* ((url (cond
-               ((derived-mode-p 'eww-mode) eww-current-url)
-               ((thing-at-point-url-at-point))
-               (t (read-string "URL: "))))
-         (title (cond
-                 ((derived-mode-p 'eww-mode) (or eww-current-title url))
-                 (t (read-string "Title: "))))
+  (let* ((url (or (my-reading--current-page-url)
+                  (read-string "URL: ")))
+         (title (my-reading--current-page-title url))
          (source (if (derived-mode-p 'eww-mode) "eww" "emacs"))
          (selection (my-reading--region-text)))
+    (when (string-empty-p (string-trim url))
+      (user-error "No page URL found"))
     (my-reading-capture-url url title source "" "" selection my-reading-default-archive-mode)))
 
 (defun my-reading--elfeed-entry-at-point ()
