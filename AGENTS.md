@@ -66,7 +66,6 @@ no Spacemacs).  Every package solves a concrete problem.
     mail-auth-value      — authinfo reader for mbsync/msmtp password helpers
     mail-sync            — launchd-friendly mail sync/index helper
     read-later-capture   — canonical CLI capture entrypoint for URLs and metadata
-    read-later-safari    — Safari front-tab capture helper
     read-later-snapshot  — fetch readable/full snapshots for queued captures
     readwise-export-import — one-time Readwise/Reader export importer
 ```

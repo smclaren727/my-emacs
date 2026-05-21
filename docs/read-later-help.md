@@ -127,12 +127,6 @@ Normalize existing read-later items after a format change:
 ~/.emacs.d/scripts/read-later-capture --normalize-existing
 ```
 
-Capture the front Safari tab:
-
-```sh
-~/.emacs.d/scripts/read-later-safari
-```
-
 Process all queued local snapshots:
 
 ```sh
