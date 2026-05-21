@@ -138,6 +138,11 @@ Process all queued local snapshots:
 ~/.emacs.d/scripts/read-later-snapshot --all
 ```
 
+Snapshot processing defaults to `--extractor auto`, which tries EWW's
+`eww-readable` article extraction first and falls back to Pandoc when EWW
+cannot identify a readable body. Use `--extractor pandoc` to force the older
+HTML-to-Org conversion, or `--extractor eww` to fail instead of falling back.
+
 From Emacs, use:
 
 ```text

@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -96,7 +97,63 @@ def fetch_html(url: str) -> str:
     return raw.decode(encoding, errors="replace")
 
 
-def html_to_org(html: str) -> str:
+EWW_READABLE_ELISP = r"""
+;;; read-later-eww-readable.el --- Extract readable text -*- lexical-binding: t; -*-
+(require 'eww)
+(require 'shr)
+(require 'subr-x)
+
+(let* ((args (if (string= (car command-line-args-left) "--")
+                 (cdr command-line-args-left)
+               command-line-args-left))
+       (file (nth 0 args))
+       (url (nth 1 args))
+       (dom (with-temp-buffer
+              (insert-file-contents file)
+              (eww--parse-html-region (point-min) (point-max))))
+       (readable (eww-readable-dom dom)))
+  (unless readable
+    (error "EWW could not identify a readable article body"))
+  (with-temp-buffer
+    (let ((shr-width 80)
+          (shr-use-fonts nil)
+          (shr-use-colors nil)
+          (shr-inhibit-images t))
+      (shr-insert-document (eww-document-base url readable))
+      (let ((text (string-trim (buffer-string))))
+        (unless (length> text 0)
+          (error "EWW readable extraction produced no text"))
+        (princ text)))))
+"""
+
+
+def eww_readable_text(html: str, url: str) -> str:
+    emacs = shutil.which("emacs")
+    if not emacs:
+        raise RuntimeError("emacs executable not found")
+    with tempfile.TemporaryDirectory(prefix="read-later-eww-") as tmp:
+        tmp_path = Path(tmp)
+        html_path = tmp_path / "page.html"
+        elisp_path = tmp_path / "eww-readable.el"
+        html_path.write_text(html, encoding="utf-8")
+        elisp_path.write_text(EWW_READABLE_ELISP, encoding="utf-8")
+        result = subprocess.run(
+            [emacs, "-Q", "--batch", "-l", str(elisp_path), "--", str(html_path), url],
+            text=True,
+            capture_output=True,
+            timeout=90,
+            check=False,
+        )
+    if result.returncode != 0:
+        stderr = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(stderr or "EWW readable extraction failed")
+    text = result.stdout.strip()
+    if not text:
+        raise RuntimeError("EWW readable extraction produced no text")
+    return text
+
+
+def pandoc_html_to_org(html: str) -> str:
     pandoc = shutil.which("pandoc")
     if pandoc:
         result = subprocess.run(
@@ -115,7 +172,17 @@ def html_to_org(html: str) -> str:
     return text or "Snapshot conversion produced no readable text."
 
 
-def snapshot_item(root: Path, item_path: Path, mode: str) -> dict:
+def html_to_org(html: str, url: str, extractor: str) -> tuple[str, str]:
+    if extractor in {"auto", "eww"}:
+        try:
+            return eww_readable_text(html, url), "eww-readable"
+        except Exception:
+            if extractor == "eww":
+                raise
+    return pandoc_html_to_org(html), "pandoc"
+
+
+def snapshot_item(root: Path, item_path: Path, mode: str, extractor: str) -> dict:
     item_path = item_path.expanduser()
     url = read_item_property(item_path, "URL")
     org_id = read_item_identifier(item_path)
@@ -127,7 +194,7 @@ def snapshot_item(root: Path, item_path: Path, mode: str) -> dict:
     html_path.parent.mkdir(parents=True, exist_ok=True)
     html_path.write_text(html, encoding="utf-8")
 
-    org_content = html_to_org(html)
+    org_content, extractor_used = html_to_org(html, url, extractor)
     readable_path = root / "snapshots" / "readable" / f"{org_id}.org"
     readable_path.parent.mkdir(parents=True, exist_ok=True)
     readable_path.write_text(org_content + "\n", encoding="utf-8")
@@ -143,6 +210,7 @@ def snapshot_item(root: Path, item_path: Path, mode: str) -> dict:
         f":HTML_PATH: {html_path}\n"
         f":READABLE_PATH: {readable_path}\n"
         f":SNAPSHOT_MODE: {mode}\n"
+        f":SNAPSHOT_EXTRACTOR: {extractor_used}\n"
         ":END:\n\n"
         f"{org_content}\n"
         f"{marker_end}\n"
@@ -165,16 +233,17 @@ def snapshot_item(root: Path, item_path: Path, mode: str) -> dict:
         "html_path": str(html_path),
         "readable_path": str(readable_path),
         "mode": mode,
+        "extractor": extractor_used,
         "snapshotted_at": iso_timestamp(),
     }
 
 
-def process_queue_file(root: Path, queue_path: Path) -> dict:
+def process_queue_file(root: Path, queue_path: Path, extractor: str) -> dict:
     payload = json.loads(queue_path.read_text(encoding="utf-8"))
     item_path = Path(payload["item_path"])
     mode = payload.get("archive_mode") or "readable"
     try:
-        result = snapshot_item(root, item_path, mode)
+        result = snapshot_item(root, item_path, mode, extractor)
     except Exception as exc:  # noqa: BLE001 - CLI should persist failures.
         failure_dir = root / "failures"
         failure_dir.mkdir(parents=True, exist_ok=True)
@@ -204,6 +273,7 @@ def main() -> int:
     parser.add_argument("--queue-file", default="")
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--mode", choices=("readable", "full"), default="readable")
+    parser.add_argument("--extractor", choices=("auto", "eww", "pandoc"), default="auto")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -211,12 +281,12 @@ def main() -> int:
     results: list[dict] = []
 
     if args.item:
-        results.append(snapshot_item(root, Path(args.item), args.mode))
+        results.append(snapshot_item(root, Path(args.item), args.mode, args.extractor))
     elif args.queue_file:
-        results.append(process_queue_file(root, Path(args.queue_file)))
+        results.append(process_queue_file(root, Path(args.queue_file), args.extractor))
     elif args.all:
         for queue_path in sorted((root / "queue").glob("*.json")):
-            results.append(process_queue_file(root, queue_path))
+            results.append(process_queue_file(root, queue_path, args.extractor))
     else:
         parser.error("Provide --item, --queue-file, or --all")
 
