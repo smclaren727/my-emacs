@@ -5,8 +5,12 @@
 ;; completing-read (vertico/orderless).  An emacsclient-friendly frame
 ;; launcher enables system-wide access from Raycast/Alfred/hotkeys.
 
-(require 'org)
 (require 'org-element)
+(require 'org)
+(require 'seq)
+(require 'subr-x)
+
+(defvar org-protocol-protocol-alist)
 (defvar vertico-count)
 
 ;;; Variables -----------------------------------------------------------
@@ -23,6 +27,7 @@
 
 (defun my-bookmarks--collect ()
   "Return alist of (\"Title — URL\" . URL) from `my-bookmarks-file'."
+  (my-bookmarks--ensure-file)
   (with-temp-buffer
     (insert-file-contents my-bookmarks-file)
     (org-mode)
@@ -52,6 +57,34 @@ PROMPT is the minibuffer prompt string."
       (user-error "No bookmark selected"))
     url))
 
+(defun my-bookmarks--plist-string (plist property)
+  "Return PROPERTY from PLIST as a non-empty trimmed string."
+  (let ((value (plist-get plist property)))
+    (when (and (stringp value) (not (string-empty-p (string-trim value))))
+      (string-trim value))))
+
+(defun my-bookmarks--ensure-file ()
+  "Ensure `my-bookmarks-file' exists with an Inbox heading."
+  (make-directory (file-name-directory my-bookmarks-file) t)
+  (unless (file-exists-p my-bookmarks-file)
+    (with-temp-file my-bookmarks-file
+      (insert "#+TITLE: Bookmarks\n#+STARTUP: content\n\n* Inbox\n"))))
+
+(defun my-bookmarks--goto-inbox ()
+  "Move point to the Inbox heading, creating it if needed."
+  (goto-char (point-min))
+  (unless (re-search-forward "^\\* Inbox\\s-*$" nil t)
+    (goto-char (point-max))
+    (unless (bolp)
+      (insert "\n"))
+    (insert "\n* Inbox\n")
+    (forward-line -1))
+  (beginning-of-line))
+
+(defun my-bookmarks--url-exists-p (url)
+  "Return non-nil when URL is already present in `my-bookmarks-file'."
+  (member url (mapcar #'cdr (my-bookmarks--collect))))
+
 ;;; Interactive commands ------------------------------------------------
 
 (defun my-bookmarks-open ()
@@ -75,6 +108,74 @@ PROMPT is the minibuffer prompt string."
   "Capture a new bookmark via org-capture."
   (interactive)
   (org-capture nil "b"))
+
+(defun my-bookmarks-add-url (url title &optional tags)
+  "Save URL as a bookmark with TITLE and optional TAGS.
+The bookmark is written under the Inbox heading in
+`my-bookmarks-file'.  Existing matching URLs are not duplicated."
+  (interactive
+   (let* ((url (read-string "Bookmark URL: "))
+          (title (read-string "Bookmark title: " url))
+          (tags (read-string "Tags: ")))
+     (list url title tags)))
+  (setq url (string-trim url))
+  (setq title (string-trim (or title "")))
+  (setq tags (string-trim (or tags "")))
+  (unless (string-match-p "\\`https?://" url)
+    (user-error "Bookmark URL must start with http:// or https://"))
+  (my-bookmarks--ensure-file)
+  (if (my-bookmarks--url-exists-p url)
+      (progn
+        (message "Bookmark already exists: %s" url)
+        `(:duplicate t :url ,url))
+    (with-current-buffer (find-file-noselect my-bookmarks-file)
+      (widen)
+      (org-mode)
+      (my-bookmarks--goto-inbox)
+      (org-end-of-subtree t t)
+      (unless (bolp)
+        (insert "\n"))
+      (insert (format "** %s\n"
+                      (org-link-make-string
+                       url
+                       (if (string-empty-p title) url title))))
+      (insert ":PROPERTIES:\n")
+      (insert (format ":CREATED: %s\n" (format-time-string "[%Y-%m-%d]")))
+      (insert (format ":TAGS: %s\n" tags))
+      (insert ":END:\n")
+      (save-buffer))
+    (message "Saved bookmark: %s" url)
+    `(:duplicate nil :url ,url)))
+
+(defun my-bookmarks-capture-org-protocol (info)
+  "Capture a bookmark from org-protocol INFO.
+Expected INFO is a plist containing `:url', `:title', and optional
+`:tags'."
+  (let* ((url (my-bookmarks--plist-string info :url))
+         (title (or (my-bookmarks--plist-string info :title) url))
+         (tags (my-bookmarks--plist-string info :tags)))
+    (unless url
+      (user-error "org-protocol bookmark capture requires a URL"))
+    (my-bookmarks-add-url url title tags)
+    nil))
+
+(defun my-bookmarks--register-org-protocol ()
+  "Register the bookmark org-protocol handler."
+  (setq org-protocol-protocol-alist
+        (cons
+         '("bookmark"
+           :protocol "bookmark"
+           :function my-bookmarks-capture-org-protocol
+           :kill-client t)
+         (seq-remove
+          (lambda (entry)
+            (string= "bookmark" (plist-get (cdr entry) :protocol)))
+          org-protocol-protocol-alist))))
+
+(with-eval-after-load 'org-protocol
+  (my-bookmarks--register-org-protocol))
+
+(require 'org-protocol nil t)
 
 ;;; Frame launcher for emacsclient --------------------------------------
 
