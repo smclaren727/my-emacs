@@ -31,9 +31,36 @@
 
 ;;; Script helpers ------------------------------------------------------
 
+(defvar my-reading-script-directory
+  (when-let* ((directory (getenv "MY_READING_SCRIPT_DIR")))
+    (unless (string-empty-p (string-trim directory))
+      (file-name-as-directory (expand-file-name directory))))
+  "Optional directory containing read-later helper scripts.")
+
+(defconst my-reading--module-directory
+  (file-name-directory (or load-file-name buffer-file-name))
+  "Directory containing this module when it was loaded.")
+
+(defun my-reading--script-candidates (name)
+  "Return candidate paths for read-later script NAME."
+  (delete-dups
+   (delq nil
+         (list
+          (when my-reading-script-directory
+            (expand-file-name name my-reading-script-directory))
+          (my-emacs-source-file (expand-file-name name "scripts/"))
+          (expand-file-name (concat "scripts/" name) user-emacs-directory)
+          (when my-reading--module-directory
+            (expand-file-name (concat "../scripts/" name)
+                              my-reading--module-directory))))))
+
 (defun my-reading--script (name)
-  "Return read-later script NAME from this config checkout."
-  (my-emacs-source-file (expand-file-name name "scripts/")))
+  "Return executable read-later script NAME."
+  (let ((candidates (my-reading--script-candidates name)))
+    (or (seq-find #'file-executable-p candidates)
+        (user-error "No executable read-later script %s found. Checked: %s"
+                    name
+                    (string-join candidates ", ")))))
 
 (defun my-reading--arg (name value)
   "Return CLI argument pair NAME VALUE when VALUE is a non-empty string."
@@ -42,8 +69,16 @@
 
 (defun my-reading--call-json (script &rest args)
   "Run SCRIPT with ARGS and parse one JSON object from stdout."
-  (unless (file-executable-p script)
-    (user-error "Read-later script is not executable: %s" script))
+  (unless (and script (file-executable-p script))
+    (let ((name (and script (file-name-nondirectory script))))
+      (user-error "Read-later script is not executable: %s%s"
+                  (or script "<none>")
+                  (if name
+                      (format " (checked: %s)"
+                              (string-join
+                               (my-reading--script-candidates name)
+                               ", "))
+                    ""))))
   (with-temp-buffer
     (let ((status (apply #'process-file script nil t nil args)))
       (unless (zerop status)
