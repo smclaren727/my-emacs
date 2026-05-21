@@ -51,6 +51,7 @@ metadata plus a property drawer:
 :SOURCE_APP: eww
 :CAPTURED: [2026-05-20 Wed 20:27]
 :ARCHIVE_MODE: readable
+:FEED_TAGS: news
 :CONTENT_SHA256:
 :SNAPSHOT_STATUS: pending
 :END:
@@ -59,8 +60,9 @@ metadata plus a property drawer:
 `CANONICAL_URL` is the dedupe key. `ID` is the normal Org identity used for
 local object references, snapshot filenames, and queue records. `SOURCE_APP`
 records the most recent capture surface; the capture log preserves earlier
-captures. Older items that still have `READ_LATER_ID` are tolerated by the
-snapshot script, but new captures should not create that property.
+captures. `FEED_TAGS` stores Elfeed category tags without turning them into
+Org file tags. Older items that still have `READ_LATER_ID` are tolerated by
+the snapshot script, but new captures should not create that property.
 
 ## Emacs Commands
 

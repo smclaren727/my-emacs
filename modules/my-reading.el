@@ -182,10 +182,10 @@ Expected INFO is a plist containing `:url', `:title', optional
 
 ;;; Capture commands ----------------------------------------------------
 
-(defun my-reading-capture-url (url title &optional source tags note selection archive-mode)
+(defun my-reading-capture-url (url title &optional source tags note selection archive-mode feed-tags)
   "Capture URL with TITLE into the local read-later store.
-SOURCE, TAGS, NOTE, SELECTION, and ARCHIVE-MODE are passed through
-to the CLI capture contract."
+SOURCE, TAGS, NOTE, SELECTION, ARCHIVE-MODE, and FEED-TAGS are
+passed through to the CLI capture contract."
   (interactive
    (list
     (read-string "URL: " (or (thing-at-point-url-at-point) ""))
@@ -203,6 +203,7 @@ to the CLI capture contract."
                      "--source" (or source "manual")
                      "--archive-mode" (or archive-mode my-reading-default-archive-mode))
                (my-reading--arg "--tags" tags)
+               (my-reading--arg "--feed-tags" feed-tags)
                (my-reading--arg "--note" note)
                (my-reading--arg "--selection" selection))))
     (my-reading--message-result (apply #'my-reading--capture-script args))))
@@ -240,7 +241,7 @@ to the CLI capture contract."
                   (seq-remove (lambda (tag) (memq tag '(unread star saved)))
                               (elfeed-entry-tags entry))
                   ",")))
-      (my-reading-capture-url url title "elfeed" tags "" "" my-reading-default-archive-mode)
+      (my-reading-capture-url url title "elfeed" "" "" "" my-reading-default-archive-mode tags)
       (elfeed-tag entry 'saved)
       (when (derived-mode-p 'elfeed-search-mode)
         (elfeed-search-update-entry entry)))))

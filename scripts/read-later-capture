@@ -122,6 +122,10 @@ def parse_tags(values: list[str]) -> list[str]:
     return tags
 
 
+def format_tags(tags: list[str]) -> str:
+    return ",".join(tags)
+
+
 def read_body(path: str | None) -> str:
     if not path:
         return ""
@@ -190,6 +194,16 @@ def read_org_property(text: str, key: str) -> str:
     return match.group(1) if match else ""
 
 
+def read_org_keyword(text: str, key: str) -> str:
+    pattern = re.compile(rf"^#\+{re.escape(key)}:\s*(.*?)\s*$", re.MULTILINE | re.IGNORECASE)
+    match = pattern.search(text)
+    return match.group(1) if match else ""
+
+
+def parse_org_filetags(value: str) -> list[str]:
+    return parse_tags([value.replace(":", ",")])
+
+
 def remove_org_property(text: str, key: str) -> str:
     pattern = re.compile(rf"^:{re.escape(key)}:\s*.*\n?", re.MULTILINE)
     return pattern.sub("", text, count=1)
@@ -214,7 +228,14 @@ def insert_org_property(text: str, key: str, value: str) -> str:
 def normalize_item(path: Path, source: str | None = None) -> tuple[str, bool]:
     text = path.read_text(encoding="utf-8")
     org_id = read_org_property(text, "ID") or new_org_id()
+    original_source = read_org_property(text, "SOURCE_APP")
+    source_app = source or original_source
+    filetags = parse_org_filetags(read_org_keyword(text, "filetags"))
     updated = remove_org_keyword(text, "source")
+    if "elfeed" in {source_app, original_source} and filetags:
+        if not read_org_property(text, "FEED_TAGS"):
+            updated = insert_org_property(updated, "FEED_TAGS", format_tags(filetags))
+        updated = remove_org_keyword(updated, "filetags")
     updated = remove_org_property(updated, "READ_LATER_ID")
     updated = insert_org_property(updated, "ID", org_id)
     if source:
@@ -251,6 +272,7 @@ def org_section(name: str, value: str) -> str:
 def make_org(args: argparse.Namespace, org_id: str, canonical_url: str, body: str) -> str:
     title = args.title or args.url
     tags = parse_tags(args.tags)
+    feed_tags = parse_tags(args.feed_tags)
     filetags = ":".join(tags)
     captured = local_org_timestamp()
     content_hash = content_sha256(args.note or "", args.selection or "", body)
@@ -260,18 +282,27 @@ def make_org(args: argparse.Namespace, org_id: str, canonical_url: str, body: st
     ]
     if filetags:
         lines.append(f"#+filetags: :{filetags}:")
+    properties = [
+        f":ID: {org_id}",
+        f":URL: {org_property(args.url)}",
+        f":CANONICAL_URL: {org_property(canonical_url)}",
+        f":SOURCE_APP: {org_property(args.source)}",
+        f":CAPTURED: {captured}",
+        f":ARCHIVE_MODE: {org_property(args.archive_mode)}",
+    ]
+    if feed_tags:
+        properties.append(f":FEED_TAGS: {format_tags(feed_tags)}")
+    properties.extend(
+        [
+            f":CONTENT_SHA256: {content_hash}",
+            ":SNAPSHOT_STATUS: pending",
+        ]
+    )
     lines.extend(
         [
             "",
             ":PROPERTIES:",
-            f":ID: {org_id}",
-            f":URL: {org_property(args.url)}",
-            f":CANONICAL_URL: {org_property(canonical_url)}",
-            f":SOURCE_APP: {org_property(args.source)}",
-            f":CAPTURED: {captured}",
-            f":ARCHIVE_MODE: {org_property(args.archive_mode)}",
-            f":CONTENT_SHA256: {content_hash}",
-            ":SNAPSHOT_STATUS: pending",
+            *properties,
             ":END:",
             "",
             "* Capture Log",
@@ -313,6 +344,7 @@ def queue_snapshot(root: Path, path: Path, args: argparse.Namespace, org_id: str
         "title": args.title or args.url,
         "source": args.source,
         "tags": parse_tags(args.tags),
+        "feed_tags": parse_tags(args.feed_tags),
         "archive_mode": args.archive_mode,
         "queued_at": iso_timestamp(),
     }
@@ -326,6 +358,7 @@ def main() -> int:
     parser.add_argument("--title", default="")
     parser.add_argument("--source", default="manual")
     parser.add_argument("--tags", action="append", default=[])
+    parser.add_argument("--feed-tags", action="append", default=[])
     parser.add_argument("--note", default="")
     parser.add_argument("--selection", default="")
     parser.add_argument("--archive-mode", choices=("metadata", "readable", "full", "defer"), default="readable")
@@ -391,6 +424,7 @@ def main() -> int:
         "title": args.title or args.url,
         "source": args.source,
         "archive_mode": args.archive_mode,
+        "feed_tags": parse_tags(args.feed_tags),
         "duplicate": duplicate,
         "queue_path": queue_path,
         "captured_at": iso_timestamp(),
