@@ -91,6 +91,24 @@ In Elfeed:
 d     save current Elfeed item to read-later
 ```
 
+## Browser Bookmarklet
+
+The read-later module registers this org-protocol endpoint:
+
+```text
+org-protocol://read-later
+```
+
+Create a Safari bookmark and replace its address with this bookmarklet:
+
+```javascript
+javascript:location.href='org-protocol://read-later?'+new URLSearchParams({url:location.href,title:document.title,body:window.getSelection().toString(),source:'safari'});void(0)
+```
+
+Using the bookmarklet captures the current Safari page through the same local
+read-later path as Emacs. Selected text is stored as the capture selection, and
+the saved item gets `:SOURCE_APP: safari`.
+
 ## Shell Commands
 
 Capture a URL:
