@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -35,7 +36,7 @@ Mac, Emacs, iPhone shortcuts, and loxley.
 - Treat `items/` as the canonical capture archive.
 - Treat `queue/` as append-only ingest work for snapshot processors.
 - Do not delete `imports/`, `snapshots/`, `failures/`, or `logs/` during cleanup.
-- Preserve `SOURCE_APP`, `URL`, `CANONICAL_URL`, `CAPTURED`, and `READ_LATER_ID`
+- Preserve `ID`, `SOURCE_APP`, `URL`, `CANONICAL_URL`, and `CAPTURED`
   properties when editing captured Org files.
 - Keep secrets, browser cookies, and API tokens out of this folder.
 - Folder names here are a V1 staging contract; change them only with an explicit
@@ -77,6 +78,10 @@ def ensure_layout(root: Path) -> None:
     agents = root / "AGENTS.md"
     if not agents.exists():
         agents.write_text(AGENTS_TEXT, encoding="utf-8")
+    else:
+        text = agents.read_text(encoding="utf-8")
+        if "Read-Later Shared Folder" in text and "READ_LATER_ID" in text:
+            agents.write_text(AGENTS_TEXT, encoding="utf-8")
 
 
 def slugify(value: str) -> str:
@@ -130,6 +135,19 @@ def content_sha256(*parts: str) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
+def canonical_digest(canonical_url: str) -> str:
+    return hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
+
+
+def new_org_id() -> str:
+    return str(uuid.uuid4())
+
+
+def compact_identifier(value: str) -> str:
+    compact = re.sub(r"[^A-Za-z0-9]+", "", value)
+    return compact[:12] or "item"
+
+
 def jsonl_append(path: Path, value: dict) -> None:
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(value, ensure_ascii=False, sort_keys=True))
@@ -146,7 +164,7 @@ def atomic_write(path: Path, text: str) -> None:
     tmp.replace(path)
 
 
-def index_by_id(root: Path) -> dict[str, Path]:
+def index_by_canonical_url(root: Path) -> dict[str, Path]:
     result: dict[str, Path] = {}
     index = root / "logs" / "index.jsonl"
     if not index.exists():
@@ -157,13 +175,45 @@ def index_by_id(root: Path) -> dict[str, Path]:
                 row = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            item_id = row.get("id")
+            canonical_url = row.get("canonical_url")
             item_path = row.get("path")
-            if item_id and item_path:
+            if canonical_url and item_path:
                 path = Path(item_path)
                 if path.exists():
-                    result[item_id] = path
+                    result[canonical_url] = path
     return result
+
+
+def read_org_property(text: str, key: str) -> str:
+    pattern = re.compile(rf"^:{re.escape(key)}:\s*(.*?)\s*$", re.MULTILINE)
+    match = pattern.search(text)
+    return match.group(1) if match else ""
+
+
+def remove_org_property(text: str, key: str) -> str:
+    pattern = re.compile(rf"^:{re.escape(key)}:\s*.*\n?", re.MULTILINE)
+    return pattern.sub("", text, count=1)
+
+
+def insert_org_property(text: str, key: str, value: str) -> str:
+    if not value:
+        return text
+    if read_org_property(text, key):
+        pattern = re.compile(rf"^:{re.escape(key)}:\s*.*$", re.MULTILINE)
+        return pattern.sub(f":{key}: {value}", text, count=1)
+    if ":PROPERTIES:\n" in text:
+        return text.replace(":PROPERTIES:\n", f":PROPERTIES:\n:{key}: {value}\n", 1)
+    return f":PROPERTIES:\n:{key}: {value}\n:END:\n\n{text}"
+
+
+def ensure_org_id(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    org_id = read_org_property(text, "ID") or new_org_id()
+    updated = insert_org_property(text, "ID", org_id)
+    updated = remove_org_property(updated, "READ_LATER_ID")
+    if updated != text:
+        atomic_write(path, updated)
+    return org_id
 
 
 def org_property(value: str | None) -> str:
@@ -178,7 +228,7 @@ def org_section(name: str, value: str) -> str:
     return f"\n* {name}\n{value}\n"
 
 
-def make_org(args: argparse.Namespace, item_id: str, canonical_url: str, body: str) -> str:
+def make_org(args: argparse.Namespace, org_id: str, canonical_url: str, body: str) -> str:
     title = args.title or args.url
     tags = parse_tags(args.tags)
     filetags = ":".join(tags)
@@ -194,7 +244,7 @@ def make_org(args: argparse.Namespace, item_id: str, canonical_url: str, body: s
         [
             "",
             ":PROPERTIES:",
-            f":READ_LATER_ID: {item_id}",
+            f":ID: {org_id}",
             f":URL: {org_property(args.url)}",
             f":CANONICAL_URL: {org_property(canonical_url)}",
             f":SOURCE_APP: {org_property(args.source)}",
@@ -231,10 +281,12 @@ def append_capture_log(path: Path, args: argparse.Namespace) -> None:
         handle.write("\n")
 
 
-def queue_snapshot(root: Path, path: Path, args: argparse.Namespace, item_id: str, canonical_url: str) -> Path:
-    queue_path = root / "queue" / f"{utc_now().strftime('%Y%m%dT%H%M%SZ')}-{item_id[:12]}.json"
+def queue_snapshot(root: Path, path: Path, args: argparse.Namespace, org_id: str, canonical_url: str) -> Path:
+    digest = canonical_digest(canonical_url)
+    queue_path = root / "queue" / f"{utc_now().strftime('%Y%m%dT%H%M%SZ')}-{compact_identifier(org_id)}.json"
     payload = {
-        "id": item_id,
+        "org_id": org_id,
+        "canonical_digest": digest,
         "item_path": str(path),
         "url": args.url,
         "canonical_url": canonical_url,
@@ -267,22 +319,25 @@ def main() -> int:
     ensure_layout(root)
 
     canonical_url = normalize_url(args.url)
-    item_id = hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
-    existing = index_by_id(root).get(item_id)
+    digest = canonical_digest(canonical_url)
+    existing = index_by_canonical_url(root).get(canonical_url)
     body = read_body(args.body_file)
     duplicate = existing is not None
 
     if duplicate:
         path = existing
+        org_id = ensure_org_id(path)
         append_capture_log(path, args)
     else:
+        org_id = new_org_id()
         slug = slugify(args.title or urlsplit(canonical_url).netloc or canonical_url)
-        path = root / "items" / f"{utc_now().strftime('%Y-%m-%d')}--{slug}--{item_id[:12]}.org"
-        atomic_write(path, make_org(args, item_id, canonical_url, body))
+        path = root / "items" / f"{utc_now().strftime('%Y-%m-%d')}--{slug}--{compact_identifier(org_id)}.org"
+        atomic_write(path, make_org(args, org_id, canonical_url, body))
         jsonl_append(
             root / "logs" / "index.jsonl",
             {
-                "id": item_id,
+                "org_id": org_id,
+                "canonical_digest": digest,
                 "path": str(path),
                 "url": args.url,
                 "canonical_url": canonical_url,
@@ -293,10 +348,11 @@ def main() -> int:
 
     queue_path = ""
     if args.archive_mode in {"readable", "full", "defer"}:
-        queue_path = str(queue_snapshot(root, path, args, item_id, canonical_url))
+        queue_path = str(queue_snapshot(root, path, args, org_id, canonical_url))
 
     event = {
-        "id": item_id,
+        "org_id": org_id,
+        "canonical_digest": digest,
         "path": str(path),
         "url": args.url,
         "canonical_url": canonical_url,

@@ -72,6 +72,14 @@ def read_item_property(path: Path, key: str) -> str:
     return ""
 
 
+def read_item_identifier(path: Path) -> str:
+    return (
+        read_item_property(path, "ID")
+        or read_item_property(path, "READ_LATER_ID")
+        or path.stem
+    )
+
+
 def replace_property(text: str, key: str, value: str) -> str:
     pattern = re.compile(rf"^:{re.escape(key)}:\s*.*$", re.MULTILINE)
     replacement = f":{key}: {value}"
@@ -110,17 +118,17 @@ def html_to_org(html: str) -> str:
 def snapshot_item(root: Path, item_path: Path, mode: str) -> dict:
     item_path = item_path.expanduser()
     url = read_item_property(item_path, "URL")
-    item_id = read_item_property(item_path, "READ_LATER_ID") or item_path.stem
+    org_id = read_item_identifier(item_path)
     if not url:
         raise ValueError(f"{item_path} does not contain a URL property")
 
     html = fetch_html(url)
-    html_path = root / "snapshots" / "html" / f"{item_id}.html"
+    html_path = root / "snapshots" / "html" / f"{org_id}.html"
     html_path.parent.mkdir(parents=True, exist_ok=True)
     html_path.write_text(html, encoding="utf-8")
 
     org_content = html_to_org(html)
-    readable_path = root / "snapshots" / "readable" / f"{item_id}.org"
+    readable_path = root / "snapshots" / "readable" / f"{org_id}.org"
     readable_path.parent.mkdir(parents=True, exist_ok=True)
     readable_path.write_text(org_content + "\n", encoding="utf-8")
 
@@ -151,6 +159,7 @@ def snapshot_item(root: Path, item_path: Path, mode: str) -> dict:
     item_path.write_text(item_text, encoding="utf-8")
 
     return {
+        "org_id": org_id,
         "item_path": str(item_path),
         "url": url,
         "html_path": str(html_path),

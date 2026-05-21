@@ -35,6 +35,32 @@ Local captures create an Org item in `items/`, dedupe by normalized URL, and
 usually add a queue job for snapshotting. Duplicate saves append to the existing
 item's capture log.
 
+## Item Contract
+
+Each saved article is one Org file. New captures use standard Org document
+metadata plus a property drawer:
+
+```org
+#+title: Article Title
+#+date: [2026-05-20 Wed 20:27]
+
+:PROPERTIES:
+:ID: 550e8400-e29b-41d4-a716-446655440000
+:URL: https://example.com/article?utm_source=newsletter
+:CANONICAL_URL: https://example.com/article
+:SOURCE_APP: eww
+:CAPTURED: [2026-05-20 Wed 20:27]
+:ARCHIVE_MODE: readable
+:CONTENT_SHA256:
+:SNAPSHOT_STATUS: pending
+:END:
+```
+
+`CANONICAL_URL` is the dedupe key. `ID` is the normal Org identity used for
+local object references, snapshot filenames, and queue records. Older items
+that still have `READ_LATER_ID` are tolerated by the snapshot script, but new
+captures should not create that property.
+
 ## Emacs Commands
 
 Available with `M-x`:
