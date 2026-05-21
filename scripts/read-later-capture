@@ -186,7 +186,6 @@ def make_org(args: argparse.Namespace, item_id: str, canonical_url: str, body: s
     content_hash = content_sha256(args.note or "", args.selection or "", body)
     lines = [
         f"#+title: {title}",
-        f"#+source: {args.url}",
         f"#+date: {captured}",
     ]
     if filetags:
