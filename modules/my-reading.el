@@ -281,6 +281,12 @@ passed through to the CLI capture contract."
   (interactive)
   (dired (expand-file-name "queue/" my-reading-root-directory)))
 
+;;; Which-key helpers --------------------------------------------------
+
+(defun my-reading--which-key-hide (_binding)
+  "Hide a mode-specific binding from which-key."
+  nil)
+
 ;;; Keybindings ---------------------------------------------------------
 
 (my-leader-define "n d" #'my-reading-capture-dwim)
@@ -294,10 +300,18 @@ passed through to the CLI capture contract."
 
 (with-eval-after-load 'which-key
   (which-key-add-keymap-based-replacements my-leader-map
-    "n d" "capture"
+    "n d" '("capture DWIM" . my-reading-capture-dwim)
     "n q" "read-later queue"
     "n r" "read-later root"
-    "n w" "capture web page"))
+    "n w" '("capture web page" . my-reading-capture-current-page))
+  (which-key-add-major-mode-key-based-replacements 'elfeed-search-mode
+    "d" "save to read-later"
+    "n d" "save to read-later"
+    "n w" #'my-reading--which-key-hide)
+  (which-key-add-major-mode-key-based-replacements 'elfeed-show-mode
+    "d" "save to read-later"
+    "n d" "save to read-later"
+    "n w" #'my-reading--which-key-hide))
 
 (provide 'my-reading)
 ;;; my-reading.el ends here
