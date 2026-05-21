@@ -71,7 +71,6 @@ my-reading-capture-dwim
 my-reading-capture-url
 my-reading-capture-current-page
 my-reading-capture-elfeed-entry
-my-reading-import-readwise-export
 my-reading-open-root
 my-reading-open-queue
 ```
@@ -81,7 +80,6 @@ Leader bindings, using `C-c u` or the double-space leader:
 ```text
 n d   capture DWIM
 n w   capture current Emacs browser/page
-n i   import Readwise/Reader export
 n q   open read-later queue
 n r   open read-later root
 ```

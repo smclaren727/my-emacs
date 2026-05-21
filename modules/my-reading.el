@@ -283,7 +283,6 @@ to the CLI capture contract."
 ;;; Keybindings ---------------------------------------------------------
 
 (my-leader-define "n d" #'my-reading-capture-dwim)
-(my-leader-define "n i" #'my-reading-import-readwise-export)
 (my-leader-define "n q" #'my-reading-open-queue)
 (my-leader-define "n r" #'my-reading-open-root)
 (my-leader-define "n w" #'my-reading-capture-current-page)
@@ -295,7 +294,6 @@ to the CLI capture contract."
 (with-eval-after-load 'which-key
   (which-key-add-keymap-based-replacements my-leader-map
     "n d" "capture"
-    "n i" "import Readwise"
     "n q" "read-later queue"
     "n r" "read-later root"
     "n w" "capture web page"))
