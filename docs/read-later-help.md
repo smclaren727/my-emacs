@@ -57,9 +57,10 @@ metadata plus a property drawer:
 ```
 
 `CANONICAL_URL` is the dedupe key. `ID` is the normal Org identity used for
-local object references, snapshot filenames, and queue records. Older items
-that still have `READ_LATER_ID` are tolerated by the snapshot script, but new
-captures should not create that property.
+local object references, snapshot filenames, and queue records. `SOURCE_APP`
+records the most recent capture surface; the capture log preserves earlier
+captures. Older items that still have `READ_LATER_ID` are tolerated by the
+snapshot script, but new captures should not create that property.
 
 ## Emacs Commands
 
@@ -120,6 +121,12 @@ Capture a URL:
   --source manual \
   --tags "emacs,reading" \
   --note "Why I saved it"
+```
+
+Normalize existing read-later items after a format change:
+
+```sh
+~/.emacs.d/scripts/read-later-capture --normalize-existing
 ```
 
 Capture the front Safari tab:

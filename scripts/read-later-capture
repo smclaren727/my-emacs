@@ -195,6 +195,11 @@ def remove_org_property(text: str, key: str) -> str:
     return pattern.sub("", text, count=1)
 
 
+def remove_org_keyword(text: str, key: str) -> str:
+    pattern = re.compile(rf"^#\+{re.escape(key)}:\s*.*\n?", re.MULTILINE | re.IGNORECASE)
+    return pattern.sub("", text)
+
+
 def insert_org_property(text: str, key: str, value: str) -> str:
     if not value:
         return text
@@ -206,14 +211,29 @@ def insert_org_property(text: str, key: str, value: str) -> str:
     return f":PROPERTIES:\n:{key}: {value}\n:END:\n\n{text}"
 
 
-def ensure_org_id(path: Path) -> str:
+def normalize_item(path: Path, source: str | None = None) -> tuple[str, bool]:
     text = path.read_text(encoding="utf-8")
     org_id = read_org_property(text, "ID") or new_org_id()
-    updated = insert_org_property(text, "ID", org_id)
+    updated = remove_org_keyword(text, "source")
     updated = remove_org_property(updated, "READ_LATER_ID")
+    updated = insert_org_property(updated, "ID", org_id)
+    if source:
+        updated = insert_org_property(updated, "SOURCE_APP", org_property(source))
     if updated != text:
         atomic_write(path, updated)
-    return org_id
+    return org_id, updated != text
+
+
+def normalize_existing_items(root: Path) -> dict:
+    items_dir = root / "items"
+    checked = 0
+    changed = 0
+    for path in sorted(items_dir.glob("*.org")):
+        checked += 1
+        _org_id, item_changed = normalize_item(path)
+        if item_changed:
+            changed += 1
+    return {"checked": checked, "changed": changed}
 
 
 def org_property(value: str | None) -> str:
@@ -302,7 +322,7 @@ def queue_snapshot(root: Path, path: Path, args: argparse.Namespace, org_id: str
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--url", required=True)
+    parser.add_argument("--url", default="")
     parser.add_argument("--title", default="")
     parser.add_argument("--source", default="manual")
     parser.add_argument("--tags", action="append", default=[])
@@ -312,11 +332,23 @@ def main() -> int:
     parser.add_argument("--root", default="")
     parser.add_argument("--body-file", default="")
     parser.add_argument("--body-format", default="")
+    parser.add_argument("--normalize-existing", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
     root = Path(args.root).expanduser() if args.root else default_root()
     ensure_layout(root)
+
+    if args.normalize_existing:
+        result = normalize_existing_items(root)
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        else:
+            print(f"Normalized {result['changed']} of {result['checked']} read-later items")
+        return 0
+
+    if not args.url:
+        parser.error("--url is required unless --normalize-existing is used")
 
     canonical_url = normalize_url(args.url)
     digest = canonical_digest(canonical_url)
@@ -326,7 +358,7 @@ def main() -> int:
 
     if duplicate:
         path = existing
-        org_id = ensure_org_id(path)
+        org_id, _changed = normalize_item(path, args.source)
         append_capture_log(path, args)
     else:
         org_id = new_org_id()
