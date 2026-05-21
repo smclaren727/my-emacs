@@ -84,15 +84,17 @@ my-reading-capture-current-page
 my-reading-capture-elfeed-entry
 my-reading-open-root
 my-reading-open-queue
+my-reading-snapshot-queue
 #+end_src
 
 Leader bindings, using =C-c u= or the double-space leader:
 
 #+begin_src text
-n d   capture DWIM
+n d   save to read-later
 n w   capture current Emacs browser/page
 n q   open read-later queue
 n r   open read-later root
+n x   process snapshot queue
 #+end_src
 
 In Elfeed:
@@ -146,6 +148,12 @@ Process all queued local snapshots:
 
 #+begin_src sh
 ~/.emacs.d/scripts/read-later-snapshot --all
+#+end_src
+
+From Emacs, use:
+
+#+begin_src text
+SPC SPC n x
 #+end_src
 
 Process one item:

@@ -281,12 +281,25 @@ passed through to the CLI capture contract."
   (interactive)
   (dired (expand-file-name "queue/" my-reading-root-directory)))
 
+(defun my-reading-snapshot-queue ()
+  "Process all queued read-later snapshots."
+  (interactive)
+  (require 'compile)
+  (let* ((default-directory (file-name-as-directory my-reading-root-directory))
+         (script (my-reading--script "read-later-snapshot"))
+         (command (mapconcat #'shell-quote-argument
+                             (list script "--root" my-reading-root-directory "--all")
+                             " ")))
+    (compilation-start command 'compilation-mode
+                       (lambda (_mode) "*read-later-snapshot*"))))
+
 ;;; Keybindings ---------------------------------------------------------
 
 (my-leader-define "n d" #'my-reading-capture-dwim)
 (my-leader-define "n q" #'my-reading-open-queue)
 (my-leader-define "n r" #'my-reading-open-root)
 (my-leader-define "n w" #'my-reading-capture-current-page)
+(my-leader-define "n x" #'my-reading-snapshot-queue)
 
 (with-eval-after-load 'elfeed
   (define-key elfeed-search-mode-map (kbd "d") #'my-reading-capture-elfeed-entry)
@@ -297,7 +310,8 @@ passed through to the CLI capture contract."
     "n d" '("save to read-later" . my-reading-capture-dwim)
     "n q" "read-later queue"
     "n r" "read-later root"
-    "n w" '("capture web page" . my-reading-capture-current-page)))
+    "n w" '("capture web page" . my-reading-capture-current-page)
+    "n x" '("snapshot queue" . my-reading-snapshot-queue)))
 
 (provide 'my-reading)
 ;;; my-reading.el ends here
