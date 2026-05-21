@@ -325,11 +325,10 @@ DATE, and TAGS are included as org metadata."
       (when author
         (insert (format "#+author: %s\n" author)))
       (insert (format "#+date: %s\n" (or date (format-time-string "%Y-%m-%d"))))
-      (when tags
-        (insert (format "#+filetags: :%s:\n"
-                        (mapconcat #'identity tags ":"))))
       (insert "\n:PROPERTIES:\n")
       (insert (format ":URL: %s\n" url))
+      (when tags
+        (insert (format ":TAGS: %s\n" (mapconcat #'identity tags ","))))
       (insert ":END:\n\n")
       (insert org-content))
     (message "Saved article to %s" filepath)
@@ -361,7 +360,7 @@ DATE, and TAGS are included as org metadata."
 (defun my-feeds-save-article ()
   "Download the current elfeed article and save it as an Org file.
 The file is saved to `my-feeds-directory' with title, author, date,
-URL property, and file tags."
+URL property, and tags."
   (interactive)
   (let ((entry (my-feeds--entry-at-point)))
     (unless entry
