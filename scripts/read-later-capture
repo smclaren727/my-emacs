@@ -126,6 +126,16 @@ def format_tags(tags: list[str]) -> str:
     return ",".join(tags)
 
 
+def merge_tags(*values: str | list[str]) -> list[str]:
+    merged: list[str] = []
+    for value in values:
+        tags = parse_tags([value]) if isinstance(value, str) else value
+        for tag in tags:
+            if tag and tag not in merged:
+                merged.append(tag)
+    return merged
+
+
 def read_body(path: str | None) -> str:
     if not path:
         return ""
@@ -225,6 +235,11 @@ def insert_org_property(text: str, key: str, value: str) -> str:
     return f":PROPERTIES:\n:{key}: {value}\n:END:\n\n{text}"
 
 
+def merge_org_tag_property(text: str, key: str, tags: list[str]) -> str:
+    merged = merge_tags(read_org_property(text, key), tags)
+    return insert_org_property(text, key, format_tags(merged))
+
+
 def normalize_item(path: Path, source: str | None = None) -> tuple[str, bool]:
     text = path.read_text(encoding="utf-8")
     org_id = read_org_property(text, "ID") or new_org_id()
@@ -232,9 +247,13 @@ def normalize_item(path: Path, source: str | None = None) -> tuple[str, bool]:
     source_app = source or original_source
     filetags = parse_org_filetags(read_org_keyword(text, "filetags"))
     updated = remove_org_keyword(text, "source")
-    if "elfeed" in {source_app, original_source} and filetags:
-        if not read_org_property(text, "FEED_TAGS"):
-            updated = insert_org_property(updated, "FEED_TAGS", format_tags(filetags))
+    if filetags:
+        tag_property = (
+            "FEED_TAGS"
+            if "elfeed" in {source_app, original_source}
+            else "CAPTURE_TAGS"
+        )
+        updated = merge_org_tag_property(updated, tag_property, filetags)
         updated = remove_org_keyword(updated, "filetags")
     updated = remove_org_property(updated, "READ_LATER_ID")
     updated = insert_org_property(updated, "ID", org_id)
@@ -257,6 +276,19 @@ def normalize_existing_items(root: Path) -> dict:
     return {"checked": checked, "changed": changed}
 
 
+def update_capture_properties(path: Path, args: argparse.Namespace) -> None:
+    text = path.read_text(encoding="utf-8")
+    updated = text
+    tags = parse_tags(args.tags)
+    feed_tags = parse_tags(args.feed_tags)
+    if tags:
+        updated = merge_org_tag_property(updated, "CAPTURE_TAGS", tags)
+    if feed_tags:
+        updated = merge_org_tag_property(updated, "FEED_TAGS", feed_tags)
+    if updated != text:
+        atomic_write(path, updated)
+
+
 def org_property(value: str | None) -> str:
     value = value or ""
     return value.replace("\n", " ").strip()
@@ -273,15 +305,12 @@ def make_org(args: argparse.Namespace, org_id: str, canonical_url: str, body: st
     title = args.title or args.url
     tags = parse_tags(args.tags)
     feed_tags = parse_tags(args.feed_tags)
-    filetags = ":".join(tags)
     captured = local_org_timestamp()
     content_hash = content_sha256(args.note or "", args.selection or "", body)
     lines = [
         f"#+title: {title}",
         f"#+date: {captured}",
     ]
-    if filetags:
-        lines.append(f"#+filetags: :{filetags}:")
     properties = [
         f":ID: {org_id}",
         f":URL: {org_property(args.url)}",
@@ -290,6 +319,8 @@ def make_org(args: argparse.Namespace, org_id: str, canonical_url: str, body: st
         f":CAPTURED: {captured}",
         f":ARCHIVE_MODE: {org_property(args.archive_mode)}",
     ]
+    if tags:
+        properties.append(f":CAPTURE_TAGS: {format_tags(tags)}")
     if feed_tags:
         properties.append(f":FEED_TAGS: {format_tags(feed_tags)}")
     properties.extend(
@@ -392,6 +423,7 @@ def main() -> int:
     if duplicate:
         path = existing
         org_id, _changed = normalize_item(path, args.source)
+        update_capture_properties(path, args)
         append_capture_log(path, args)
     else:
         org_id = new_org_id()
