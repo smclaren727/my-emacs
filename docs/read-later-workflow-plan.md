@@ -14,7 +14,7 @@ The local read-later system has three related but separate surfaces:
 |---|---|---|
 | Bookmarks | Reusable references, tools, sites, and links that should stay easy to reopen. | `~/All-The-Things/50-Resources/bookmarks.org` |
 | Saved links | Low-commitment items that caught my attention and may be worth returning to. | `~/All-The-Things/50-Resources/Read-Later/items/*.org` |
-| Saved articles | Read-later items promoted or processed into durable article artifacts. | Same Org item, plus readable/html snapshots |
+| Promoted saved items | Read-later items promoted into durable article snapshots. | Same Org item, plus readable/html snapshots |
 
 Read-later Org files remain canonical. Elfeed is a review surface, not the source
 of truth. The generated RSS feed at
@@ -33,9 +33,8 @@ rebuilt from the Org files.
 | Safari | `org-protocol://read-later` bookmarklet | Save current tab URL/title plus selected text when present. |
 | Manual | `M-x my-reading-capture-url` | Prompt for URL, title, tags, note, selection, and archive mode. |
 
-Current default archive mode is `readable`, so most captures create an Org item
-and queue snapshot processing. This is useful while testing, but it may be too
-eager for the final workflow.
+Current default archive mode is `metadata`, so captures create an Org item
+without queueing snapshot work. Promotion is explicit from Elfeed.
 
 ### Delete Saved Items
 
@@ -100,6 +99,22 @@ then Pandoc. Use `--extractor readability` when testing the browser reader path
 directly. The helper uses pinned transient `npm exec` packages and does not
 create a persistent `node_modules/` directory.
 
+### Promote Selected Entries
+
+Use `P` in Elfeed, or `SPC SPC n p`, after selecting the entries you want to
+keep long term. In an Elfeed search buffer, an active region selects multiple
+entries; with no region, the command uses the entry at point.
+
+| Entry type | Promotion behavior |
+|---|---|
+| Generated `+readlater` entry | Reuses the existing read-later Org item and snapshots that item only. |
+| Regular RSS entry | Captures the entry as a lightweight read-later item, tags the original Elfeed entry `saved`, then snapshots that new item only. |
+
+Promotion calls `read-later-snapshot --item ...` with the selected item paths,
+not `--all`, so unselected files in `Read-Later/items/` stay lightweight.
+If a selected item still has an older pending queue JSON, the direct snapshot
+consumes that matching queue entry.
+
 ### Bookmarks Stay Separate
 
 Safari has a separate `org-protocol://bookmark` helper backed by
@@ -120,34 +135,17 @@ items. Bookmark dedupe is working and writes to `bookmarks.org`.
 | Elfeed review via generated local RSS feed | Adopted | Option A. `feed.xml` is generated, listed in `feeds.org`, and tagged in Elfeed. |
 | Direct Elfeed DB insertion | Parked | Technically possible, but too coupled to Elfeed internals for canonical storage. |
 | Intentional delete path | Adopted | Dired/Elfeed delete commands call `read-later-delete` and then remove live generated Elfeed entries. |
+| Default link-only capture | Adopted | New captures use `ARCHIVE_MODE: metadata` and `SNAPSHOT_STATUS: not-requested`. |
+| Selected Elfeed promotion | Adopted | `P` / `SPC SPC n p` snapshots only selected generated read-later or regular RSS entries. |
 
 ## Roadmap
 
-### Next Workflow Decision
+### Possible Next Implementation Slices
 
-Decide whether capture should default to link-only:
-
-```text
-ARCHIVE_MODE: metadata
-SNAPSHOT_STATUS: not-requested
-```
-
-The current default is `readable`, which queues snapshot work immediately. The
-likely long-term behavior is cheaper capture first, explicit article promotion
-later.
-
-### Likely Next Implementation Slice
-
-Add promotion commands:
-
-| Proposed Command | Purpose |
+| Possible Command | Purpose |
 |---|---|
-| `my-reading-promote-item-at-point` | Promote the current read-later/Elfeed item to saved article. |
-| `my-reading-promote-marked-items` | Promote marked read-later items from Elfeed or Dired. |
-| `my-reading-snapshot-item` | Snapshot exactly one selected item. |
-
-Promotion should set or update a clear state property and queue/process only the
-chosen item.
+| Dired promotion command | Promote marked read-later items from Dired. |
+| Explicit state command | Set or clear a future saved-state property without re-snapshotting. |
 
 ### State Model To Settle
 

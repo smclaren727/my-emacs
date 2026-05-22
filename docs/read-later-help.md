@@ -33,13 +33,13 @@ feed.xml            generated RSS feed for Elfeed review
 ```
 
 Local captures create an Org item in `items/`, dedupe by normalized URL, and
-usually add a queue job for snapshotting. Duplicate saves append to the existing
-item's capture log. The generated `feed.xml` is derived from `items/`; it can be
-deleted and rebuilt at any time.
+default to lightweight metadata-only saves. Duplicate saves append to the
+existing item's capture log. The generated `feed.xml` is derived from `items/`;
+it can be deleted and rebuilt at any time.
 
 ## Item Contract
 
-Each saved article is one Org file. New captures use standard Org document
+Each saved item is one Org file. New captures use standard Org document
 metadata plus a property drawer:
 
 ```org
@@ -52,10 +52,10 @@ metadata plus a property drawer:
 :CANONICAL_URL: https://example.com/article
 :SOURCE_APP: eww
 :CAPTURED: [2026-05-20 Wed 20:27]
-:ARCHIVE_MODE: readable
+:ARCHIVE_MODE: metadata
 :TAGS: emacs,reading,news
 :CONTENT_SHA256:
-:SNAPSHOT_STATUS: pending
+:SNAPSHOT_STATUS: not-requested
 :END:
 ```
 
@@ -82,6 +82,8 @@ my-reading-generate-feed
 my-reading-update-feed
 my-reading-delete-dwim
 my-reading-delete-files
+my-reading-promote-elfeed-entries
+my-reading-snapshot-items
 my-reading-snapshot-queue
 ```
 
@@ -90,6 +92,7 @@ Leader bindings, using `C-c u` or the double-space leader:
 ```text
 n d   save to read-later
 n D   delete read-later item
+n p   promote selected Elfeed entries
 n w   capture current Emacs browser/page
 n l   update generated read-later feed
 n q   open read-later queue
@@ -102,6 +105,7 @@ In Elfeed:
 ```text
 d     save current Elfeed item to read-later
 D     delete generated read-later item and clean related state
+P     promote selected entries to saved snapshots
 ```
 
 In Dired, normal delete commands are intercepted only for Org files under the
@@ -151,6 +155,24 @@ The feed description stays intentionally lightweight: source, capture time,
 snapshot status, original URL, Org item link, notes, and selections. Snapshot
 article bodies are kept in the Org item and `snapshots/`, not embedded in
 `feed.xml`.
+
+## Promote Selected Elfeed Entries
+
+Use `P` in Elfeed, or `SPC SPC n p`, after selecting entries you want to keep
+long term. In an Elfeed search buffer, an active region selects multiple
+entries; with no region, the command uses the entry at point. This command
+snapshots only the selected entries:
+
+```text
+P
+SPC SPC n p
+```
+
+For regular RSS entries, promotion first captures the entry as a lightweight
+read-later item, tags the original Elfeed entry as `saved`, and then snapshots
+that item. For generated `+readlater` entries, promotion reuses the existing Org
+item and snapshots that item directly. Unselected files in `Read-Later/items/`
+are not processed.
 
 ## Browser Bookmarklet
 
@@ -270,7 +292,7 @@ full       create item and queue fuller snapshot intent
 defer      create item and queue later processing
 ```
 
-Default mode is `readable`.
+Default mode is `metadata`.
 
 ## Loxley Ingress
 

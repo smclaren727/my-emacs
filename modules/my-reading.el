@@ -53,11 +53,16 @@
        (expand-file-name "50-Resources/Read-Later/" my-notes-directory)))
   "Root directory for local-first read-later captures.")
 
-(defvar my-reading-default-archive-mode "readable"
+(defvar my-reading-default-archive-mode "metadata"
   "Default archive mode passed to `read-later-capture'.")
+
+(setq my-reading-default-archive-mode "metadata")
 
 (defvar my-reading-feed-file "feed.xml"
   "Generated RSS feed filename under `my-reading-root-directory'.")
+
+(defvar-local my-reading--snapshot-promote-count nil
+  "Number of selected entries being promoted by this compilation buffer.")
 
 ;;; Script helpers ------------------------------------------------------
 
@@ -126,6 +131,15 @@
   (apply #'my-reading--call-json
          (my-reading--script "read-later-delete")
          (append (list "--root" my-reading-root-directory "--json") args)))
+
+(defun my-reading--read-org-property (path key)
+  "Read Org property KEY from PATH."
+  (with-temp-buffer
+    (insert-file-contents path nil nil nil t)
+    (when (re-search-forward
+           (format "^:%s:[ \t]*\\(.*?\\)[ \t]*$" (regexp-quote key))
+           nil t)
+      (string-trim (match-string 1)))))
 
 (defun my-reading-feed-path ()
   "Return the generated read-later RSS feed path."
@@ -322,6 +336,60 @@
     (let ((entry-id (elfeed-entry-id entry)))
       (when (consp entry-id)
         (cdr entry-id)))))
+
+(defun my-reading--item-path-for-org-id (org-id)
+  "Return read-later item path for ORG-ID, or nil."
+  (when (and (stringp org-id) (not (string-empty-p org-id)))
+    (let ((items-directory (expand-file-name "items/" my-reading-root-directory)))
+      (when (file-directory-p items-directory)
+        (seq-find
+         (lambda (path)
+           (string= org-id (my-reading--read-org-property path "ID")))
+         (directory-files items-directory t "\\.org\\'"))))))
+
+(defun my-reading--selected-elfeed-entries ()
+  "Return selected Elfeed entries from search or show mode."
+  (cond
+   ((derived-mode-p 'elfeed-show-mode)
+    (when elfeed-show-entry
+      (list elfeed-show-entry)))
+   ((derived-mode-p 'elfeed-search-mode)
+    (elfeed-search-selected))
+   (t
+    (user-error "Promote from an Elfeed search or show buffer"))))
+
+(defun my-reading--elfeed-entry-feed-tags (entry)
+  "Return comma-separated feed tags from ENTRY for read-later storage."
+  (mapconcat
+   #'symbol-name
+   (seq-remove (lambda (tag)
+                 (memq tag '(unread star saved readlater saved-link saved-article)))
+               (elfeed-entry-tags entry))
+   ","))
+
+(defun my-reading--capture-elfeed-entry-result (entry)
+  "Capture regular Elfeed ENTRY as a lightweight read-later item."
+  (let* ((url (elfeed-entry-link entry))
+         (title (elfeed-entry-title entry))
+         (feed-tags (my-reading--elfeed-entry-feed-tags entry))
+         (args (append
+                (list "--url" url
+                      "--title" title
+                      "--source" "elfeed"
+                      "--archive-mode" "metadata")
+                (my-reading--arg "--feed-tags" feed-tags)))
+         (result (apply #'my-reading--capture-script args)))
+    (elfeed-tag entry 'saved)
+    (when (derived-mode-p 'elfeed-search-mode)
+      (elfeed-search-update-entry entry))
+    result))
+
+(defun my-reading--item-path-for-elfeed-entry (entry)
+  "Return read-later item path for ENTRY, capturing it first when needed."
+  (if-let* ((org-id (my-reading--elfeed-read-later-entry-org-id entry)))
+      (or (my-reading--item-path-for-org-id org-id)
+          (user-error "No read-later item file found for Org ID %s" org-id))
+    (alist-get 'path (my-reading--capture-elfeed-entry-result entry))))
 
 (defun my-reading-delete-elfeed-entries ()
   "Delete selected generated read-later entries from Elfeed and disk."
@@ -614,11 +682,73 @@ passed through to the CLI capture contract."
     (compilation-start command 'compilation-mode
                        (lambda (_mode) "*read-later-snapshot*"))))
 
+(defun my-reading--snapshot-compilation-finished (buffer status)
+  "Refresh Elfeed after snapshot compilation BUFFER finishes with STATUS."
+  (when (string-match-p "\\`finished" status)
+    (with-current-buffer buffer
+      (message "Promoted %d selected read-later item%s"
+               (or my-reading--snapshot-promote-count 0)
+               (if (= (or my-reading--snapshot-promote-count 0) 1) "" "s")))
+    (my-reading--update-elfeed-feed-quietly)))
+
+(defun my-reading-snapshot-items (items)
+  "Snapshot exactly ITEMS and consume their matching queue entries."
+  (interactive
+   (list
+    (list (read-file-name "Read-later item: "
+                          (expand-file-name "items/" my-reading-root-directory)
+                          nil t nil
+                          (lambda (path)
+                            (or (file-directory-p path)
+                                (my-reading--read-later-item-path-p path)))))))
+  (let* ((items (delete-dups (mapcar #'expand-file-name items)))
+         (count (length items)))
+    (unless (my-reading--all-read-later-items-p items)
+      (user-error "Can only snapshot Org files under %s"
+                  (expand-file-name "items/" my-reading-root-directory)))
+    (require 'compile)
+    (let* ((default-directory (file-name-as-directory my-reading-root-directory))
+           (script (my-reading--script "read-later-snapshot"))
+           (args (append (list script "--root" my-reading-root-directory
+                               "--mode" "readable")
+                         (apply #'append
+                                (mapcar (lambda (item) (list "--item" item))
+                                        items))))
+           (command (mapconcat #'shell-quote-argument args " "))
+           (buffer (compilation-start command 'compilation-mode
+                                      (lambda (_mode) "*read-later-promote*"))))
+      (with-current-buffer buffer
+        (setq-local my-reading--snapshot-promote-count count)
+        (add-hook 'compilation-finish-functions
+                  #'my-reading--snapshot-compilation-finished nil t))
+      buffer)))
+
+(defun my-reading-promote-elfeed-entries ()
+  "Promote selected Elfeed entries into saved snapshots.
+Generated read-later entries reuse their existing item files. Regular RSS
+entries are first captured as lightweight read-later items, then only the
+selected items are snapshotted."
+  (interactive)
+  (let* ((entries (my-reading--selected-elfeed-entries))
+         (count (length entries)))
+    (unless entries
+      (user-error "No Elfeed entries selected"))
+    (when (yes-or-no-p
+           (format "Promote %d selected Elfeed entr%s to saved snapshot%s? "
+                   count
+                   (if (= count 1) "y" "ies")
+                   (if (= count 1) "" "s")))
+      (let ((items (delete-dups
+                    (mapcar #'my-reading--item-path-for-elfeed-entry entries))))
+        (my-reading--update-elfeed-feed-quietly)
+        (my-reading-snapshot-items items)))))
+
 ;;; Keybindings ---------------------------------------------------------
 
 (my-leader-define "n d" #'my-reading-capture-dwim)
 (my-leader-define "n D" #'my-reading-delete-dwim)
 (my-leader-define "n l" #'my-reading-update-feed)
+(my-leader-define "n p" #'my-reading-promote-elfeed-entries)
 (my-leader-define "n q" #'my-reading-open-queue)
 (my-leader-define "n r" #'my-reading-open-root)
 (my-leader-define "n w" #'my-reading-capture-current-page)
@@ -630,7 +760,9 @@ passed through to the CLI capture contract."
   (add-hook 'elfeed-update-hooks
             #'my-reading--elfeed-tag-local-feed-entries)
   (define-key elfeed-search-mode-map (kbd "D") #'my-reading-delete-elfeed-entries)
+  (define-key elfeed-search-mode-map (kbd "P") #'my-reading-promote-elfeed-entries)
   (define-key elfeed-show-mode-map (kbd "D") #'my-reading-delete-elfeed-entries)
+  (define-key elfeed-show-mode-map (kbd "P") #'my-reading-promote-elfeed-entries)
   (define-key elfeed-search-mode-map (kbd "d") #'my-reading-capture-elfeed-entry)
   (define-key elfeed-show-mode-map (kbd "d") #'my-reading-capture-elfeed-entry))
 
@@ -644,6 +776,7 @@ passed through to the CLI capture contract."
     "n d" '("save to read-later" . my-reading-capture-dwim)
     "n D" '("delete read-later item" . my-reading-delete-dwim)
     "n l" '("update read-later feed" . my-reading-update-feed)
+    "n p" '("promote selected" . my-reading-promote-elfeed-entries)
     "n q" "read-later queue"
     "n r" "read-later root"
     "n w" '("capture web page" . my-reading-capture-current-page)

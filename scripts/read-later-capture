@@ -308,6 +308,7 @@ def make_org(args: argparse.Namespace, org_id: str, canonical_url: str, body: st
     feed_tags = parse_tags(args.feed_tags)
     captured = local_org_timestamp()
     content_hash = content_sha256(args.note or "", args.selection or "", body)
+    snapshot_status = "pending" if args.archive_mode in {"readable", "full", "defer"} else "not-requested"
     lines = [
         f"#+title: {title}",
         f"#+date: {captured}",
@@ -326,7 +327,7 @@ def make_org(args: argparse.Namespace, org_id: str, canonical_url: str, body: st
     properties.extend(
         [
             f":CONTENT_SHA256: {content_hash}",
-            ":SNAPSHOT_STATUS: pending",
+            f":SNAPSHOT_STATUS: {snapshot_status}",
         ]
     )
     lines.extend(
@@ -412,7 +413,7 @@ def main() -> int:
     parser.add_argument("--feed-tags", action="append", default=[])
     parser.add_argument("--note", default="")
     parser.add_argument("--selection", default="")
-    parser.add_argument("--archive-mode", choices=("metadata", "readable", "full", "defer"), default="readable")
+    parser.add_argument("--archive-mode", choices=("metadata", "readable", "full", "defer"), default="metadata")
     parser.add_argument("--root", default="")
     parser.add_argument("--body-file", default="")
     parser.add_argument("--body-format", default="")

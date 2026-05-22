@@ -327,6 +327,44 @@ def snapshot_item(root: Path, item_path: Path, mode: str, extractor: str) -> dic
     return result
 
 
+def queue_matches_item(queue_path: Path, item_path: Path, org_id: str) -> bool:
+    try:
+        payload = json.loads(queue_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return payload.get("item_path") == str(item_path) or payload.get("org_id") == org_id
+
+
+def consume_matching_queue_entries(root: Path, item_path: Path, org_id: str, result: dict) -> list[str]:
+    consumed: list[str] = []
+    for queue_path in sorted((root / "queue").glob("*.json")):
+        if not queue_matches_item(queue_path, item_path, org_id):
+            continue
+        payload = json.loads(queue_path.read_text(encoding="utf-8"))
+        payload["processed_at"] = iso_timestamp()
+        payload["processed_by"] = "direct-item-snapshot"
+        payload["result"] = result
+        processed = root / "logs" / "processed" / f"{queue_path.stem}.json"
+        processed.parent.mkdir(parents=True, exist_ok=True)
+        processed.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        queue_path.unlink(missing_ok=True)
+        consumed.append(str(queue_path))
+    return consumed
+
+
+def snapshot_direct_item(root: Path, item_path: Path, mode: str, extractor: str) -> dict:
+    result = snapshot_item(root, item_path, mode, extractor)
+    consumed = consume_matching_queue_entries(
+        root,
+        item_path.expanduser(),
+        result["org_id"],
+        result,
+    )
+    if consumed:
+        result["queue_consumed"] = consumed
+    return result
+
+
 def process_queue_file(root: Path, queue_path: Path, extractor: str) -> dict:
     payload = json.loads(queue_path.read_text(encoding="utf-8"))
     item_path = Path(payload["item_path"])
@@ -371,7 +409,7 @@ def refresh_feed(root: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default="")
-    parser.add_argument("--item", default="")
+    parser.add_argument("--item", action="append", default=[])
     parser.add_argument("--queue-file", default="")
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--mode", choices=("readable", "full"), default="readable")
@@ -383,7 +421,8 @@ def main() -> int:
     results: list[dict] = []
 
     if args.item:
-        results.append(snapshot_item(root, Path(args.item), args.mode, args.extractor))
+        for item_path in args.item:
+            results.append(snapshot_direct_item(root, Path(item_path), args.mode, args.extractor))
     elif args.queue_file:
         results.append(process_queue_file(root, Path(args.queue_file), args.extractor))
     elif args.all:
