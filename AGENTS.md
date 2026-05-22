@@ -68,6 +68,7 @@ no Spacemacs).  Every package solves a concrete problem.
     read-later-capture   — canonical CLI capture entrypoint for URLs and metadata
     read-later-delete    — deletes items plus generated queue/snapshot/feed state
     read-later-feed      — generates the local RSS feed consumed by elfeed-org
+    read-later-readability — Playwright/Mozilla Readability article extractor
     read-later-snapshot  — fetch readable/full snapshots for queued captures
     readwise-export-import — one-time Readwise/Reader export importer
 ```

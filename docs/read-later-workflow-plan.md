@@ -94,8 +94,11 @@ snapshot script processes queued items, stores HTML/readable output under
 `snapshots/`, appends a readable section to the item file, updates
 `:SNAPSHOT_STATUS:`, and refreshes the generated Elfeed feed.
 
-Snapshot extraction defaults to `--extractor auto`: try EWW readable extraction
-first, then fall back to Pandoc.
+Snapshot extraction defaults to `--extractor auto`: try a Playwright-rendered
+page with Mozilla Readability first, then fall back to EWW readable extraction,
+then Pandoc. Use `--extractor readability` when testing the browser reader path
+directly. The helper uses pinned transient `npm exec` packages and does not
+create a persistent `node_modules/` directory.
 
 ### Bookmarks Stay Separate
 

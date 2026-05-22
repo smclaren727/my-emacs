@@ -1,0 +1,159 @@
+#!/usr/bin/env node
+// Extract a rendered article with Playwright and Mozilla Readability.
+
+const fs = require("fs");
+
+function chromiumExecutablePath(chromium) {
+  const candidates = [
+    process.env.READ_LATER_CHROMIUM,
+    chromium.executablePath(),
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return "";
+}
+
+function parseArgs(argv) {
+  const args = {
+    url: "",
+    output: "",
+    timeout: 45000,
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--url") {
+      args.url = argv[index + 1] || "";
+      index += 1;
+    } else if (arg === "--output") {
+      args.output = argv[index + 1] || "";
+      index += 1;
+    } else if (arg === "--timeout") {
+      args.timeout = Number(argv[index + 1] || args.timeout);
+      index += 1;
+    } else if (arg === "--help" || arg === "-h") {
+      args.help = true;
+    } else {
+      throw new Error(`Unknown argument: ${arg}`);
+    }
+  }
+  return args;
+}
+
+function usage() {
+  return [
+    "Usage: read-later-readability --url URL [--output PATH] [--timeout MS]",
+    "",
+    "Runs Chromium through Playwright, extracts the main article with",
+    "Mozilla Readability, and writes JSON containing rendered HTML and",
+    "clean article HTML.",
+  ].join("\n");
+}
+
+function cleanArticleHtml(html, url) {
+  const { JSDOM } = require("jsdom");
+  const dom = new JSDOM(`<main>${html}</main>`, { url });
+  const document = dom.window.document;
+  for (const selector of [
+    "script",
+    "style",
+    "noscript",
+    "svg",
+    "iframe",
+    "form",
+    "button",
+    "input",
+    "textarea",
+    "select",
+    "img[src^='data:']",
+    "source[srcset^='data:']",
+    "a[href^='data:']",
+  ]) {
+    for (const node of document.querySelectorAll(selector)) {
+      node.remove();
+    }
+  }
+  return document.querySelector("main").innerHTML.trim();
+}
+
+async function run() {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    console.log(usage());
+    return;
+  }
+  if (!args.url) {
+    throw new Error("--url is required");
+  }
+
+  const { chromium } = require("playwright");
+  const { Readability } = require("@mozilla/readability");
+  const { JSDOM } = require("jsdom");
+  const executablePath = chromiumExecutablePath(chromium);
+  const launchOptions = {
+    headless: true,
+  };
+  if (executablePath) {
+    launchOptions.executablePath = executablePath;
+  }
+
+  const browser = await chromium.launch(launchOptions);
+  try {
+    const page = await browser.newPage({
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+        "AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/122.0.0.0 Safari/537.36 read-later-snapshot/1.0",
+      viewport: { width: 1365, height: 1800 },
+    });
+    await page.goto(args.url, {
+      waitUntil: "domcontentloaded",
+      timeout: args.timeout,
+    });
+    await page.waitForLoadState("networkidle", { timeout: 12000 }).catch(() => {});
+    await page.waitForTimeout(750);
+
+    const finalUrl = page.url();
+    const renderedHtml = await page.content();
+    const dom = new JSDOM(renderedHtml, { url: finalUrl });
+    const reader = new Readability(dom.window.document, {
+      keepClasses: false,
+    });
+    const article = reader.parse();
+    if (!article || !article.content || !article.textContent.trim()) {
+      throw new Error("Readability could not identify a readable article body");
+    }
+
+    const articleHtml = cleanArticleHtml(article.content, finalUrl);
+    const payload = {
+      url: args.url,
+      final_url: finalUrl,
+      title: article.title || "",
+      byline: article.byline || "",
+      site_name: article.siteName || "",
+      excerpt: article.excerpt || "",
+      length: article.length || 0,
+      raw_html: renderedHtml,
+      article_html: articleHtml,
+      text_content: article.textContent.trim(),
+    };
+    const output = JSON.stringify(payload);
+    if (args.output) {
+      fs.writeFileSync(args.output, output + "\n", "utf8");
+    } else {
+      console.log(output);
+    }
+  } finally {
+    await browser.close();
+  }
+}
+
+run().catch((error) => {
+  console.error(`read-later-readability: ${error.message}`);
+  process.exit(1);
+});

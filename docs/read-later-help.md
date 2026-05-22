@@ -214,10 +214,15 @@ matching `snapshots/html/` and `snapshots/readable/` files. It then regenerates
 When invoked from Emacs, the live generated Elfeed entries are also removed from
 the Elfeed DB.
 
-Snapshot processing defaults to `--extractor auto`, which tries EWW's
-`eww-readable` article extraction first and falls back to Pandoc when EWW
-cannot identify a readable body. Use `--extractor pandoc` to force the older
+Snapshot processing defaults to `--extractor auto`, which tries a
+Playwright-rendered page with Mozilla Readability first, then falls back to
+EWW's `eww-readable`, then Pandoc. Use `--extractor readability` to require
+the Playwright/Readability path, `--extractor pandoc` to force the older
 HTML-to-Org conversion, or `--extractor eww` to fail instead of falling back.
+The Readability path uses `npm exec` with pinned transient packages, so it does
+not create a persistent `node_modules/` directory in this repo. On macOS it
+uses Playwright's cached browser when available and falls back to local Chrome,
+Chromium, or Edge. Set `READ_LATER_CHROMIUM` to override the browser path.
 
 From Emacs, use:
 
@@ -230,6 +235,14 @@ Process one item:
 ```sh
 ~/.emacs.d/scripts/read-later-snapshot \
   --item ~/All-The-Things/50-Resources/Read-Later/items/some-item.org
+```
+
+Force the Playwright/Readability extractor for one item:
+
+```sh
+~/.emacs.d/scripts/read-later-snapshot \
+  --item ~/All-The-Things/50-Resources/Read-Later/items/some-item.org \
+  --extractor readability
 ```
 
 Dry-run a Readwise/Reader export import:
