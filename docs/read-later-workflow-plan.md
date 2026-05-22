@@ -21,6 +21,29 @@ of truth. The generated RSS feed at
 `~/All-The-Things/50-Resources/Read-Later/feed.xml` is disposable and can be
 rebuilt from the Org files.
 
+## MVP Capability Checkpoint
+
+This is the current MVP loop:
+
+| Capability | Status |
+|---|---|
+| Save from Safari | Done via `org-protocol://read-later` bookmarklet. |
+| Save from Emacs/EWW | Done via `SPC SPC n w` and DWIM save. |
+| Save from Elfeed | Done via `d`. |
+| Save manually | Done via `M-x my-reading-capture-url`. |
+| Store canonical item in Org | Done in `Read-Later/items/*.org`. |
+| Dedupe saved items | Done by `CANONICAL_URL`. |
+| Review alongside RSS | Done through generated `feed.xml` in Elfeed. |
+| Delete end-to-end | Done from Dired, Elfeed, or `SPC SPC n D`. |
+| Promote selected items | Done with `P` or `SPC SPC n p` from Elfeed. |
+| Save readable article artifact | Done via Playwright Readability to Org snapshots. |
+| Keep bookmarks separate | Done via the separate bookmark org-protocol helper. |
+
+The important current boundary: promoted articles are durable Org artifacts
+inside `Read-Later/items/`, with optional snapshot files under `snapshots/`.
+They are not yet moved into `40-Knowledge/` or integrated into `org-node` as
+first-class knowledge notes.
+
 ## Current Usage
 
 ### Save A Link Or Article Candidate
@@ -142,10 +165,14 @@ items. Bookmark dedupe is working and writes to `bookmarks.org`.
 
 ### Possible Next Implementation Slices
 
-| Possible Command | Purpose |
+| Possible Slice | Purpose |
 |---|---|
+| iPhone / loxley ingress | Mobile capture into the same item contract. |
+| Failed snapshot retry UI | Show failed snapshot jobs and retry selected failures from Emacs. |
 | Dired promotion command | Promote marked read-later items from Dired. |
 | Explicit state command | Set or clear a future saved-state property without re-snapshotting. |
+| Knowledge promotion command | Move or copy a promoted read-later item into `40-Knowledge/` / `org-node` when it becomes a permanent note. |
+| Readwise migration run | One-time import of Reader documents, highlights, OPML, and uploaded files. |
 
 ### State Model To Settle
 
