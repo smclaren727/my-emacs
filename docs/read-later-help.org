@@ -33,11 +33,13 @@ snapshots/readable/ readable Org conversions
 imports/readwise/   one-time Reader export material
 failures/           failed snapshot jobs
 logs/               capture/index/processed logs
+feed.xml            generated RSS feed for Elfeed review
 #+end_src
 
 Local captures create an Org item in =items/=, dedupe by normalized URL,
 and usually add a queue job for snapshotting. Duplicate saves append to
-the existing item's capture log.
+the existing item's capture log. The generated =feed.xml= is derived
+from =items/=; it can be deleted and rebuilt at any time.
 
 ** Item Contract
 :PROPERTIES:
@@ -84,6 +86,8 @@ my-reading-capture-current-page
 my-reading-capture-elfeed-entry
 my-reading-open-root
 my-reading-open-queue
+my-reading-generate-feed
+my-reading-update-feed
 my-reading-snapshot-queue
 #+end_src
 
@@ -92,6 +96,7 @@ Leader bindings, using =C-c u= or the double-space leader:
 #+begin_src text
 n d   save to read-later
 n w   capture current Emacs browser/page
+n l   update generated read-later feed
 n q   open read-later queue
 n r   open read-later root
 n x   process snapshot queue
@@ -102,6 +107,44 @@ In Elfeed:
 #+begin_src text
 d     save current Elfeed item to read-later
 #+end_src
+
+** Elfeed Review Feed
+:PROPERTIES:
+:CUSTOM_ID: elfeed-review-feed
+:END:
+Saved links are exposed back to Elfeed through a generated local RSS
+feed:
+
+#+begin_src text
+~/All-The-Things/50-Resources/Read-Later/feed.xml
+#+end_src
+
+That feed is listed in =~/All-The-Things/50-Resources/feeds.org= under
+the normal =:elfeed:= tree:
+
+#+begin_src org
+,** Read Later :readlater:
+,*** [[file:///Users/seanmclaren/All-The-Things/50-Resources/Read-Later/feed.xml][Read Later]]
+#+end_src
+
+Captures and snapshot processing refresh =feed.xml=; Emacs captures also
+ask Elfeed to refresh the local feed when Elfeed is already loaded. To
+rebuild it manually and ask Elfeed to update that source:
+
+#+begin_src text
+SPC SPC n l
+#+end_src
+
+To see saved links/articles inside Elfeed, use a filter such as:
+
+#+begin_src text
++readlater
+#+end_src
+
+The feed carries item categories, and the Emacs read-later layer turns
+those into Elfeed search tags like =saved-link=, =saved-article=,
+=source-safari=, =source-eww=, =source-elfeed=, and any tags stored on
+the read-later item.
 
 ** Browser Bookmarklet
 :PROPERTIES:
@@ -148,6 +191,12 @@ Process all queued local snapshots:
 
 #+begin_src sh
 ~/.emacs.d/scripts/read-later-snapshot --all
+#+end_src
+
+Regenerate the Elfeed review feed:
+
+#+begin_src sh
+~/.emacs.d/scripts/read-later-feed
 #+end_src
 
 Snapshot processing defaults to =--extractor auto=, which tries EWW's

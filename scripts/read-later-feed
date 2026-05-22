@@ -1,0 +1,282 @@
+#!/usr/bin/env python3
+"""Generate an RSS feed from canonical read-later Org items."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import html
+import json
+import os
+import re
+import sys
+import tempfile
+import xml.etree.ElementTree as ET
+from email.utils import format_datetime
+from pathlib import Path
+
+
+SNAPSHOT_BEGIN = "# READ-LATER-SNAPSHOT-BEGIN"
+SUMMARY_LIMIT = 1600
+
+
+def utc_now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def iso_timestamp(moment: dt.datetime | None = None) -> str:
+    return (moment or utc_now()).astimezone(dt.timezone.utc).isoformat()
+
+
+def default_root() -> Path:
+    root = os.environ.get("MY_READING_ROOT")
+    if root:
+        return Path(root).expanduser()
+    return Path("~/All-The-Things/50-Resources/Read-Later").expanduser()
+
+
+def atomic_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=str(path.parent), delete=False
+    ) as handle:
+        handle.write(text)
+        tmp = Path(handle.name)
+    tmp.replace(path)
+
+
+def read_org_keyword(text: str, key: str) -> str:
+    pattern = re.compile(
+        rf"^#\+{re.escape(key)}:\s*(.*?)\s*$",
+        re.MULTILINE | re.IGNORECASE,
+    )
+    match = pattern.search(text)
+    return match.group(1).strip() if match else ""
+
+
+def read_org_properties(text: str) -> dict[str, str]:
+    properties: dict[str, str] = {}
+    in_drawer = False
+    for line in text.splitlines():
+        if line.strip() == ":PROPERTIES:":
+            in_drawer = True
+            continue
+        if in_drawer and line.strip() == ":END:":
+            break
+        if in_drawer:
+            match = re.match(r"^:([^:]+):\s*(.*?)\s*$", line)
+            if match:
+                properties[match.group(1).upper()] = match.group(2).strip()
+    return properties
+
+
+def parse_tags(value: str) -> list[str]:
+    tags: list[str] = []
+    for part in value.replace(":", ",").split(","):
+        tag = re.sub(r"[^A-Za-z0-9_@#.-]+", "-", part.strip()).strip("-")
+        if tag and tag not in tags:
+            tags.append(tag)
+    return tags
+
+
+def parse_org_timestamp(value: str) -> dt.datetime:
+    match = re.search(
+        r"\[(\d{4})-(\d{2})-(\d{2})(?:\s+\w+)?(?:\s+(\d{2}):(\d{2}))?\]",
+        value,
+    )
+    if not match:
+        return utc_now()
+    year, month, day, hour, minute = match.groups()
+    naive = dt.datetime(
+        int(year),
+        int(month),
+        int(day),
+        int(hour or 0),
+        int(minute or 0),
+    )
+    return naive.astimezone()
+
+
+def file_uri(path: Path) -> str:
+    return path.expanduser().resolve().as_uri()
+
+
+def extract_heading_sections(text: str, heading: str) -> list[str]:
+    pattern = re.compile(
+        rf"^\*\s+{re.escape(heading)}\s*$\n(.*?)(?=^\*\s+|\Z|^{re.escape(SNAPSHOT_BEGIN)})",
+        re.MULTILINE | re.DOTALL,
+    )
+    return [match.group(1).strip() for match in pattern.finditer(text) if match.group(1).strip()]
+
+
+def clean_excerpt(text: str) -> str:
+    lines: list[str] = []
+    skip_drawer = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == ":PROPERTIES:":
+            skip_drawer = True
+            continue
+        if skip_drawer:
+            if stripped == ":END:":
+                skip_drawer = False
+            continue
+        if not stripped:
+            if lines and lines[-1]:
+                lines.append("")
+            continue
+        if (
+            stripped.startswith("#+")
+            or stripped.startswith("<<")
+            or stripped.startswith("[[data:image")
+            or stripped.startswith(":")
+        ):
+            continue
+        lines.append(stripped)
+    excerpt = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+    if len(excerpt) > SUMMARY_LIMIT:
+        excerpt = excerpt[:SUMMARY_LIMIT].rsplit(" ", 1)[0].rstrip() + "..."
+    return excerpt
+
+
+def snapshot_excerpt(root: Path, properties: dict[str, str]) -> str:
+    if properties.get("SNAPSHOT_STATUS") != "ok":
+        return ""
+    org_id = properties.get("ID")
+    if not org_id:
+        return ""
+    path = root / "snapshots" / "readable" / f"{org_id}.org"
+    if not path.exists():
+        return ""
+    return clean_excerpt(path.read_text(encoding="utf-8", errors="replace"))
+
+
+def paragraph(label: str, value: str) -> str:
+    if not value:
+        return ""
+    return f"<p><strong>{html.escape(label)}:</strong> {html.escape(value)}</p>"
+
+
+def pre_block(label: str, value: str) -> str:
+    if not value:
+        return ""
+    return f"<h2>{html.escape(label)}</h2><pre>{html.escape(value)}</pre>"
+
+
+def link_paragraph(label: str, href: str, text: str | None = None) -> str:
+    if not href:
+        return ""
+    label_html = html.escape(label)
+    href_html = html.escape(href, quote=True)
+    text_html = html.escape(text or href)
+    return f'<p><strong>{label_html}:</strong> <a href="{href_html}">{text_html}</a></p>'
+
+
+def item_description(root: Path, item_path: Path, text: str, properties: dict[str, str]) -> str:
+    notes = extract_heading_sections(text, "Note")
+    selections = extract_heading_sections(text, "Selection")
+    excerpt = snapshot_excerpt(root, properties)
+    parts = [
+        paragraph("Source", properties.get("SOURCE_APP", "")),
+        paragraph("Captured", properties.get("CAPTURED", "")),
+        paragraph("Snapshot", properties.get("SNAPSHOT_STATUS", "")),
+        link_paragraph("Original", properties.get("CANONICAL_URL") or properties.get("URL", "")),
+        link_paragraph("Org item", file_uri(item_path), item_path.name),
+    ]
+    for note in notes[-2:]:
+        parts.append(pre_block("Note", note))
+    for selection in selections[-2:]:
+        parts.append(pre_block("Selection", selection))
+    if excerpt:
+        parts.append(pre_block("Readable snapshot excerpt", excerpt))
+    return "\n".join(part for part in parts if part)
+
+
+def read_items(root: Path) -> list[dict]:
+    items: list[dict] = []
+    for path in sorted((root / "items").glob("*.org")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        properties = read_org_properties(text)
+        url = properties.get("CANONICAL_URL") or properties.get("URL")
+        org_id = properties.get("ID")
+        if not url or not org_id:
+            continue
+        captured = parse_org_timestamp(properties.get("CAPTURED") or read_org_keyword(text, "date"))
+        tags = parse_tags(properties.get("TAGS", ""))
+        source = properties.get("SOURCE_APP", "")
+        if source:
+            tags.append(f"source-{source}")
+        snapshot_status = properties.get("SNAPSHOT_STATUS", "")
+        tags.append("saved-article" if snapshot_status == "ok" else "saved-link")
+        items.append(
+            {
+                "path": path,
+                "text": text,
+                "properties": properties,
+                "title": read_org_keyword(text, "title") or url,
+                "url": url,
+                "org_id": org_id,
+                "captured": captured,
+                "tags": list(dict.fromkeys(tags)),
+            }
+        )
+    return sorted(items, key=lambda item: item["captured"], reverse=True)
+
+
+def generate_feed(root: Path, output: Path) -> dict:
+    items = read_items(root)
+    ET.register_namespace("atom", "http://www.w3.org/2005/Atom")
+    rss = ET.Element("rss", {"version": "2.0"})
+    channel = ET.SubElement(rss, "channel")
+    ET.SubElement(channel, "title").text = "Read Later"
+    ET.SubElement(channel, "link").text = file_uri(root)
+    ET.SubElement(channel, "description").text = "Local-first saved links and articles from read-later Org items."
+    ET.SubElement(channel, "lastBuildDate").text = format_datetime(utc_now())
+    ET.SubElement(
+        channel,
+        "{http://www.w3.org/2005/Atom}link",
+        {"href": file_uri(output), "rel": "self", "type": "application/rss+xml"},
+    )
+
+    for saved in items:
+        item = ET.SubElement(channel, "item")
+        ET.SubElement(item, "title").text = saved["title"]
+        ET.SubElement(item, "link").text = saved["url"]
+        guid = ET.SubElement(item, "guid", {"isPermaLink": "false"})
+        guid.text = saved["org_id"]
+        ET.SubElement(item, "pubDate").text = format_datetime(saved["captured"])
+        ET.SubElement(item, "description").text = item_description(
+            root, saved["path"], saved["text"], saved["properties"]
+        )
+        for tag in saved["tags"]:
+            ET.SubElement(item, "category").text = tag
+
+    xml = ET.tostring(rss, encoding="unicode", xml_declaration=True)
+    atomic_write(output, xml + "\n")
+    return {
+        "path": str(output),
+        "url": file_uri(output),
+        "items": len(items),
+        "generated_at": iso_timestamp(),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", default="")
+    parser.add_argument("--output", default="")
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+
+    root = Path(args.root).expanduser() if args.root else default_root()
+    output = Path(args.output).expanduser() if args.output else root / "feed.xml"
+    result = generate_feed(root, output)
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    else:
+        print(f"Generated {result['items']} read-later feed items: {output}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

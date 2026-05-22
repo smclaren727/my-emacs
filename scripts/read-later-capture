@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import uuid
@@ -35,6 +36,7 @@ Mac, Emacs, iPhone shortcuts, and loxley.
 
 - Treat `items/` as the canonical capture archive.
 - Treat `queue/` as append-only ingest work for snapshot processors.
+- Treat `feed.xml` as generated Elfeed review output, not canonical state.
 - Do not delete `imports/`, `snapshots/`, `failures/`, or `logs/` during cleanup.
 - Preserve `ID`, `SOURCE_APP`, `URL`, `CANONICAL_URL`, and `CAPTURED`
   properties when editing captured Org files.
@@ -379,6 +381,26 @@ def queue_snapshot(root: Path, path: Path, args: argparse.Namespace, org_id: str
     return queue_path
 
 
+def refresh_feed(root: Path) -> dict:
+    script = Path(__file__).with_name("read-later-feed")
+    if not script.exists():
+        return {}
+    result = subprocess.run(
+        [sys.executable, str(script), "--root", str(root), "--json"],
+        text=True,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode != 0:
+        message = result.stderr.strip() or result.stdout.strip()
+        return {"error": message or "read-later-feed failed"}
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {"error": "read-later-feed returned invalid JSON"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default="")
@@ -457,6 +479,9 @@ def main() -> int:
         "queue_path": queue_path,
         "captured_at": iso_timestamp(),
     }
+    feed_update = refresh_feed(root)
+    if feed_update:
+        event["feed_update"] = feed_update
     jsonl_append(root / "logs" / "captures.jsonl", event)
 
     if args.json:
