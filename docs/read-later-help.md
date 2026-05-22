@@ -80,6 +80,8 @@ my-reading-open-root
 my-reading-open-queue
 my-reading-generate-feed
 my-reading-update-feed
+my-reading-delete-dwim
+my-reading-delete-files
 my-reading-snapshot-queue
 ```
 
@@ -87,6 +89,7 @@ Leader bindings, using `C-c u` or the double-space leader:
 
 ```text
 n d   save to read-later
+n D   delete read-later item
 n w   capture current Emacs browser/page
 n l   update generated read-later feed
 n q   open read-later queue
@@ -98,7 +101,18 @@ In Elfeed:
 
 ```text
 d     save current Elfeed item to read-later
+D     delete generated read-later item and clean related state
 ```
+
+In Dired, normal delete commands are intercepted only for Org files under the
+read-later `items/` directory:
+
+```text
+D     delete marked/current read-later item with cleanup
+d x   flag then execute read-later item deletion with cleanup
+```
+
+For non-read-later files, Dired delete behavior stays unchanged.
 
 ## Elfeed Review Feed
 
@@ -182,6 +196,19 @@ Regenerate the Elfeed review feed:
 ```sh
 ~/.emacs.d/scripts/read-later-feed
 ```
+
+Delete a read-later item and clean generated state:
+
+```sh
+~/.emacs.d/scripts/read-later-delete \
+  --item ~/All-The-Things/50-Resources/Read-Later/items/some-item.org
+```
+
+The delete command removes the canonical item file, matching queue entries, and
+matching `snapshots/html/` and `snapshots/readable/` files. It then regenerates
+`feed.xml` and appends a historical deletion record to `logs/deletions.jsonl`.
+When invoked from Emacs, the live generated Elfeed entries are also removed from
+the Elfeed DB.
 
 Snapshot processing defaults to `--extractor auto`, which tries EWW's
 `eww-readable` article extraction first and falls back to Pandoc when EWW

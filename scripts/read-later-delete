@@ -1,0 +1,327 @@
+#!/usr/bin/env python3
+"""Delete read-later items and their generated/queued state."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+
+TRACKING_PARAMS = {
+    "fbclid",
+    "gclid",
+    "igshid",
+    "mc_cid",
+    "mc_eid",
+    "mkt_tok",
+}
+
+
+def utc_now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def iso_timestamp(moment: dt.datetime | None = None) -> str:
+    return (moment or utc_now()).astimezone(dt.timezone.utc).isoformat()
+
+
+def default_root() -> Path:
+    root = os.environ.get("MY_READING_ROOT")
+    if root:
+        return Path(root).expanduser()
+    return Path("~/All-The-Things/50-Resources/Read-Later").expanduser()
+
+
+def normalize_url(url: str) -> str:
+    url = url.strip()
+    parts = urlsplit(url)
+    if not parts.scheme:
+        parts = urlsplit("https://" + url)
+
+    scheme = parts.scheme.lower()
+    netloc = parts.netloc.lower()
+    if (scheme == "https" and netloc.endswith(":443")) or (
+        scheme == "http" and netloc.endswith(":80")
+    ):
+        netloc = netloc.rsplit(":", 1)[0]
+
+    query = []
+    for key, value in parse_qsl(parts.query, keep_blank_values=True):
+        lowered = key.lower()
+        if lowered.startswith("utm_") or lowered in TRACKING_PARAMS:
+            continue
+        query.append((key, value))
+    query.sort()
+    return urlunsplit((scheme, netloc, parts.path or "/", urlencode(query), ""))
+
+
+def canonical_digest(canonical_url: str) -> str:
+    return hashlib.sha256(canonical_url.encode("utf-8")).hexdigest()
+
+
+def jsonl_append(path: Path, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(value, ensure_ascii=False, sort_keys=True))
+        handle.write("\n")
+
+
+def read_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
+def read_org_property(text: str, key: str) -> str:
+    pattern = re.compile(rf"^:{re.escape(key)}:\s*(.*?)\s*$", re.MULTILINE)
+    match = pattern.search(text)
+    return match.group(1) if match else ""
+
+
+def read_org_keyword(text: str, key: str) -> str:
+    pattern = re.compile(
+        rf"^#\+{re.escape(key)}:\s*(.*?)\s*$",
+        re.MULTILINE | re.IGNORECASE,
+    )
+    match = pattern.search(text)
+    return match.group(1) if match else ""
+
+
+def root_items_dir(root: Path) -> Path:
+    return (root / "items").expanduser().resolve()
+
+
+def item_path_in_root(root: Path, path: Path) -> bool:
+    path = path.expanduser().resolve(strict=False)
+    if path.suffix != ".org":
+        return False
+    try:
+        path.relative_to(root_items_dir(root))
+    except ValueError:
+        return False
+    return True
+
+
+def item_record(root: Path, path: Path) -> dict:
+    path = path.expanduser()
+    if not item_path_in_root(root, path):
+        raise ValueError(f"Refusing to delete non-read-later item path: {path}")
+    text = read_text(path)
+    canonical_url = read_org_property(text, "CANONICAL_URL") or read_org_property(text, "URL")
+    org_id = read_org_property(text, "ID") or read_org_property(text, "READ_LATER_ID")
+    return {
+        "org_id": org_id,
+        "path": str(path),
+        "canonical_url": canonical_url,
+        "canonical_digest": canonical_digest(canonical_url) if canonical_url else "",
+        "title": read_org_keyword(text, "title") or canonical_url or path.name,
+    }
+
+
+def records_by_org_id(root: Path) -> dict[str, dict]:
+    records: dict[str, dict] = {}
+    for path in sorted((root / "items").glob("*.org")):
+        try:
+            record = item_record(root, path)
+        except (OSError, ValueError):
+            continue
+        org_id = record.get("org_id")
+        if org_id:
+            records[org_id] = record
+    return records
+
+
+def records_by_canonical_url(root: Path) -> dict[str, dict]:
+    records: dict[str, dict] = {}
+    for record in records_by_org_id(root).values():
+        canonical_url = record.get("canonical_url")
+        if canonical_url:
+            records[canonical_url] = record
+    return records
+
+
+def collect_records(root: Path, args: argparse.Namespace) -> list[dict]:
+    records: list[dict] = []
+    seen: set[str] = set()
+    by_id: dict[str, dict] | None = None
+    by_url: dict[str, dict] | None = None
+
+    def add(record: dict) -> None:
+        key = record.get("org_id") or record.get("path") or record.get("canonical_url")
+        if key and key not in seen:
+            seen.add(key)
+            records.append(record)
+
+    for value in args.item:
+        path = Path(value).expanduser()
+        if not path.exists():
+            raise FileNotFoundError(f"Read-later item does not exist: {path}")
+        add(item_record(root, path))
+
+    for org_id in args.org_id:
+        by_id = by_id if by_id is not None else records_by_org_id(root)
+        record = by_id.get(org_id)
+        if record:
+            add(record)
+        else:
+            add({"org_id": org_id, "path": "", "canonical_url": "", "canonical_digest": "", "title": org_id})
+
+    for url in args.url:
+        canonical_url = normalize_url(url)
+        by_url = by_url if by_url is not None else records_by_canonical_url(root)
+        record = by_url.get(canonical_url)
+        if record:
+            add(record)
+        else:
+            add(
+                {
+                    "org_id": "",
+                    "path": "",
+                    "canonical_url": canonical_url,
+                    "canonical_digest": canonical_digest(canonical_url),
+                    "title": canonical_url,
+                }
+            )
+
+    return records
+
+
+def queue_matches(path: Path, records: list[dict]) -> bool:
+    try:
+        payload = json.loads(read_text(path))
+    except (OSError, json.JSONDecodeError):
+        return False
+    org_ids = {record.get("org_id") for record in records if record.get("org_id")}
+    item_paths = {record.get("path") for record in records if record.get("path")}
+    canonical_urls = {record.get("canonical_url") for record in records if record.get("canonical_url")}
+    canonical_digests = {record.get("canonical_digest") for record in records if record.get("canonical_digest")}
+    return (
+        payload.get("org_id") in org_ids
+        or payload.get("item_path") in item_paths
+        or payload.get("canonical_url") in canonical_urls
+        or payload.get("canonical_digest") in canonical_digests
+    )
+
+
+def unlink(path: Path, dry_run: bool) -> bool:
+    if dry_run:
+        return path.exists()
+    try:
+        path.unlink()
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def delete_snapshots(root: Path, org_id: str, dry_run: bool) -> list[str]:
+    deleted: list[str] = []
+    if not org_id:
+        return deleted
+    for directory in (root / "snapshots" / "html", root / "snapshots" / "readable"):
+        for path in sorted(directory.glob(f"{org_id}.*")):
+            if unlink(path, dry_run):
+                deleted.append(str(path))
+    return deleted
+
+
+def delete_queue_entries(root: Path, records: list[dict], dry_run: bool) -> list[str]:
+    deleted: list[str] = []
+    for path in sorted((root / "queue").glob("*.json")):
+        if queue_matches(path, records) and unlink(path, dry_run):
+            deleted.append(str(path))
+    return deleted
+
+
+def refresh_feed(root: Path, dry_run: bool) -> dict:
+    if dry_run:
+        return {}
+    script = Path(__file__).with_name("read-later-feed")
+    if not script.exists():
+        return {}
+    result = subprocess.run(
+        [sys.executable, str(script), "--root", str(root), "--json"],
+        text=True,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode != 0:
+        message = result.stderr.strip() or result.stdout.strip()
+        return {"error": message or "read-later-feed failed"}
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {"error": "read-later-feed returned invalid JSON"}
+
+
+def delete_records(root: Path, records: list[dict], dry_run: bool) -> dict:
+    deleted: list[dict] = []
+    for record in records:
+        item_path = Path(record["path"]) if record.get("path") else None
+        item_deleted = False
+        if item_path:
+            item_deleted = unlink(item_path, dry_run)
+        record_result = {
+            **record,
+            "item_deleted": item_deleted,
+            "snapshots_deleted": delete_snapshots(root, record.get("org_id", ""), dry_run),
+        }
+        deleted.append(record_result)
+
+    queue_deleted = delete_queue_entries(root, records, dry_run)
+    event = {
+        "deleted": deleted,
+        "queue_deleted": queue_deleted,
+        "dry_run": dry_run,
+        "deleted_at": iso_timestamp(),
+    }
+    feed_update = refresh_feed(root, dry_run)
+    if feed_update:
+        event["feed_update"] = feed_update
+    if not dry_run:
+        jsonl_append(root / "logs" / "deletions.jsonl", event)
+    return event
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", default="")
+    parser.add_argument("--item", action="append", default=[])
+    parser.add_argument("--org-id", action="append", default=[])
+    parser.add_argument("--url", action="append", default=[])
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+
+    root = Path(args.root).expanduser() if args.root else default_root()
+    if not (args.item or args.org_id or args.url):
+        parser.error("Provide --item, --org-id, or --url")
+
+    records = collect_records(root, args)
+    if not records:
+        parser.error("No matching read-later items found")
+
+    result = delete_records(root, records, args.dry_run)
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    else:
+        action = "Would delete" if args.dry_run else "Deleted"
+        for record in result["deleted"]:
+            print(f"{action}: {record.get('path') or record.get('org_id') or record.get('canonical_url')}")
+        for path in result["queue_deleted"]:
+            print(f"{action} queue entry: {path}")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except (OSError, ValueError) as error:
+        print(f"read-later-delete: {error}", file=sys.stderr)
+        sys.exit(1)

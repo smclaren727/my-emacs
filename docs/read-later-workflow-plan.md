@@ -37,6 +37,21 @@ Current default archive mode is `readable`, so most captures create an Org item
 and queue snapshot processing. This is useful while testing, but it may be too
 eager for the final workflow.
 
+### Delete Saved Items
+
+Use the read-later delete path instead of raw file deletion when possible:
+
+| Source | Command | Cleanup |
+|---|---|---|
+| Dired in `Read-Later/items/` | `D` or `d x` | Deletes selected item files, queue entries, snapshots, regenerated feed, and live Elfeed entries. |
+| Any Emacs context | `SPC SPC n D` | DWIM delete from Dired, generated Elfeed entries, current item buffer, or prompted file. |
+| Generated Elfeed read-later feed | `D` | Deletes selected generated read-later entries and their canonical item files. |
+| Shell | `read-later-delete --item path/to/item.org` | Performs filesystem cleanup and regenerates `feed.xml`. |
+
+Plain filesystem deletion is still possible, but it only removes the item file.
+It does not clean pending queue JSON, snapshot files, or already-imported Elfeed
+DB entries.
+
 ### Review Saved Links In Elfeed
 
 Read-later items are exposed to Elfeed through `feeds.org`:
@@ -97,6 +112,7 @@ items. Bookmark dedupe is working and writes to `bookmarks.org`.
 | Bookmarks through separate org-protocol helper | Adopted | Keeps bookmarks distinct from read-later items. |
 | Elfeed review via generated local RSS feed | Adopted | Option A. `feed.xml` is generated, listed in `feeds.org`, and tagged in Elfeed. |
 | Direct Elfeed DB insertion | Parked | Technically possible, but too coupled to Elfeed internals for canonical storage. |
+| Intentional delete path | Adopted | Dired/Elfeed delete commands call `read-later-delete` and then remove live generated Elfeed entries. |
 
 ## Roadmap
 
@@ -163,8 +179,8 @@ Still undecided:
 
 - Whether `d` on a `+readlater` entry should mean promote, discard, or something else.
 - Whether to add a dedicated read-later hydra/transient-style menu.
-- Whether discarded items should stay in `items/` with a state property or move
-  to an archive folder.
+- Whether discard should mean physical deletion, a `discarded` state, or moving
+  items to an archive folder.
 
 ### Mobile And Loxley
 

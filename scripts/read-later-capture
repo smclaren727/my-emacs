@@ -37,6 +37,8 @@ Mac, Emacs, iPhone shortcuts, and loxley.
 - Treat `items/` as the canonical capture archive.
 - Treat `queue/` as append-only ingest work for snapshot processors.
 - Treat `feed.xml` as generated Elfeed review output, not canonical state.
+- Use `read-later-delete` or Emacs read-later delete commands for item cleanup
+  instead of raw filesystem deletion when possible.
 - Do not delete `imports/`, `snapshots/`, `failures/`, or `logs/` during cleanup.
 - Preserve `ID`, `SOURCE_APP`, `URL`, `CANONICAL_URL`, and `CAPTURED`
   properties when editing captured Org files.
