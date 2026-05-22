@@ -1,8 +1,8 @@
 # Local-First Read-Later Help
 
 This setup moves saved reading away from Readwise/Reader and into a shared
-local-first folder. Emacs, Safari, Elfeed, iPhone shortcuts, and loxley all
-write into the same read-later contract.
+local-first folder. Emacs, Safari, and Elfeed currently write into the same
+read-later contract; iPhone and loxley ingress remain roadmap work.
 
 ## Storage Layout
 
@@ -142,7 +142,7 @@ manually and ask Elfeed to update that source:
 SPC SPC n l
 ```
 
-To see saved links/articles inside Elfeed, use a filter such as:
+To see saved links and promoted items inside Elfeed, use a filter such as:
 
 ```text
 +readlater
@@ -153,8 +153,7 @@ into Elfeed search tags like `saved-link`, `saved-article`, `source-safari`,
 `source-eww`, `source-elfeed`, and any tags stored on the read-later item.
 The feed description stays intentionally lightweight: source, capture time,
 snapshot status, original URL, Org item link, notes, and selections. Snapshot
-article bodies are kept in the Org item and `snapshots/`, not embedded in
-`feed.xml`.
+bodies are kept in the Org item and `snapshots/`, not embedded in `feed.xml`.
 
 ## Promote Selected Elfeed Entries
 
@@ -294,9 +293,9 @@ defer      create item and queue later processing
 
 Default mode is `metadata`.
 
-## Loxley Ingress
+## Future Loxley Ingress
 
-Loxley runs:
+The intended loxley service shape is:
 
 ```text
 loxley-read-later-ingress.service
@@ -329,7 +328,7 @@ Health check:
 curl http://loxley:45741/health
 ```
 
-The token is stored on loxley via `sops-nix` as:
+The token should be stored on loxley via `sops-nix` as:
 
 ```text
 /run/secrets/read_later_ingress_token
@@ -337,8 +336,10 @@ The token is stored on loxley via `sops-nix` as:
 
 ## Current Boundary
 
-Loxley ingress writes raw capture JSON into `queue/`. Local Mac/Emacs captures
-already create `items/` plus snapshot queue jobs.
+Local Mac/Emacs captures create canonical `items/` entries and default to
+metadata-only saves. Snapshot work happens only when you explicitly promote
+selected Elfeed entries or run the snapshot queue processor.
 
-A future worker should materialize loxley ingress queue entries into canonical
-`items/` files automatically.
+Loxley/mobile ingress is not the active capture path yet. A future worker
+should accept remote/mobile captures and materialize them into the same
+canonical `items/` format automatically.

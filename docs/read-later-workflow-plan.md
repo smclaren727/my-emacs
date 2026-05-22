@@ -202,4 +202,4 @@ stopping at raw queue JSON.
 ## Bias
 
 Capture should be cheap and low-commitment. Elfeed should be the review surface.
-Snapshotting should become an intentional promote-to-article action.
+Snapshotting should stay an intentional promote-to-saved-snapshot action.
