@@ -181,15 +181,27 @@ The read-later module registers this org-protocol endpoint:
 org-protocol://read-later
 ```
 
-Create a Safari bookmark and replace its address with this bookmarklet:
+Safari stores custom-URL-scheme permissions per website. To avoid an
+Allow/Deny prompt on every domain, these bookmarklets open the org-protocol URL
+from a temporary `about:blank` tab.
+
+Use this setup bookmarklet once if Safari still prompts. Choose **Always
+Allow**, then close the blank tab manually:
 
 ```javascript
-javascript:location.href='org-protocol://read-later?'+new URLSearchParams({url:location.href,title:document.title,body:window.getSelection().toString(),source:'safari'});void(0)
+javascript:(function(){var p=new URLSearchParams({url:location.href,title:document.title,body:window.getSelection().toString(),source:'safari'});var w=window.open();var a=w.document.createElement('a');a.href='org-protocol://read-later?'+p.toString();w.document.body.appendChild(a);a.click();})();
 ```
 
-Using the bookmarklet captures the current Safari page through the same local
-read-later path as Emacs. Selected text is stored as the capture selection, and
-the saved item gets `:SOURCE_APP: safari`.
+After that, use this daily bookmarklet. It captures the page and closes the
+temporary blank tab:
+
+```javascript
+javascript:(function(){var p=new URLSearchParams({url:location.href,title:document.title,body:window.getSelection().toString(),source:'safari'});var w=window.open();var a=w.document.createElement('a');a.href='org-protocol://read-later?'+p.toString();w.document.body.appendChild(a);a.click();w.close();})();
+```
+
+Using the daily bookmarklet captures the current Safari page through the same
+local read-later path as Emacs. Selected text is stored as the capture
+selection, and the saved item gets `:SOURCE_APP: safari`.
 
 ## Shell Commands
 

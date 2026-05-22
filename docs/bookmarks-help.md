@@ -31,11 +31,23 @@ The bookmark module registers this org-protocol endpoint:
 org-protocol://bookmark
 ```
 
-Create a Safari bookmark and replace its address with this bookmarklet:
+Safari stores custom-URL-scheme permissions per website. To avoid an
+Allow/Deny prompt on every domain, these bookmarklets open the org-protocol URL
+from a temporary `about:blank` tab.
+
+Use this setup bookmarklet once if Safari still prompts. Choose **Always
+Allow**, then close the blank tab manually:
 
 ```javascript
-javascript:location.href='org-protocol://bookmark?'+new URLSearchParams({url:location.href,title:document.title});void(0)
+javascript:(function(){var p=new URLSearchParams({url:location.href,title:document.title});var w=window.open();var a=w.document.createElement('a');a.href='org-protocol://bookmark?'+p.toString();w.document.body.appendChild(a);a.click();})();
 ```
 
-Using this bookmarklet saves the current Safari page as a bookmark, separate
-from the read-later capture flow.
+After that, use this daily bookmarklet. It captures the page and closes the
+temporary blank tab:
+
+```javascript
+javascript:(function(){var p=new URLSearchParams({url:location.href,title:document.title});var w=window.open();var a=w.document.createElement('a');a.href='org-protocol://bookmark?'+p.toString();w.document.body.appendChild(a);a.click();w.close();})();
+```
+
+Using the daily bookmarklet saves the current Safari page as a bookmark,
+separate from the read-later capture flow.
