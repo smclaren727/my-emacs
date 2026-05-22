@@ -79,6 +79,10 @@ source-elfeed
 source-manual
 ```
 
+Feed descriptions stay lightweight. They include capture metadata, original
+URL, item link, notes, and selections, but they do not embed readable snapshot
+bodies. Snapshot content remains in the Org item and `snapshots/`.
+
 `SPC SPC n l` regenerates the local RSS feed and asks Elfeed to refresh that
 source. Emacs captures also try to refresh the feed when Elfeed is already
 loaded.

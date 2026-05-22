@@ -17,7 +17,6 @@ from pathlib import Path
 
 
 SNAPSHOT_BEGIN = "# READ-LATER-SNAPSHOT-BEGIN"
-SUMMARY_LIMIT = 1600
 
 
 def utc_now() -> dt.datetime:
@@ -109,48 +108,6 @@ def extract_heading_sections(text: str, heading: str) -> list[str]:
     return [match.group(1).strip() for match in pattern.finditer(text) if match.group(1).strip()]
 
 
-def clean_excerpt(text: str) -> str:
-    lines: list[str] = []
-    skip_drawer = False
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped == ":PROPERTIES:":
-            skip_drawer = True
-            continue
-        if skip_drawer:
-            if stripped == ":END:":
-                skip_drawer = False
-            continue
-        if not stripped:
-            if lines and lines[-1]:
-                lines.append("")
-            continue
-        if (
-            stripped.startswith("#+")
-            or stripped.startswith("<<")
-            or stripped.startswith("[[data:image")
-            or stripped.startswith(":")
-        ):
-            continue
-        lines.append(stripped)
-    excerpt = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
-    if len(excerpt) > SUMMARY_LIMIT:
-        excerpt = excerpt[:SUMMARY_LIMIT].rsplit(" ", 1)[0].rstrip() + "..."
-    return excerpt
-
-
-def snapshot_excerpt(root: Path, properties: dict[str, str]) -> str:
-    if properties.get("SNAPSHOT_STATUS") != "ok":
-        return ""
-    org_id = properties.get("ID")
-    if not org_id:
-        return ""
-    path = root / "snapshots" / "readable" / f"{org_id}.org"
-    if not path.exists():
-        return ""
-    return clean_excerpt(path.read_text(encoding="utf-8", errors="replace"))
-
-
 def paragraph(label: str, value: str) -> str:
     if not value:
         return ""
@@ -172,10 +129,9 @@ def link_paragraph(label: str, href: str, text: str | None = None) -> str:
     return f'<p><strong>{label_html}:</strong> <a href="{href_html}">{text_html}</a></p>'
 
 
-def item_description(root: Path, item_path: Path, text: str, properties: dict[str, str]) -> str:
+def item_description(item_path: Path, text: str, properties: dict[str, str]) -> str:
     notes = extract_heading_sections(text, "Note")
     selections = extract_heading_sections(text, "Selection")
-    excerpt = snapshot_excerpt(root, properties)
     parts = [
         paragraph("Source", properties.get("SOURCE_APP", "")),
         paragraph("Captured", properties.get("CAPTURED", "")),
@@ -187,8 +143,6 @@ def item_description(root: Path, item_path: Path, text: str, properties: dict[st
         parts.append(pre_block("Note", note))
     for selection in selections[-2:]:
         parts.append(pre_block("Selection", selection))
-    if excerpt:
-        parts.append(pre_block("Readable snapshot excerpt", excerpt))
     return "\n".join(part for part in parts if part)
 
 
@@ -246,7 +200,7 @@ def generate_feed(root: Path, output: Path) -> dict:
         guid.text = saved["org_id"]
         ET.SubElement(item, "pubDate").text = format_datetime(saved["captured"])
         ET.SubElement(item, "description").text = item_description(
-            root, saved["path"], saved["text"], saved["properties"]
+            saved["path"], saved["text"], saved["properties"]
         )
         for tag in saved["tags"]:
             ET.SubElement(item, "category").text = tag

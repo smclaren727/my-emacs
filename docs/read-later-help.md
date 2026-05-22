@@ -147,6 +147,10 @@ To see saved links/articles inside Elfeed, use a filter such as:
 The feed carries item categories, and the Emacs read-later layer turns those
 into Elfeed search tags like `saved-link`, `saved-article`, `source-safari`,
 `source-eww`, `source-elfeed`, and any tags stored on the read-later item.
+The feed description stays intentionally lightweight: source, capture time,
+snapshot status, original URL, Org item link, notes, and selections. Snapshot
+article bodies are kept in the Org item and `snapshots/`, not embedded in
+`feed.xml`.
 
 ## Browser Bookmarklet
 
