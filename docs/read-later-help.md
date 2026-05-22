@@ -203,6 +203,11 @@ Using the daily bookmarklet captures the current Safari page through the same
 local read-later path as Emacs. Selected text is stored as the capture
 selection, and the saved item gets `:SOURCE_APP: safari`.
 
+Focus behavior is handled by `/Applications/Emacs Client.app`, which owns the
+`org-protocol` URL scheme. Its `open location` handler should call
+`emacsclient -n` only. If it also runs `open -a Emacs`, Safari will save
+correctly but Emacs will come to the front after every capture.
+
 ## Shell Commands
 
 Capture a URL:

@@ -51,3 +51,8 @@ javascript:(function(){var p=new URLSearchParams({url:location.href,title:docume
 
 Using the daily bookmarklet saves the current Safari page as a bookmark,
 separate from the read-later capture flow.
+
+Focus behavior is handled by `/Applications/Emacs Client.app`, which owns the
+`org-protocol` URL scheme. Its `open location` handler should call
+`emacsclient -n` only. If it also runs `open -a Emacs`, Safari will save
+correctly but Emacs will come to the front after every capture.
