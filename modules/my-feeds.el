@@ -143,7 +143,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
     (window-width)))
 
 (defun my-feeds--search-layout ()
-  "Return Elfeed search column widths as (DATE TAG FEED SUBJECT)."
+  "Return Elfeed search column widths as (DATE TAG SUBJECT FEED)."
   (let* ((date-width (my-feeds--search-date-column-width))
          (tag-width elfeed-goodies/tag-column-width)
          (feed-width elfeed-goodies/feed-source-column-width)
@@ -162,8 +162,8 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
           (setq tag-width (- tag-width tag-reduction)))))
     (list date-width
           tag-width
-          feed-width
-          (max 1 (- window-width date-width tag-width feed-width gap-width)))))
+          (max 1 (- window-width date-width tag-width feed-width gap-width))
+          feed-width)))
 
 (defun my-feeds-search-refresh-on-resize (window)
   "Refresh the Elfeed search listing after WINDOW changes width."
@@ -187,7 +187,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 
 (defun my-feeds-search-header-draw ()
   "Draw the Elfeed search header with the preferred column order."
-  (cl-destructuring-bind (date-width tag-width feed-width subject-width)
+  (cl-destructuring-bind (date-width tag-width subject-width feed-width)
       (my-feeds--search-layout)
     (mapconcat
      (lambda (column)
@@ -195,13 +195,13 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
                    'face 'header-line))
      `(("Date" . ,date-width)
        ("Tags" . ,tag-width)
-       ("Feed Source" . ,feed-width)
-       ("Subject" . ,subject-width))
+       ("Subject" . ,subject-width)
+       ("Feed Source" . ,feed-width))
      " ")))
 
 (defun my-feeds-search-entry-line-draw (entry)
-  "Print ENTRY using Date, Tags, Feed Source, Subject columns."
-  (cl-destructuring-bind (date-width tag-width feed-width subject-width)
+  "Print ENTRY using Date, Tags, Subject, Feed Source columns."
+  (cl-destructuring-bind (date-width tag-width subject-width feed-width)
       (my-feeds--search-layout)
     (let* ((date (elfeed-search-format-date (elfeed-entry-date entry)))
            (title (or (elfeed-meta entry :title) (elfeed-entry-title entry) ""))
@@ -218,8 +218,8 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
            (title-column (elfeed-format-column title subject-width :left)))
       (insert (propertize date-column 'face 'elfeed-search-date-face) " ")
       (insert (propertize tag-column 'face 'elfeed-search-tag-face) " ")
-      (insert (propertize feed-column 'face 'elfeed-search-feed-face) " ")
-      (insert (propertize title-column 'face title-faces 'kbd-help title)))))
+      (insert (propertize title-column 'face title-faces 'kbd-help title) " ")
+      (insert (propertize feed-column 'face 'elfeed-search-feed-face)))))
 
 (unless noninteractive
   (my-feeds-start-auto-update))

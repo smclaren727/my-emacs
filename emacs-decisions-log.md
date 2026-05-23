@@ -698,8 +698,9 @@ PDF routes that depend on `wkhtmltopdf`, `prince`, or `groff`.
 ### Elfeed search layout
 
 **Chosen:** A custom Elfeed search renderer with a plain `header-line` column
-header, preferred-width `Date`, `Tags`, and `Feed Source` columns, and a
-window-width `Subject` column.
+header in `Date`, `Tags`, `Subject`, `Feed Source` order. The metadata columns
+use preferred widths, and the window-width `Subject` column sits before the
+feed source.
 
 **Why:** Elfeed renders into an Emacs character matrix, not a browser-style
 responsive layout engine. Keeping metadata columns stable at normal frame
@@ -719,8 +720,8 @@ manual `g` refreshes.
   in a character-grid UI and likely to make all columns less readable.
 - Right-aligning feed sources against the window edge — worked poorly across
   frame sizes and introduced fragile display-property behavior.
-- Putting `Subject` before `Feed Source` — looked good at full width, but
-  made the feed source column chase the right edge when the window changed.
+- Putting `Feed Source` before `Subject` — kept metadata together, but made the
+  subject/title column start too far to the right for quick scanning.
 - Keeping the Powerline header — visually distinctive, but too sensitive to
   theme and renderer changes for a utility buffer.
 
