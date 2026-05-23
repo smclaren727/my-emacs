@@ -711,7 +711,8 @@ hits its minimum width.
 
 The search header keeps Powerline segmentation with alternating
 `powerline-active1` / `powerline-active2` bands so each boundary has a visible
-separator. It uses UTF-8 separators instead of the old `arrow-fade`
+separator, including a closing separator after `Feed Source`. It uses UTF-8
+separators instead of the old `arrow-fade`
 image/display-property separators, which looked too heavy and became visually
 fragile after the Emacs 31 update. A buffer-local resize hook debounces forced
 Elfeed redraws so the listing follows horizontal frame/window changes without

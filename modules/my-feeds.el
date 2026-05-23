@@ -217,7 +217,8 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
         (my-feeds--powerline-separator tag-face subject-face)
         (my-feeds--powerline-header-column "Subject" subject-width subject-face)
         (my-feeds--powerline-separator subject-face feed-face)
-        (my-feeds--powerline-header-column "Feed Source" feed-width feed-face))))))
+        (my-feeds--powerline-header-column "Feed Source" (1- feed-width) feed-face)
+        (my-feeds--powerline-separator feed-face date-face))))))
 
 (defun my-feeds-search-entry-line-draw (entry)
   "Print ENTRY using Date, Tags, Subject, Feed Source columns."
