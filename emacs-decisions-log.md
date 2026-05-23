@@ -751,6 +751,8 @@ Source order as the search list so the split panes read as one interface.
 It uses the same font scaling as the search pane, reserves the right fringe so
 Emacs does not draw a truncation marker over the closing separator, and keeps a
 small entry-pane margin for readability.
+Search and preview headers share one renderer so future changes to widths,
+separators, faces, and edge handling apply to both panes.
 
 ---
 

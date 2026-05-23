@@ -250,15 +250,42 @@ the current window body width."
       (when (fboundp separator)
         (funcall separator face1 face2)))))
 
-(defun my-feeds--powerline-header-column (label width face)
-  "Return a centered Powerline header column for LABEL, WIDTH, and FACE."
-  (powerline-raw (my-feeds--center-header-label label width) face))
-
-(defun my-feeds--powerline-header-field (text width face)
-  "Return a left-aligned Powerline field for TEXT, WIDTH, and FACE."
+(defun my-feeds--powerline-header-column (text width face align)
+  "Return a Powerline header column for TEXT, WIDTH, FACE, and ALIGN."
   (powerline-raw
-   (elfeed-format-column (concat " " (or text "") " ") width :left)
+   (pcase align
+     ('center (my-feeds--center-header-label text width))
+     (_ (elfeed-format-column (concat " " (or text "") " ") width :left)))
    face))
+
+(defun my-feeds--powerline-header (columns)
+  "Draw a Date / Tags / Subject / Feed Source header from COLUMNS.
+
+COLUMNS is a four-item list where each item is (TEXT ALIGN).  ALIGN may
+be `center' for headings or `left' for entry values."
+  (cl-destructuring-bind (date-width tag-width subject-width feed-width)
+      (my-feeds--search-layout (my-feeds--header-window-width))
+    (my-feeds--sync-powerline-header-faces)
+    (let* ((date-face 'my-feeds-search-header-active1)
+           (tag-face 'my-feeds-search-header-active2)
+           (subject-face 'my-feeds-search-header-active1)
+           (feed-face 'my-feeds-search-header-active2)
+           (widths (list date-width tag-width subject-width
+                         (max 1 (- feed-width 2))))
+           (faces (list date-face tag-face subject-face feed-face))
+           (next-faces (list tag-face subject-face feed-face date-face))
+           segments)
+      (cl-loop for (text align) in columns
+               for width in widths
+               for face in faces
+               for next-face in next-faces
+               do (push (my-feeds--powerline-header-column
+                         text width face align)
+                        segments)
+                  (push (my-feeds--powerline-separator face next-face)
+                        segments))
+      (powerline-render
+       (nreverse (cons (powerline-raw " " date-face) segments))))))
 
 (defun my-feeds-search-refresh-on-resize (window)
   "Refresh the Elfeed search listing after WINDOW changes width."
@@ -282,62 +309,34 @@ the current window body width."
 
 (defun my-feeds-search-header-draw ()
   "Draw the Elfeed search header with the preferred column order."
-  (cl-destructuring-bind (date-width tag-width subject-width feed-width)
-      (my-feeds--search-layout (my-feeds--header-window-width))
-    (my-feeds--sync-powerline-header-faces)
-    (let ((date-face 'my-feeds-search-header-active1)
-          (tag-face 'my-feeds-search-header-active2)
-          (subject-face 'my-feeds-search-header-active1)
-          (feed-face 'my-feeds-search-header-active2))
-      (powerline-render
-       (list
-        (my-feeds--powerline-header-column "Date" date-width date-face)
-        (my-feeds--powerline-separator date-face tag-face)
-        (my-feeds--powerline-header-column "Tags" tag-width tag-face)
-        (my-feeds--powerline-separator tag-face subject-face)
-        (my-feeds--powerline-header-column "Subject" subject-width subject-face)
-        (my-feeds--powerline-separator subject-face feed-face)
-        (my-feeds--powerline-header-column
-         "Feed Source" (max 1 (- feed-width 2)) feed-face)
-        (my-feeds--powerline-separator feed-face date-face)
-        (powerline-raw " " date-face))))))
+  (my-feeds--powerline-header
+   '(("Date" center)
+     ("Tags" center)
+     ("Subject" center)
+     ("Feed Source" center))))
 
 (defun my-feeds-show-header-draw ()
   "Draw the Elfeed show header with the same order as search rows."
   (when elfeed-show-entry
-    (cl-destructuring-bind (date-width tag-width subject-width feed-width)
-        (my-feeds--search-layout (my-feeds--header-window-width))
-      (my-feeds--sync-powerline-header-faces)
-      (let* ((date-face 'my-feeds-search-header-active1)
-             (tag-face 'my-feeds-search-header-active2)
-             (subject-face 'my-feeds-search-header-active1)
-             (feed-face 'my-feeds-search-header-active2)
-             (date (format-time-string
-                    "%Y-%m-%d"
-                    (seconds-to-time (elfeed-entry-date elfeed-show-entry))))
-             (tags (mapcar #'symbol-name
-                           (elfeed-entry-tags elfeed-show-entry)))
-             (tags-str (concat "[" (mapconcat #'identity tags ",") "]"))
-             (title (or (elfeed-meta elfeed-show-entry :title)
-                        (elfeed-entry-title elfeed-show-entry)
-                        ""))
-             (feed (elfeed-entry-feed elfeed-show-entry))
-             (feed-title (if feed
-                             (or (elfeed-meta feed :title)
-                                 (elfeed-feed-title feed))
-                           "")))
-        (powerline-render
-         (list
-          (my-feeds--powerline-header-field date date-width date-face)
-          (my-feeds--powerline-separator date-face tag-face)
-          (my-feeds--powerline-header-field tags-str tag-width tag-face)
-          (my-feeds--powerline-separator tag-face subject-face)
-          (my-feeds--powerline-header-field title subject-width subject-face)
-          (my-feeds--powerline-separator subject-face feed-face)
-          (my-feeds--powerline-header-field
-           feed-title (max 1 (- feed-width 2)) feed-face)
-          (my-feeds--powerline-separator feed-face date-face)
-          (powerline-raw " " date-face)))))))
+    (let* ((date (format-time-string
+                  "%Y-%m-%d"
+                  (seconds-to-time (elfeed-entry-date elfeed-show-entry))))
+           (tags (mapcar #'symbol-name
+                         (elfeed-entry-tags elfeed-show-entry)))
+           (tags-str (concat "[" (mapconcat #'identity tags ",") "]"))
+           (title (or (elfeed-meta elfeed-show-entry :title)
+                      (elfeed-entry-title elfeed-show-entry)
+                      ""))
+           (feed (elfeed-entry-feed elfeed-show-entry))
+           (feed-title (if feed
+                           (or (elfeed-meta feed :title)
+                               (elfeed-feed-title feed))
+                         "")))
+      (my-feeds--powerline-header
+       (list (list date 'left)
+             (list tags-str 'left)
+             (list title 'left)
+             (list feed-title 'left))))))
 
 (defun my-feeds-show-visual-setup ()
   "Apply visual tweaks for the Elfeed show buffer."
