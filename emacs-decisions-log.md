@@ -732,6 +732,20 @@ frame/window changes without manual `g` refreshes.
 - Keeping `arrow-fade` Powerline separators — visually distinctive, but too
   heavy and sensitive to theme and renderer changes for a utility buffer.
 
+### Elfeed split-pane previews
+
+**Chosen:** Use `elfeed-goodies`' existing split-pane support with the entry
+pane at the bottom, sized to 70% of the frame, and keep focus in
+`elfeed-search-mode` while previewing.
+
+**Why:** The package is already part of the feeds module and owns the
+`elfeed-show-entry-switch` integration. Configuring its split pane avoids a
+parallel display-buffer path, while local search keybindings make previewing
+entries feel like list navigation instead of a mode switch.
+
+`n` previews the next entry, `p` previews the previous entry, and `M-RET`
+previews the current entry without leaving the search buffer.
+
 ---
 
 ## `my-leader.el`

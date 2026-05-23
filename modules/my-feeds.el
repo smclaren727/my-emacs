@@ -21,6 +21,7 @@
 (declare-function elfeed-search-format-date "elfeed-search" (date))
 (declare-function elfeed-search-selected "elfeed-search" (&optional ignore-region-p))
 (declare-function elfeed-search-set-filter "elfeed-search" (filter))
+(declare-function elfeed-search-show-entry "elfeed-search" (entry))
 (declare-function elfeed-search-update--force "elfeed-search")
 (declare-function elfeed-search-update-entry "elfeed-search" (entry))
 (declare-function elfeed-tag "elfeed-db" (entry &rest tags))
@@ -40,12 +41,18 @@
 (declare-function org-web-tools--url-as-readable-org "org-web-tools" (url))
 
 (defvar elfeed-goodies/feed-source-column-width)
+(defvar elfeed-goodies/entry-pane-position)
+(defvar elfeed-goodies/entry-pane-size)
 (defvar elfeed-goodies/powerline-default-separator)
+(defvar elfeed-goodies/switch-to-entry)
 (defvar elfeed-goodies/tag-column-width)
 (defvar elfeed-search-date-format)
 (defvar elfeed-search-header-function)
+(defvar elfeed-search-mode-map)
 (defvar elfeed-search-print-entry-function)
+(defvar elfeed-search-remain-on-entry)
 (defvar elfeed-search-title-min-width)
+(defvar elfeed-show-mode-map)
 (defvar powerline-default-separator-dir)
 (defvar powerline-utf-8-separator-left)
 (defvar powerline-utf-8-separator-right)
@@ -303,6 +310,10 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   :after elfeed
   :demand t
   :custom
+  ;; Keep search selected while showing entry previews below it.
+  (elfeed-goodies/entry-pane-position 'bottom)
+  (elfeed-goodies/entry-pane-size 0.7)
+  (elfeed-goodies/switch-to-entry nil)
   ;; Give long source names like "Hacker News - Front Page" room to breathe.
   (elfeed-goodies/feed-source-column-width 48)
   ;; UTF-8 separators avoid the chunky image wedges from `arrow-fade'.
@@ -527,12 +538,48 @@ In `elfeed-search-mode', open all selected entries.  In
         (unless (or elfeed-search-remain-on-entry (use-region-p))
           (forward-line))))))
 
+(defun my-feeds-search-preview-entry (&optional lines)
+  "Preview the Elfeed entry LINES away while keeping search selected."
+  (interactive)
+  (let ((origin (point))
+        (search-window (selected-window))
+        (lines (or lines 0)))
+    (forward-line lines)
+    (if-let* ((entry (elfeed-search-selected :ignore-region)))
+        (progn
+          (recenter)
+          (elfeed-search-show-entry entry)
+          (when (window-live-p search-window)
+            (select-window search-window))
+          (unless elfeed-search-remain-on-entry
+            (forward-line -1)))
+      (goto-char origin)
+      (user-error "No Elfeed entry at point"))))
+
+(defun my-feeds-search-preview-next (&optional count)
+  "Preview the next COUNT Elfeed entry without leaving search."
+  (interactive "p")
+  (my-feeds-search-preview-entry (or count 1)))
+
+(defun my-feeds-search-preview-previous (&optional count)
+  "Preview the previous COUNT Elfeed entry without leaving search."
+  (interactive "p")
+  (my-feeds-search-preview-entry (- (or count 1))))
+
+(defun my-feeds-search-preview-current ()
+  "Preview the current Elfeed entry without leaving search."
+  (interactive)
+  (my-feeds-search-preview-entry 0))
+
 ;;; Mode-local keybindings ----------------------------------------------
 
 ;; Bind inside elfeed buffers for quick access.
 (with-eval-after-load 'elfeed
   ;; Search mode — starring from the list.
   (define-key elfeed-search-mode-map (kbd "m") #'my-feeds-star)
+  (define-key elfeed-search-mode-map (kbd "n") #'my-feeds-search-preview-next)
+  (define-key elfeed-search-mode-map (kbd "p") #'my-feeds-search-preview-previous)
+  (define-key elfeed-search-mode-map (kbd "M-RET") #'my-feeds-search-preview-current)
   (define-key elfeed-search-mode-map (kbd "b") #'my-feeds-browse-article)
   (define-key elfeed-search-mode-map (kbd "B") #'my-feeds-browse-background-article)
   ;; Show mode — article-level actions.
