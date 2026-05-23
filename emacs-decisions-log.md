@@ -697,16 +697,22 @@ PDF routes that depend on `wkhtmltopdf`, `prince`, or `groff`.
 
 ### Elfeed search layout
 
-**Chosen:** A custom `elfeed-goodies` search renderer with fixed-width
-`Date`, `Tags`, and `Feed Source` columns, followed by an open-ended
-`Subject` column.
+**Chosen:** A custom Elfeed search renderer with a plain `header-line` column
+header, preferred-width `Date`, `Tags`, and `Feed Source` columns, and a
+window-width `Subject` column.
 
 **Why:** Elfeed renders into an Emacs character matrix, not a browser-style
-responsive layout engine. Keeping metadata columns stable makes scanning
-predictable, while letting the title column absorb remaining width avoids
-fragile right-edge alignment and display-property hacks. In narrow split
-windows, `Subject` truncates first; that is preferable to compressing every
-column and making dates, tags, or source names unstable.
+responsive layout engine. Keeping metadata columns stable at normal frame
+sizes makes scanning predictable, while letting the title column absorb
+remaining width avoids fragile right-edge alignment and display-property hacks.
+In narrow split windows, the feed and tag columns shrink only after `Subject`
+hits its minimum width.
+
+The search header intentionally avoids `elfeed-goodies` Powerline separators.
+Those image/display-property separators looked too heavy and became visually
+fragile after the Emacs 31 update. A buffer-local resize hook debounces forced
+Elfeed redraws so the listing follows horizontal frame/window changes without
+manual `g` refreshes.
 
 **Alternatives considered:**
 - Proportional column compression — more "responsive" in theory, but noisy
@@ -715,6 +721,8 @@ column and making dates, tags, or source names unstable.
   frame sizes and introduced fragile display-property behavior.
 - Putting `Subject` before `Feed Source` — looked good at full width, but
   made the feed source column chase the right edge when the window changed.
+- Keeping the Powerline header — visually distinctive, but too sensitive to
+  theme and renderer changes for a utility buffer.
 
 ---
 

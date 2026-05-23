@@ -36,17 +36,13 @@
 (declare-function elfeed-tube-save "elfeed-tube")
 (declare-function elfeed-tube-setup "elfeed-tube")
 (declare-function org-web-tools--url-as-readable-org "org-web-tools" (url))
-(declare-function powerline-fill "powerline" (face reserve))
-(declare-function powerline-raw "powerline" (str &optional face pad))
-(declare-function powerline-render "powerline" (values))
 
 (defvar elfeed-goodies/feed-source-column-width)
-(defvar elfeed-goodies/powerline-default-separator)
 (defvar elfeed-goodies/tag-column-width)
 (defvar elfeed-search-date-format)
 (defvar elfeed-search-header-function)
 (defvar elfeed-search-print-entry-function)
-(defvar powerline-default-separator-dir)
+(defvar elfeed-search-title-min-width)
 
 ;;; Variables -----------------------------------------------------------
 
@@ -79,6 +75,12 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 (defvar-local my-feeds-search--font-remap-cookie nil
   "Face-remap cookie for Elfeed search font scaling.")
 
+(defvar-local my-feeds-search--last-window-width nil
+  "Last rendered window width for the current Elfeed search buffer.")
+
+(defvar-local my-feeds-search--resize-timer nil
+  "Debounce timer for Elfeed search redraws after window resizing.")
+
 ;;; Elfeed — feed reader engine -----------------------------------------
 
 (use-package elfeed
@@ -90,7 +92,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   (elfeed-use-curl t)
   ;; Default search shows unread entries from the last 2 weeks.
   (elfeed-search-filter "@2-weeks-ago +unread")
-  ;; Wider title column so long titles aren't truncated.
+  ;; Keep the stock Elfeed fallback renderer roomy.
   (elfeed-search-title-max-width 100)
   :config
   ;; Ensure Saved-Articles directory exists.
@@ -110,6 +112,10 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 (defun my-feeds-search-visual-setup ()
   "Apply buffer-local readability tweaks for the Elfeed search buffer."
   (setq-local line-spacing my-feeds-search-line-spacing)
+  (setq-local my-feeds-search--last-window-width
+              (my-feeds--search-window-width))
+  (add-hook 'window-size-change-functions
+            #'my-feeds-search-refresh-on-resize nil t)
   (when my-feeds-search--font-remap-cookie
     (face-remap-remove-relative my-feeds-search--font-remap-cookie))
   (setq-local my-feeds-search--font-remap-cookie
@@ -130,63 +136,90 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
             label
             (make-string right-padding ?\s))))
 
-(defun my-feeds--search-subject-header-width (date-width tag-width feed-width)
-  "Return the visible width left for the Subject header."
-  (max (string-width "Subject")
-       (- (window-width) date-width tag-width feed-width 6)))
+(defun my-feeds--search-window-width ()
+  "Return the visible width of the Elfeed search window."
+  (if-let* ((window (get-buffer-window (current-buffer) t)))
+      (window-width window)
+    (window-width)))
 
-(defun my-feeds--powerline-separator (face1 face2)
-  "Return a Powerline separator from FACE1 to FACE2."
-  (let ((separator (intern (format "powerline-%s-%s"
-                                   elfeed-goodies/powerline-default-separator
-                                   (car powerline-default-separator-dir)))))
-    (when (fboundp separator)
-      (funcall separator face1 face2))))
+(defun my-feeds--search-layout ()
+  "Return Elfeed search column widths as (DATE TAG FEED SUBJECT)."
+  (let* ((date-width (my-feeds--search-date-column-width))
+         (tag-width elfeed-goodies/tag-column-width)
+         (feed-width elfeed-goodies/feed-source-column-width)
+         (window-width (my-feeds--search-window-width))
+         (gap-width 3)
+         (subject-min-width (max (string-width "Subject")
+                                 elfeed-search-title-min-width))
+         (subject-width
+          (- window-width date-width tag-width feed-width gap-width)))
+    (when (< subject-width subject-min-width)
+      (let ((shortage (- subject-min-width subject-width)))
+        (let ((feed-reduction (min shortage (max 0 (- feed-width 18)))))
+          (setq feed-width (- feed-width feed-reduction)
+                shortage (- shortage feed-reduction)))
+        (let ((tag-reduction (min shortage (max 0 (- tag-width 12)))))
+          (setq tag-width (- tag-width tag-reduction)))))
+    (list date-width
+          tag-width
+          feed-width
+          (max 1 (- window-width date-width tag-width feed-width gap-width)))))
+
+(defun my-feeds-search-refresh-on-resize (window)
+  "Refresh the Elfeed search listing after WINDOW changes width."
+  (let ((width (window-width window)))
+    (when (and (derived-mode-p 'elfeed-search-mode)
+               (not (equal width my-feeds-search--last-window-width)))
+      (setq my-feeds-search--last-window-width width)
+      (when (timerp my-feeds-search--resize-timer)
+        (cancel-timer my-feeds-search--resize-timer))
+      (setq my-feeds-search--resize-timer
+            (run-at-time
+             0.2 nil
+             (lambda (buffer)
+               (when (buffer-live-p buffer)
+                 (with-current-buffer buffer
+                   (setq my-feeds-search--resize-timer nil)
+                   (when (derived-mode-p 'elfeed-search-mode)
+                     (elfeed-search-update--force)
+                     (force-mode-line-update)))))
+             (current-buffer))))))
 
 (defun my-feeds-search-header-draw ()
   "Draw the Elfeed search header with the preferred column order."
-  (let* ((date-width (my-feeds--search-date-column-width))
-         (tag-width elfeed-goodies/tag-column-width)
-         (feed-width elfeed-goodies/feed-source-column-width)
-         (subject-width (my-feeds--search-subject-header-width
-                         date-width tag-width feed-width))
-         (segments
-          (list
-           (powerline-raw (my-feeds--center-header-label "Date" date-width)
-                          'powerline-active1 'l)
-           (my-feeds--powerline-separator 'powerline-active1 'powerline-active2)
-           (powerline-raw (my-feeds--center-header-label "Tags" tag-width)
-                          'powerline-active2 'l)
-           (my-feeds--powerline-separator 'powerline-active2 'mode-line)
-           (powerline-raw (my-feeds--center-header-label "Feed Source" feed-width)
-                          'mode-line 'l)
-           (my-feeds--powerline-separator 'mode-line 'powerline-active2)
-           (powerline-raw (my-feeds--center-header-label "Subject" subject-width)
-                          'powerline-active2 'l)
-           (powerline-fill 'powerline-active2 0))))
-    (powerline-render segments)))
+  (cl-destructuring-bind (date-width tag-width feed-width subject-width)
+      (my-feeds--search-layout)
+    (mapconcat
+     (lambda (column)
+       (propertize (my-feeds--center-header-label (car column) (cdr column))
+                   'face 'header-line))
+     `(("Date" . ,date-width)
+       ("Tags" . ,tag-width)
+       ("Feed Source" . ,feed-width)
+       ("Subject" . ,subject-width))
+     " ")))
 
 (defun my-feeds-search-entry-line-draw (entry)
   "Print ENTRY using Date, Tags, Feed Source, Subject columns."
-  (let* ((date-width (my-feeds--search-date-column-width))
-         (tag-width elfeed-goodies/tag-column-width)
-         (feed-width elfeed-goodies/feed-source-column-width)
-         (date (elfeed-search-format-date (elfeed-entry-date entry)))
-         (title (or (elfeed-meta entry :title) (elfeed-entry-title entry) ""))
-         (title-faces (elfeed-search--faces (elfeed-entry-tags entry)))
-         (feed (elfeed-entry-feed entry))
-         (feed-title (if feed
-                         (or (elfeed-meta feed :title) (elfeed-feed-title feed))
-                       ""))
-         (tags (mapcar #'symbol-name (elfeed-entry-tags entry)))
-         (tags-str (concat "[" (mapconcat #'identity tags ",") "]"))
-         (date-column (elfeed-format-column date date-width :left))
-         (tag-column (elfeed-format-column tags-str tag-width :left))
-         (feed-column (elfeed-format-column feed-title feed-width :left)))
-    (insert (propertize date-column 'face 'elfeed-search-date-face) " ")
-    (insert (propertize tag-column 'face 'elfeed-search-tag-face) " ")
-    (insert (propertize feed-column 'face 'elfeed-search-feed-face) " ")
-    (insert (propertize title 'face title-faces 'kbd-help title))))
+  (cl-destructuring-bind (date-width tag-width feed-width subject-width)
+      (my-feeds--search-layout)
+    (let* ((date (elfeed-search-format-date (elfeed-entry-date entry)))
+           (title (or (elfeed-meta entry :title) (elfeed-entry-title entry) ""))
+           (title-faces (elfeed-search--faces (elfeed-entry-tags entry)))
+           (feed (elfeed-entry-feed entry))
+           (feed-title (if feed
+                           (or (elfeed-meta feed :title) (elfeed-feed-title feed))
+                         ""))
+           (tags (mapcar #'symbol-name (elfeed-entry-tags entry)))
+           (tags-str (concat "[" (mapconcat #'identity tags ",") "]"))
+           (date-column (elfeed-format-column date date-width :left))
+           (tag-column (elfeed-format-column tags-str tag-width :left))
+           (feed-column (elfeed-format-column feed-title feed-width :left))
+           (title-column (elfeed-format-column title subject-width :left)))
+      (insert (propertize date-column 'face 'elfeed-search-date-face) " ")
+      (insert (propertize tag-column 'face 'elfeed-search-tag-face) " ")
+      (insert (propertize feed-column 'face 'elfeed-search-feed-face) " ")
+      (insert (propertize title-column 'face title-faces 'kbd-help title)))))
 
 (unless noninteractive
   (my-feeds-start-auto-update))
