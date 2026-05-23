@@ -207,7 +207,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
       (my-feeds--search-layout)
     (let ((date-face 'powerline-active1)
           (tag-face 'powerline-active2)
-          (subject-face 'mode-line)
+          (subject-face 'powerline-active1)
           (feed-face 'powerline-active2))
       (powerline-render
        (list
