@@ -735,7 +735,7 @@ frame/window changes without manual `g` refreshes.
 ### Elfeed split-pane previews
 
 **Chosen:** Use `elfeed-goodies`' existing split-pane support with the entry
-pane at the bottom, sized to 70% of the frame, and keep focus in
+pane at the bottom, sized to 50% of the frame, and keep focus in
 `elfeed-search-mode` while previewing.
 
 **Why:** The package is already part of the feeds module and owns the

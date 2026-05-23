@@ -312,7 +312,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   :custom
   ;; Keep search selected while showing entry previews below it.
   (elfeed-goodies/entry-pane-position 'bottom)
-  (elfeed-goodies/entry-pane-size 0.7)
+  (elfeed-goodies/entry-pane-size 0.5)
   (elfeed-goodies/switch-to-entry nil)
   ;; Give long source names like "Hacker News - Front Page" room to breathe.
   (elfeed-goodies/feed-source-column-width 48)
