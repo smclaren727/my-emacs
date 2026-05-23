@@ -746,6 +746,9 @@ entries feel like list navigation instead of a mode switch.
 `n` previews the next entry, `p` previews the previous entry, and `M-RET`
 previews the current entry without leaving the search buffer.
 
+The entry preview header is drawn with the same Date / Tags / Subject / Feed
+Source order as the search list so the split panes read as one interface.
+
 ---
 
 ## `my-leader.el`
