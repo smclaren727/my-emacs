@@ -44,6 +44,7 @@
 (defvar elfeed-goodies/entry-pane-position)
 (defvar elfeed-goodies/entry-pane-size)
 (defvar elfeed-goodies/powerline-default-separator)
+(defvar elfeed-goodies/show-mode-padding)
 (defvar elfeed-goodies/switch-to-entry)
 (defvar elfeed-goodies/tag-column-width)
 (defvar elfeed-search-date-format)
@@ -104,6 +105,9 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 
 (defvar-local my-feeds-search--resize-timer nil
   "Debounce timer for Elfeed search redraws after window resizing.")
+
+(defvar-local my-feeds-show--font-remap-cookie nil
+  "Face-remap cookie for Elfeed show font scaling.")
 
 ;;; Elfeed — feed reader engine -----------------------------------------
 
@@ -166,12 +170,22 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
       (window-body-width window)
     (window-body-width)))
 
-(defun my-feeds--search-layout ()
-  "Return Elfeed search column widths as (DATE TAG SUBJECT FEED)."
+(defun my-feeds--header-window-width ()
+  "Return the width available to Powerline headers.
+
+Leaving one cell for the right fringe keeps Emacs from drawing a
+truncation marker over the closing Powerline separator."
+  (max 1 (1- (my-feeds--search-window-width))))
+
+(defun my-feeds--search-layout (&optional window-width)
+  "Return Elfeed search column widths as (DATE TAG SUBJECT FEED).
+
+When WINDOW-WIDTH is non-nil, size the layout to that width instead of
+the current window body width."
   (let* ((date-width (my-feeds--search-date-column-width))
          (tag-width elfeed-goodies/tag-column-width)
          (feed-width elfeed-goodies/feed-source-column-width)
-         (window-width (my-feeds--search-window-width))
+         (window-width (or window-width (my-feeds--search-window-width)))
          (gap-width 3)
          (subject-min-width (max (string-width "Subject")
                                  elfeed-search-title-min-width))
@@ -242,7 +256,9 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 
 (defun my-feeds--powerline-header-field (text width face)
   "Return a left-aligned Powerline field for TEXT, WIDTH, and FACE."
-  (powerline-raw (elfeed-format-column (or text "") width :left) face))
+  (powerline-raw
+   (elfeed-format-column (concat " " (or text "") " ") width :left)
+   face))
 
 (defun my-feeds-search-refresh-on-resize (window)
   "Refresh the Elfeed search listing after WINDOW changes width."
@@ -267,7 +283,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 (defun my-feeds-search-header-draw ()
   "Draw the Elfeed search header with the preferred column order."
   (cl-destructuring-bind (date-width tag-width subject-width feed-width)
-      (my-feeds--search-layout)
+      (my-feeds--search-layout (my-feeds--header-window-width))
     (my-feeds--sync-powerline-header-faces)
     (let ((date-face 'my-feeds-search-header-active1)
           (tag-face 'my-feeds-search-header-active2)
@@ -290,7 +306,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   "Draw the Elfeed show header with the same order as search rows."
   (when elfeed-show-entry
     (cl-destructuring-bind (date-width tag-width subject-width feed-width)
-        (my-feeds--search-layout)
+        (my-feeds--search-layout (my-feeds--header-window-width))
       (my-feeds--sync-powerline-header-faces)
       (let* ((date-face 'my-feeds-search-header-active1)
              (tag-face 'my-feeds-search-header-active2)
@@ -324,8 +340,18 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
           (powerline-raw " " date-face)))))))
 
 (defun my-feeds-show-visual-setup ()
-  "Apply the custom Elfeed show header."
-  (setq-local header-line-format '(:eval (my-feeds-show-header-draw))))
+  "Apply visual tweaks for the Elfeed show buffer."
+  (setq-local header-line-format '(:eval (my-feeds-show-header-draw))
+              line-spacing my-feeds-search-line-spacing)
+  (when my-feeds-show--font-remap-cookie
+    (face-remap-remove-relative my-feeds-show--font-remap-cookie))
+  (setq-local my-feeds-show--font-remap-cookie
+              (face-remap-add-relative 'default :height my-feeds-search-font-scale))
+  (dolist (window (get-buffer-window-list (current-buffer) nil t))
+    (set-window-margins
+     window
+     elfeed-goodies/show-mode-padding
+     elfeed-goodies/show-mode-padding)))
 
 (defun my-feeds-search-entry-line-draw (entry)
   "Print ENTRY using Date, Tags, Subject, Feed Source columns."
@@ -361,6 +387,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   ;; Keep search selected while showing entry previews below it.
   (elfeed-goodies/entry-pane-position 'bottom)
   (elfeed-goodies/entry-pane-size 0.5)
+  (elfeed-goodies/show-mode-padding 2)
   (elfeed-goodies/switch-to-entry nil)
   ;; Give long source names like "Hacker News - Front Page" room to breathe.
   (elfeed-goodies/feed-source-column-width 48)

@@ -748,6 +748,9 @@ previews the current entry without leaving the search buffer.
 
 The entry preview header is drawn with the same Date / Tags / Subject / Feed
 Source order as the search list so the split panes read as one interface.
+It uses the same font scaling as the search pane, reserves the right fringe so
+Emacs does not draw a truncation marker over the closing separator, and keeps a
+small entry-pane margin for readability.
 
 ---
 
