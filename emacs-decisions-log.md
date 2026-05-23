@@ -714,9 +714,11 @@ The search header keeps Powerline segmentation with alternating
 separator, including a closing separator after `Feed Source`. It uses UTF-8
 separators instead of the old `arrow-fade`
 image/display-property separators, which looked too heavy and became visually
-fragile after the Emacs 31 update. A buffer-local resize hook debounces forced
-Elfeed redraws so the listing follows horizontal frame/window changes without
-manual `g` refreshes.
+fragile after the Emacs 31 update. Elfeed-specific header faces mirror the
+active Powerline colors while using the same vertical box height as
+`header-line`, so light and dark bands fill the row evenly. A buffer-local
+resize hook debounces forced Elfeed redraws so the listing follows horizontal
+frame/window changes without manual `g` refreshes.
 
 **Alternatives considered:**
 - Proportional column compression — more "responsive" in theory, but noisy

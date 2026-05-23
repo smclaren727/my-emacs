@@ -47,8 +47,20 @@
 (defvar elfeed-search-print-entry-function)
 (defvar elfeed-search-title-min-width)
 (defvar powerline-default-separator-dir)
+(defvar powerline-utf-8-separator-left)
+(defvar powerline-utf-8-separator-right)
 
 ;;; Variables -----------------------------------------------------------
+
+(defface my-feeds-search-header-active1
+  '((t (:inherit powerline-active1)))
+  "Light Powerline face for the Elfeed search header."
+  :group 'faces)
+
+(defface my-feeds-search-header-active2
+  '((t (:inherit powerline-active2)))
+  "Dark Powerline face for the Elfeed search header."
+  :group 'faces)
 
 (defvar my-feeds-directory nil
   "Directory for downloaded article Org files.")
@@ -169,13 +181,52 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
           (max 1 (- window-width date-width tag-width feed-width gap-width))
           feed-width)))
 
+(defun my-feeds--header-box-width ()
+  "Return the box width used by `header-line'."
+  (let ((box (face-attribute 'header-line :box nil)))
+    (or (and (listp box) (plist-get box :line-width))
+        0)))
+
+(defun my-feeds--sync-powerline-header-face (target source)
+  "Make TARGET match SOURCE colors with full `header-line' height."
+  (let* ((background (face-background source nil t))
+         (foreground (face-foreground source nil t))
+         (box-width (my-feeds--header-box-width)))
+    (set-face-attribute
+     target nil
+     :inherit source
+     :background background
+     :foreground foreground
+     :box `(:line-width ,box-width :color ,background :style nil))))
+
+(defun my-feeds--sync-powerline-header-faces ()
+  "Synchronize Elfeed header faces with the active theme."
+  (my-feeds--sync-powerline-header-face
+   'my-feeds-search-header-active1 'powerline-active1)
+  (my-feeds--sync-powerline-header-face
+   'my-feeds-search-header-active2 'powerline-active2))
+
 (defun my-feeds--powerline-separator (face1 face2)
   "Return an Elfeed header Powerline separator from FACE1 to FACE2."
-  (let ((separator (intern (format "powerline-%s-%s"
-                                   elfeed-goodies/powerline-default-separator
-                                   (car powerline-default-separator-dir)))))
-    (when (fboundp separator)
-      (funcall separator face1 face2))))
+  (if (eq elfeed-goodies/powerline-default-separator 'utf-8)
+      (let* ((direction (car powerline-default-separator-dir))
+             (separator (if (eq direction 'left)
+                            powerline-utf-8-separator-left
+                          powerline-utf-8-separator-right))
+             (foreground (face-background face1 nil t))
+             (background (face-background face2 nil t))
+             (box-width (my-feeds--header-box-width)))
+        (powerline-raw
+         (char-to-string separator)
+         `(:foreground ,foreground
+           :background ,background
+           :box (:line-width ,box-width :color ,background :style nil)
+           :inverse-video nil)))
+    (let ((separator (intern (format "powerline-%s-%s"
+                                     elfeed-goodies/powerline-default-separator
+                                     (car powerline-default-separator-dir)))))
+      (when (fboundp separator)
+        (funcall separator face1 face2)))))
 
 (defun my-feeds--powerline-header-column (label width face)
   "Return a centered Powerline header column for LABEL, WIDTH, and FACE."
@@ -205,10 +256,11 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   "Draw the Elfeed search header with the preferred column order."
   (cl-destructuring-bind (date-width tag-width subject-width feed-width)
       (my-feeds--search-layout)
-    (let ((date-face 'powerline-active1)
-          (tag-face 'powerline-active2)
-          (subject-face 'powerline-active1)
-          (feed-face 'powerline-active2))
+    (my-feeds--sync-powerline-header-faces)
+    (let ((date-face 'my-feeds-search-header-active1)
+          (tag-face 'my-feeds-search-header-active2)
+          (subject-face 'my-feeds-search-header-active1)
+          (feed-face 'my-feeds-search-header-active2))
       (powerline-render
        (list
         (my-feeds--powerline-header-column "Date" date-width date-face)
