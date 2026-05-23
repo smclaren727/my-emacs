@@ -30,6 +30,8 @@
 (declare-function face-remap-add-relative "face-remap" (face &rest specs))
 (declare-function face-remap-remove-relative "face-remap" (cookie))
 (declare-function elfeed-goodies/setup "elfeed-goodies")
+(declare-function powerline-raw "powerline" (str &optional face pad))
+(declare-function powerline-render "powerline" (values))
 (declare-function elfeed-tube-fetch "elfeed-tube" (&optional video-id update-p))
 (declare-function elfeed-tube-mpv-follow-mode "elfeed-tube-mpv")
 (declare-function elfeed-tube-mpv-where "elfeed-tube-mpv")
@@ -38,11 +40,13 @@
 (declare-function org-web-tools--url-as-readable-org "org-web-tools" (url))
 
 (defvar elfeed-goodies/feed-source-column-width)
+(defvar elfeed-goodies/powerline-default-separator)
 (defvar elfeed-goodies/tag-column-width)
 (defvar elfeed-search-date-format)
 (defvar elfeed-search-header-function)
 (defvar elfeed-search-print-entry-function)
 (defvar elfeed-search-title-min-width)
+(defvar powerline-default-separator-dir)
 
 ;;; Variables -----------------------------------------------------------
 
@@ -165,6 +169,18 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
           (max 1 (- window-width date-width tag-width feed-width gap-width))
           feed-width)))
 
+(defun my-feeds--powerline-separator (face1 face2)
+  "Return an Elfeed header Powerline separator from FACE1 to FACE2."
+  (let ((separator (intern (format "powerline-%s-%s"
+                                   elfeed-goodies/powerline-default-separator
+                                   (car powerline-default-separator-dir)))))
+    (when (fboundp separator)
+      (funcall separator face1 face2))))
+
+(defun my-feeds--powerline-header-column (label width face)
+  "Return a centered Powerline header column for LABEL, WIDTH, and FACE."
+  (powerline-raw (my-feeds--center-header-label label width) face))
+
 (defun my-feeds-search-refresh-on-resize (window)
   "Refresh the Elfeed search listing after WINDOW changes width."
   (let ((width (window-width window)))
@@ -189,15 +205,19 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   "Draw the Elfeed search header with the preferred column order."
   (cl-destructuring-bind (date-width tag-width subject-width feed-width)
       (my-feeds--search-layout)
-    (mapconcat
-     (lambda (column)
-       (propertize (my-feeds--center-header-label (car column) (cdr column))
-                   'face 'header-line))
-     `(("Date" . ,date-width)
-       ("Tags" . ,tag-width)
-       ("Subject" . ,subject-width)
-       ("Feed Source" . ,feed-width))
-     " ")))
+    (let ((date-face 'powerline-active1)
+          (tag-face 'powerline-active2)
+          (subject-face 'mode-line)
+          (feed-face 'powerline-active2))
+      (powerline-render
+       (list
+        (my-feeds--powerline-header-column "Date" date-width date-face)
+        (my-feeds--powerline-separator date-face tag-face)
+        (my-feeds--powerline-header-column "Tags" tag-width tag-face)
+        (my-feeds--powerline-separator tag-face subject-face)
+        (my-feeds--powerline-header-column "Subject" subject-width subject-face)
+        (my-feeds--powerline-separator subject-face feed-face)
+        (my-feeds--powerline-header-column "Feed Source" feed-width feed-face))))))
 
 (defun my-feeds-search-entry-line-draw (entry)
   "Print ENTRY using Date, Tags, Subject, Feed Source columns."
@@ -232,6 +252,8 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   :custom
   ;; Give long source names like "Hacker News - Front Page" room to breathe.
   (elfeed-goodies/feed-source-column-width 48)
+  ;; UTF-8 separators avoid the chunky image wedges from `arrow-fade'.
+  (elfeed-goodies/powerline-default-separator 'utf-8)
   :config
   (elfeed-goodies/setup)
   (setq elfeed-search-header-function #'my-feeds-search-header-draw

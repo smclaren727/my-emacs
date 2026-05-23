@@ -18,8 +18,8 @@ These entries supersede older sections below where they conflict.
 - File-manager reveal is cross-platform via `my-reveal-in-file-manager`.
 - Standard Dired remains the default; Dirvish is explicit via `dirvish`,
   `dirvish-dwim`, and leader `d D`.
-- Elfeed search layout uses fixed `Date`, `Tags`, and `Feed Source`
-  columns with `Subject` as the flexible final column.
+- Elfeed search layout uses Powerline header segments in `Date`, `Tags`,
+  `Subject`, `Feed Source` order, with `Subject` as the flexible column.
 - Mail uses mu4e from Homebrew/site-lisp, org-msg for compose, and
   mu4e-dashboard as the main dashboard/sidebar surface.
 
@@ -697,10 +697,10 @@ PDF routes that depend on `wkhtmltopdf`, `prince`, or `groff`.
 
 ### Elfeed search layout
 
-**Chosen:** A custom Elfeed search renderer with a plain `header-line` column
-header in `Date`, `Tags`, `Subject`, `Feed Source` order. The metadata columns
-use preferred widths, and the window-width `Subject` column sits before the
-feed source.
+**Chosen:** A custom Elfeed search renderer with a Powerline `header-line` in
+`Date`, `Tags`, `Subject`, `Feed Source` order. The metadata columns use
+preferred widths, and the window-width `Subject` column sits before the feed
+source.
 
 **Why:** Elfeed renders into an Emacs character matrix, not a browser-style
 responsive layout engine. Keeping metadata columns stable at normal frame
@@ -709,11 +709,11 @@ remaining width avoids fragile right-edge alignment and display-property hacks.
 In narrow split windows, the feed and tag columns shrink only after `Subject`
 hits its minimum width.
 
-The search header intentionally avoids `elfeed-goodies` Powerline separators.
-Those image/display-property separators looked too heavy and became visually
-fragile after the Emacs 31 update. A buffer-local resize hook debounces forced
-Elfeed redraws so the listing follows horizontal frame/window changes without
-manual `g` refreshes.
+The search header keeps Powerline segmentation but uses UTF-8 separators instead
+of the old `arrow-fade` image/display-property separators, which looked too
+heavy and became visually fragile after the Emacs 31 update. A buffer-local
+resize hook debounces forced Elfeed redraws so the listing follows horizontal
+frame/window changes without manual `g` refreshes.
 
 **Alternatives considered:**
 - Proportional column compression — more "responsive" in theory, but noisy
@@ -722,8 +722,10 @@ manual `g` refreshes.
   frame sizes and introduced fragile display-property behavior.
 - Putting `Feed Source` before `Subject` — kept metadata together, but made the
   subject/title column start too far to the right for quick scanning.
-- Keeping the Powerline header — visually distinctive, but too sensitive to
-  theme and renderer changes for a utility buffer.
+- Plain `header-line` labels — mechanically clean, but visually too flat for
+  this dashboard-style buffer.
+- Keeping `arrow-fade` Powerline separators — visually distinctive, but too
+  heavy and sensitive to theme and renderer changes for a utility buffer.
 
 ---
 
