@@ -174,7 +174,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   "Return the width available to Powerline headers.
 
 Leaving one cell for the right fringe keeps Emacs from drawing a
-truncation marker over the closing Powerline separator."
+truncation marker over the end of the header."
   (max 1 (1- (my-feeds--search-window-width))))
 
 (defun my-feeds--search-layout (&optional window-width)
@@ -270,10 +270,9 @@ be `center' for headings or `left' for entry values."
            (tag-face 'my-feeds-search-header-active2)
            (subject-face 'my-feeds-search-header-active1)
            (feed-face 'my-feeds-search-header-active2)
-           (widths (list date-width tag-width subject-width
-                         (max 1 (- feed-width 2))))
+           (widths (list date-width tag-width subject-width feed-width))
            (faces (list date-face tag-face subject-face feed-face))
-           (next-faces (list tag-face subject-face feed-face date-face))
+           (next-faces (list tag-face subject-face feed-face nil))
            segments)
       (cl-loop for (text align) in columns
                for width in widths
@@ -282,10 +281,10 @@ be `center' for headings or `left' for entry values."
                do (push (my-feeds--powerline-header-column
                          text width face align)
                         segments)
-                  (push (my-feeds--powerline-separator face next-face)
-                        segments))
-      (powerline-render
-       (nreverse (cons (powerline-raw " " date-face) segments))))))
+                  (when next-face
+                    (push (my-feeds--powerline-separator face next-face)
+                          segments)))
+      (powerline-render (nreverse segments)))))
 
 (defun my-feeds-search-refresh-on-resize (window)
   "Refresh the Elfeed search listing after WINDOW changes width."
@@ -347,10 +346,7 @@ be `center' for headings or `left' for entry values."
   (setq-local my-feeds-show--font-remap-cookie
               (face-remap-add-relative 'default :height my-feeds-search-font-scale))
   (dolist (window (get-buffer-window-list (current-buffer) nil t))
-    (set-window-margins
-     window
-     elfeed-goodies/show-mode-padding
-     elfeed-goodies/show-mode-padding)))
+    (set-window-margins window nil nil)))
 
 (defun my-feeds-search-entry-line-draw (entry)
   "Print ENTRY using Date, Tags, Subject, Feed Source columns."
@@ -386,7 +382,8 @@ be `center' for headings or `left' for entry values."
   ;; Keep search selected while showing entry previews below it.
   (elfeed-goodies/entry-pane-position 'bottom)
   (elfeed-goodies/entry-pane-size 0.5)
-  (elfeed-goodies/show-mode-padding 2)
+  ;; Keep search and preview headers on the same width budget.
+  (elfeed-goodies/show-mode-padding 0)
   (elfeed-goodies/switch-to-entry nil)
   ;; Give long source names like "Hacker News - Front Page" room to breathe.
   (elfeed-goodies/feed-source-column-width 48)
