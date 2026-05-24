@@ -99,11 +99,24 @@ no Spacemacs).  Every package solves a concrete problem.
 
 ## Coding Conventions
 
+**Canonical style guide: [`docs/emacs-lisp-style-guide.md`](docs/emacs-lisp-style-guide.md).**
+All new code and changes to existing code must conform to it.  This is a
+local pandoc-converted copy of bbatsov/emacs-lisp-style-guide checked in
+so it's greppable without network access.  The bullets below are
+project-specific additions and reminders; for everything else (lambdas in
+hooks, sharp-quoting function references, `when`/`unless`/`cond` shape,
+`(declare (debug …))` on macros, parameter count, predicate naming,
+docstring imperative voice, etc.) defer to the style guide.
+
+`.dir-locals.el` enforces `indent-tabs-mode nil` and `fill-column 80` for
+`emacs-lisp-mode` in this repo.
+
+Project-specific additions on top of the style guide:
+
 - Lexical binding on every file: `;;; filename.el --- Description -*- lexical-binding: t; -*-`
 - `my-` prefix on all symbols (functions, variables, keymaps) to avoid collisions
 - `use-package` for all package config with declarative keywords (`:hook`, `:bind`, `:custom`)
 - `:custom` for user options, `:config` for post-load logic, `:init` for pre-load setup
-- `when` / `unless` over single-branch `if`
 - `cl-lib` not deprecated `cl`
 - Comments explain *why*, not *what*
 - Section headers use `;;; Section name ---` with dashes to column 70
