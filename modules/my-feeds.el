@@ -100,8 +100,8 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 (defvar-local my-feeds-search--font-remap-cookie nil
   "Face-remap cookie for Elfeed search font scaling.")
 
-(defvar-local my-feeds-search--header-remap-cookie nil
-  "Face-remap cookie for the Elfeed search header tail.")
+(defvar-local my-feeds-search--header-remap-cookies nil
+  "Face-remap cookies for the Elfeed search header tail.")
 
 (defvar-local my-feeds-search--last-window-width nil
   "Last rendered window width for the current Elfeed search buffer.")
@@ -112,8 +112,8 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 (defvar-local my-feeds-show--font-remap-cookie nil
   "Face-remap cookie for Elfeed show font scaling.")
 
-(defvar-local my-feeds-show--header-remap-cookie nil
-  "Face-remap cookie for the Elfeed show header tail.")
+(defvar-local my-feeds-show--header-remap-cookies nil
+  "Face-remap cookies for the Elfeed show header tail.")
 
 ;;; Elfeed — feed reader engine -----------------------------------------
 
@@ -146,6 +146,7 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 (defun my-feeds-search-visual-setup ()
   "Apply buffer-local readability tweaks for the Elfeed search buffer."
   (setq-local line-spacing my-feeds-search-line-spacing)
+  (setq-local right-fringe-width 0)
   (setq-local my-feeds-search--last-window-width
               (my-feeds--search-window-width))
   (add-hook 'window-size-change-functions
@@ -154,9 +155,9 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
     (face-remap-remove-relative my-feeds-search--font-remap-cookie))
   (setq-local my-feeds-search--font-remap-cookie
               (face-remap-add-relative 'default :height my-feeds-search-font-scale))
-  (setq-local my-feeds-search--header-remap-cookie
+  (setq-local my-feeds-search--header-remap-cookies
               (my-feeds--remap-header-line-tail
-               my-feeds-search--header-remap-cookie)))
+               my-feeds-search--header-remap-cookies)))
 
 (defun my-feeds--search-date-column-width ()
   "Return the configured Elfeed search date column width."
@@ -212,9 +213,9 @@ the current window body width."
           (max 1 (- window-width date-width tag-width feed-width gap-width))
           feed-width)))
 
-(defun my-feeds--header-box-width ()
-  "Return the box width used by `header-line'."
-  (let ((box (face-attribute 'header-line :box nil)))
+(defun my-feeds--header-box-width (&optional face)
+  "Return the box width used by FACE (default `header-line')."
+  (let ((box (face-attribute (or face 'header-line) :box nil 'default)))
     (or (and (listp box) (plist-get box :line-width))
         0)))
 
@@ -225,22 +226,48 @@ the current window body width."
         fallback
       value)))
 
-(defun my-feeds--remap-header-line-tail (cookie)
-  "Replace COOKIE with a remap that hides unused `header-line' cells."
-  (when cookie
-    (face-remap-remove-relative cookie))
+(defun my-feeds--remap-header-line-tail (cookies)
+  "Replace COOKIES with remaps that hide unused header-line cells.
+Remaps both `header-line' and `header-line-inactive' so the trailing
+fringe region stays invisible regardless of window selection.  Both
+faces share `header-line's box width so the row keeps the same height
+when focus switches between Elfeed panes.  COOKIES is the previous
+list (or nil); returns the replacement list."
+  (dolist (cookie (if (listp cookies) cookies (list cookies)))
+    (when cookie
+      (face-remap-remove-relative cookie)))
   (let* ((background (my-feeds--default-face-color
                       :background (or (frame-parameter nil 'background-color)
                                       "white")))
          (foreground (my-feeds--default-face-color
                       :foreground (or (frame-parameter nil 'foreground-color)
                                       "black")))
-         (box-width (my-feeds--header-box-width)))
-    (face-remap-add-relative
-     'header-line
-     :background background
-     :foreground foreground
-     :box `(:line-width ,box-width :color ,background :style nil))))
+         (box-width (my-feeds--header-box-width 'header-line))
+         (spec (list :background background
+                     :foreground foreground
+                     :box `(:line-width ,box-width
+                            :color ,background :style nil))))
+    (list
+     (apply #'face-remap-add-relative 'header-line spec)
+     (apply #'face-remap-add-relative 'header-line-inactive spec))))
+
+(defun my-feeds--header-trailing-pad (&optional face)
+  "Return a stretch space that fills the header to the right-fringe edge.
+When FACE is non-nil, use its background; otherwise fall back to the
+buffer background.  The Elfeed buffers zero out the right fringe so
+the pad reaches the actual window edge, letting the last Powerline
+segment's color extend to where the mode line ends."
+  (let* ((bg (or (and face (face-background face nil t))
+                 (my-feeds--default-face-color
+                  :background (or (frame-parameter nil 'background-color)
+                                  "white"))))
+         (box-width (my-feeds--header-box-width 'header-line)))
+    (propertize " "
+                'display '(space :align-to right-fringe)
+                'face `(:background ,bg
+                        :box (:line-width ,box-width
+                              :color ,bg
+                              :style nil)))))
 
 (defun my-feeds--sync-powerline-header-face (target source)
   "Make TARGET match SOURCE colors with full `header-line' height."
@@ -317,7 +344,8 @@ be `center' for headings or `left' for entry values."
                   (when next-face
                     (push (my-feeds--powerline-separator face next-face)
                           segments)))
-      (powerline-render (nreverse segments)))))
+      (concat (powerline-render (nreverse segments))
+              (my-feeds--header-trailing-pad feed-face)))))
 
 (defun my-feeds-search-refresh-on-resize (window)
   "Refresh the Elfeed search listing after WINDOW changes width."
@@ -373,14 +401,15 @@ be `center' for headings or `left' for entry values."
 (defun my-feeds-show-visual-setup ()
   "Apply visual tweaks for the Elfeed show buffer."
   (setq-local header-line-format '(:eval (my-feeds-show-header-draw))
-              line-spacing my-feeds-search-line-spacing)
+              line-spacing my-feeds-search-line-spacing
+              right-fringe-width 0)
   (when my-feeds-show--font-remap-cookie
     (face-remap-remove-relative my-feeds-show--font-remap-cookie))
   (setq-local my-feeds-show--font-remap-cookie
               (face-remap-add-relative 'default :height my-feeds-search-font-scale))
-  (setq-local my-feeds-show--header-remap-cookie
+  (setq-local my-feeds-show--header-remap-cookies
               (my-feeds--remap-header-line-tail
-               my-feeds-show--header-remap-cookie))
+               my-feeds-show--header-remap-cookies))
   (dolist (window (get-buffer-window-list (current-buffer) nil t))
     (set-window-margins window nil nil)))
 

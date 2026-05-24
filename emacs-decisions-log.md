@@ -748,16 +748,56 @@ previews the current entry without leaving the search buffer.
 
 The entry preview header is drawn with the same Date / Tags / Subject / Feed
 Source order as the search list so the split panes read as one interface.
-It uses the same font scaling as the search pane, reserves the right fringe so
-Emacs does not draw a truncation marker at the edge, and ends the final column
+It uses the same font scaling as the search pane and ends the final column
 as a regular rectangular bar instead of a closing Powerline separator.
 Search and preview headers share one renderer so future changes to widths,
 separators, faces, and edge handling apply to both panes.
-Search rows use the same reserved-width layout as the header so full-width rows
-do not trigger right-fringe overflow markers.
-The unused tail of `header-line` is remapped to the normal buffer background
-in Elfeed buffers, so the Powerline header visually stops where highlighted
-rows stop while still leaving room for the right fringe.
+
+### Elfeed header reaches the mode-line edge
+
+**Chosen:** Three coordinated tweaks let the Powerline header visually meet
+the mode-line's right edge in both Elfeed search and entry buffers:
+
+1. `right-fringe-width` is set to `0` buffer-locally in both Elfeed buffers,
+   so the text area extends all the way to the actual window edge.
+2. The header concatenates a trailing stretch space (`display (space :align-to
+   right-fringe)`) that fills from the last Powerline segment to the edge of
+   the text area. With the right fringe at zero, that target is the window
+   edge.
+3. The trailing pad's face background mirrors the last Powerline segment
+   (`my-feeds-search-header-active2`, the dark `powerline-active2` band), so
+   the final column visually extends seamlessly into what used to be the
+   fringe area.
+
+`header-line-inactive` is also buffer-locally remapped alongside `header-line`
+(both faces, same buffer-bg + invisible `:box`).  Without this, the
+non-selected Elfeed pane briefly showed a small light-grey rectangle at the
+end of the header — that rectangle was the `:box` border of
+`header-line-inactive` (color `nil` → falls back to foreground `#c5c8c6`)
+drawn around the trailing empty cell.
+
+**Why:** Both `mode-line` and `header-line` render content only to the text
+area edge; neither can write into the fringe.  The mode line *looks* like it
+extends edge-to-edge only because its face background paints the fringe area
+with a visible grey, while the header-line face background paints the same
+region with the buffer background.  Coloring the whole header strip would
+introduce an asymmetric color step on the left side (between the left fringe
+and the first Powerline segment), so the surgical fix is to zero the right
+fringe and color just the trailing pad.
+
+**Alternatives considered:**
+- Remapping `header-line` bg to the last segment's color — colors both
+  fringes uniformly, leaks visible color into the left fringe area.
+- Extending the stretch space past `right-fringe` with `(:align-to (10
+  . right-fringe))` — Emacs clips display content at the fringe boundary.
+- Leaving the gap — content widths were already at parity; only the visible
+  face background differed.  Worth understanding before changing anything,
+  which is why the gap stayed for several iterations.
+
+**Trade-offs:** Elfeed buffers no longer show a right-fringe truncation
+marker.  Rows are already sized to fit the body width and `visual-line-mode`
+in the entry buffer wraps without fringe indicators, so this is benign in
+practice.
 
 ---
 
