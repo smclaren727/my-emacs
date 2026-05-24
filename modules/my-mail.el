@@ -570,51 +570,28 @@ When LIMIT is non-nil, temporarily limit the number of results."
       :config
       (org-msg-mode 1)))
 
-  (if my-package-vc-enabled
-      (use-package mu4e-dashboard
-        :vc (:url "https://github.com/rougier/mu4e-dashboard")
-        :commands (mu4e-dashboard mu4e-dashboard-mode)
-        :init
-        (setq mu4e-dashboard-file my-mail-dashboard-file
-              mu4e-dashboard-mu-program
-              (or (my-mail--find-executable "mu" "/opt/homebrew/bin/mu") "mu")
-              ;; Keep dashboard-local shortcuts from leaking into mu4e headers.
-              mu4e-dashboard-propagate-keymap nil)
-        (my-leader-define "o d" nil)
-        (my-leader-define "m d" #'my-mail-dashboard-sidebar)
-        (my-leader-define "m D" #'my-mail-dashboard)
-        (with-eval-after-load 'which-key
-          (which-key-add-keymap-based-replacements my-leader-map
-            "m" "mail/bookmarks"
-            "m d" "mail dashboard"
-            "m D" "dashboard only"))
-        :config
-        (org-link-set-parameters mu4e-dashboard-link-name
-                                 :follow #'my-mail-dashboard-follow-link)
-        :hook
-        (mu4e-dashboard-mode . my-mail-dashboard-visual-setup))
-    (when (locate-library "mu4e-dashboard")
-      (use-package mu4e-dashboard
-        :commands (mu4e-dashboard mu4e-dashboard-mode)
-        :init
-        (setq mu4e-dashboard-file my-mail-dashboard-file
-              mu4e-dashboard-mu-program
-              (or (my-mail--find-executable "mu" "/opt/homebrew/bin/mu") "mu")
-              ;; Keep dashboard-local shortcuts from leaking into mu4e headers.
-              mu4e-dashboard-propagate-keymap nil)
-        (my-leader-define "o d" nil)
-        (my-leader-define "m d" #'my-mail-dashboard-sidebar)
-        (my-leader-define "m D" #'my-mail-dashboard)
-        (with-eval-after-load 'which-key
-          (which-key-add-keymap-based-replacements my-leader-map
-            "m" "mail/bookmarks"
-            "m d" "mail dashboard"
-            "m D" "dashboard only"))
-        :config
-        (org-link-set-parameters mu4e-dashboard-link-name
-                                 :follow #'my-mail-dashboard-follow-link)
-        :hook
-        (mu4e-dashboard-mode . my-mail-dashboard-visual-setup)))))
+  (my-use-package-vc-or-not mu4e-dashboard
+      (:url "https://github.com/rougier/mu4e-dashboard")
+    :commands (mu4e-dashboard mu4e-dashboard-mode)
+    :init
+    (setq mu4e-dashboard-file my-mail-dashboard-file
+          mu4e-dashboard-mu-program
+          (or (my-mail--find-executable "mu" "/opt/homebrew/bin/mu") "mu")
+          ;; Keep dashboard-local shortcuts from leaking into mu4e headers.
+          mu4e-dashboard-propagate-keymap nil)
+    (my-leader-define "o d" nil)
+    (my-leader-define "m d" #'my-mail-dashboard-sidebar)
+    (my-leader-define "m D" #'my-mail-dashboard)
+    (with-eval-after-load 'which-key
+      (which-key-add-keymap-based-replacements my-leader-map
+        "m" "mail/bookmarks"
+        "m d" "mail dashboard"
+        "m D" "dashboard only"))
+    :config
+    (org-link-set-parameters mu4e-dashboard-link-name
+                             :follow #'my-mail-dashboard-follow-link)
+    :hook
+    (mu4e-dashboard-mode . my-mail-dashboard-visual-setup)))
 
 (provide 'my-mail)
 ;;; my-mail.el ends here

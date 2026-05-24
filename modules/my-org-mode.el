@@ -293,26 +293,16 @@ doesn't already exist."
 (add-hook 'org-mode-hook #'my-org-headline-bullets-mode)
 
 ;;; Org outline guide bars -------------------------------------------
-(if my-package-vc-enabled
-    (use-package org-bars
-      :vc (:url "https://github.com/tonyaldon/org-bars" :rev :newest)
-      :after org
-      :demand t
-      :init
-      ;; Custom headline bullets own stars; org-bars only draws rails.
-      (setq org-bars-with-dynamic-stars-p nil
-            org-bars-extra-pixels-height 1)
-      :hook
-      (org-mode . org-bars-mode))
-  (when (locate-library "org-bars")
-    (use-package org-bars
-      :after org
-      :demand t
-      :init
-      (setq org-bars-with-dynamic-stars-p nil
-            org-bars-extra-pixels-height 1)
-      :hook
-      (org-mode . org-bars-mode))))
+(my-use-package-vc-or-not org-bars
+    (:url "https://github.com/tonyaldon/org-bars" :rev :newest)
+  :after org
+  :demand t
+  :init
+  ;; Custom headline bullets own stars; org-bars only draws rails.
+  (setq org-bars-with-dynamic-stars-p nil
+        org-bars-extra-pixels-height 1)
+  :hook
+  (org-mode . org-bars-mode))
 
 (provide 'my-org-mode)
 ;;; my-org-mode.el ends here
