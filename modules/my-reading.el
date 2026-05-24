@@ -5,6 +5,7 @@
 
 (require 'cl-lib)
 (require 'json)
+(require 'my-elfeed)
 (require 'seq)
 (require 'subr-x)
 (require 'thingatpt)
@@ -602,18 +603,10 @@ FEED-TAGS are passed through to the CLI capture contract."
                             :selection selection
                             :archive-mode my-reading-default-archive-mode)))
 
-(defun my-reading--elfeed-entry-at-point ()
-  "Return the current Elfeed entry."
-  (cond
-   ((derived-mode-p 'elfeed-show-mode)
-    elfeed-show-entry)
-   ((derived-mode-p 'elfeed-search-mode)
-    (elfeed-search-selected :single))))
-
 (defun my-reading-capture-elfeed-entry ()
   "Capture the current Elfeed entry into the read-later store."
   (interactive)
-  (let ((entry (my-reading--elfeed-entry-at-point)))
+  (let ((entry (my-elfeed-entry-at-point)))
     (unless entry
       (user-error "No Elfeed entry at point"))
     (let* ((url (elfeed-entry-link entry))

@@ -6,6 +6,7 @@
 
 (require 'subr-x)
 (require 'cl-lib)
+(require 'my-elfeed)
 
 (declare-function elfeed "elfeed")
 (declare-function elfeed-entry-date "elfeed-db" (entry))
@@ -524,14 +525,6 @@ Downcase, replace non-alphanumeric runs with hyphens, trim edges."
     (when-let* ((entry (elfeed-search-selected :single)))
       (elfeed-entry-link entry)))))
 
-(defun my-feeds--entry-at-point ()
-  "Return the elfeed entry object at point, or nil."
-  (cond
-   ((derived-mode-p 'elfeed-show-mode)
-    elfeed-show-entry)
-   ((derived-mode-p 'elfeed-search-mode)
-    (elfeed-search-selected :single))))
-
 (defun my-feeds--selected-entries ()
   "Return selected elfeed entries for the current buffer."
   (cond
@@ -595,7 +588,7 @@ DATE, and TAGS are included as org metadata."
   (interactive)
   (let ((entries (if (derived-mode-p 'elfeed-search-mode)
                      (elfeed-search-selected)
-                   (list (my-feeds--entry-at-point)))))
+                   (list (my-elfeed-entry-at-point)))))
     (dolist (entry entries)
       (when entry
         (if (elfeed-tagged-p 'star entry)
@@ -616,7 +609,7 @@ DATE, and TAGS are included as org metadata."
 The file is saved to `my-feeds-directory' with title, author, date,
 URL property, and tags."
   (interactive)
-  (let ((entry (my-feeds--entry-at-point)))
+  (let ((entry (my-elfeed-entry-at-point)))
     (unless entry
       (user-error "No elfeed entry at point"))
     (let* ((url (elfeed-entry-link entry))
