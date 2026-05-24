@@ -710,18 +710,18 @@ In `elfeed-search-mode', open all selected entries.  In
 
 ;; Bind inside elfeed buffers for quick access.
 (with-eval-after-load 'elfeed
-  ;; Search mode — starring from the list.
-  (define-key elfeed-search-mode-map (kbd "m") #'my-feeds-star)
+  ;; Shared bindings: star and browser actions work the same in both
+  ;; the search listing and the show pane.
+  (dolist (map (list elfeed-search-mode-map elfeed-show-mode-map))
+    (define-key map (kbd "m") #'my-feeds-star)
+    (define-key map (kbd "b") #'my-feeds-browse-article)
+    (define-key map (kbd "B") #'my-feeds-browse-background-article))
+  ;; Search-only: preview navigation.
   (define-key elfeed-search-mode-map (kbd "n") #'my-feeds-search-preview-next)
   (define-key elfeed-search-mode-map (kbd "p") #'my-feeds-search-preview-previous)
   (define-key elfeed-search-mode-map (kbd "M-RET") #'my-feeds-search-preview-current)
-  (define-key elfeed-search-mode-map (kbd "b") #'my-feeds-browse-article)
-  (define-key elfeed-search-mode-map (kbd "B") #'my-feeds-browse-background-article)
-  ;; Show mode — article-level actions.
-  (define-key elfeed-show-mode-map (kbd "m") #'my-feeds-star)
-  (define-key elfeed-show-mode-map (kbd "d") #'my-feeds-save-article)
-  (define-key elfeed-show-mode-map (kbd "b") #'my-feeds-browse-article)
-  (define-key elfeed-show-mode-map (kbd "B") #'my-feeds-browse-background-article))
+  ;; Show-only: full article archive.
+  (define-key elfeed-show-mode-map (kbd "d") #'my-feeds-save-article))
 
 (provide 'my-feeds)
 ;;; my-feeds.el ends here

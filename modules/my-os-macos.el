@@ -72,9 +72,8 @@
 
 ;;; Input protection --------------------------------------------------
 ;; Prevent trackpad pinch and ctrl-wheel from resizing font accidentally.
-(global-set-key (kbd "<pinch>") #'ignore)
-(global-set-key (kbd "<C-wheel-up>") #'ignore)
-(global-set-key (kbd "<C-wheel-down>") #'ignore)
+(dolist (key '("<pinch>" "<C-wheel-up>" "<C-wheel-down>"))
+  (global-set-key (kbd key) #'ignore))
 
 ;;; Fonts — Unicode and emoji -----------------------------------------
 ;; Render Apple Color Emoji and SF symbols correctly in GUI frames.

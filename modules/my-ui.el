@@ -199,20 +199,14 @@
 
 ;; Give text a little more air without making code feel too loose.
 (setq-default line-spacing 0.08)
-(with-eval-after-load 'org
-  (my-ui--apply-face-customizations))
-(with-eval-after-load 'markdown-mode
-  (my-ui--apply-face-customizations))
-(with-eval-after-load 'vertico
-  (my-ui--apply-face-customizations))
-(with-eval-after-load 'marginalia
-  (my-ui--apply-face-customizations))
-(with-eval-after-load 'orderless
-  (my-ui--apply-face-customizations))
-(with-eval-after-load 'corfu
-  (my-ui--apply-face-customizations))
-(with-eval-after-load 'which-key
-  (my-ui--apply-face-customizations))
+
+;; Reapply face customizations whenever a package that owns themed faces
+;; finishes loading.  The set of packages here is the union of those that
+;; either inherit `fixed-pitch' (org, markdown-mode) or own minibuffer/UI
+;; surfaces that `my-ui--apply-face-customizations' touches.
+(dolist (feature '(org markdown-mode vertico marginalia orderless corfu which-key))
+  (with-eval-after-load feature
+    (my-ui--apply-face-customizations)))
 
 ;;; Frame spacing -----------------------------------------------------
 

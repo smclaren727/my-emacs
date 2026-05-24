@@ -772,12 +772,10 @@ selected items are snapshotted."
             #'my-reading--elfeed-tag-local-feed-entry-from-parse)
   (add-hook 'elfeed-update-hooks
             #'my-reading--elfeed-tag-local-feed-entries)
-  (define-key elfeed-search-mode-map (kbd "D") #'my-reading-delete-elfeed-entries)
-  (define-key elfeed-search-mode-map (kbd "P") #'my-reading-promote-elfeed-entries)
-  (define-key elfeed-show-mode-map (kbd "D") #'my-reading-delete-elfeed-entries)
-  (define-key elfeed-show-mode-map (kbd "P") #'my-reading-promote-elfeed-entries)
-  (define-key elfeed-search-mode-map (kbd "d") #'my-reading-capture-elfeed-entry)
-  (define-key elfeed-show-mode-map (kbd "d") #'my-reading-capture-elfeed-entry))
+  (dolist (map (list elfeed-search-mode-map elfeed-show-mode-map))
+    (define-key map (kbd "D") #'my-reading-delete-elfeed-entries)
+    (define-key map (kbd "P") #'my-reading-promote-elfeed-entries)
+    (define-key map (kbd "d") #'my-reading-capture-elfeed-entry)))
 
 (with-eval-after-load 'dired
   (define-key dired-mode-map [remap dired-do-delete] #'my-reading-dired-do-delete)
