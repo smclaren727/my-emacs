@@ -351,7 +351,7 @@ be `center' for headings or `left' for entry values."
 (defun my-feeds-search-entry-line-draw (entry)
   "Print ENTRY using Date, Tags, Subject, Feed Source columns."
   (cl-destructuring-bind (date-width tag-width subject-width feed-width)
-      (my-feeds--search-layout)
+      (my-feeds--search-layout (my-feeds--header-window-width))
     (let* ((date (elfeed-search-format-date (elfeed-entry-date entry)))
            (title (or (elfeed-meta entry :title) (elfeed-entry-title entry) ""))
            (title-faces (elfeed-search--faces (elfeed-entry-tags entry)))

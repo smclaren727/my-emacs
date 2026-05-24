@@ -753,6 +753,8 @@ Emacs does not draw a truncation marker at the edge, and ends the final column
 as a regular rectangular bar instead of a closing Powerline separator.
 Search and preview headers share one renderer so future changes to widths,
 separators, faces, and edge handling apply to both panes.
+Search rows use the same reserved-width layout as the header so full-width rows
+do not trigger right-fringe overflow markers.
 
 ---
 
