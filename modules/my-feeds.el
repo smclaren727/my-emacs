@@ -100,6 +100,9 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 (defvar-local my-feeds-search--font-remap-cookie nil
   "Face-remap cookie for Elfeed search font scaling.")
 
+(defvar-local my-feeds-search--header-remap-cookie nil
+  "Face-remap cookie for the Elfeed search header tail.")
+
 (defvar-local my-feeds-search--last-window-width nil
   "Last rendered window width for the current Elfeed search buffer.")
 
@@ -108,6 +111,9 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 
 (defvar-local my-feeds-show--font-remap-cookie nil
   "Face-remap cookie for Elfeed show font scaling.")
+
+(defvar-local my-feeds-show--header-remap-cookie nil
+  "Face-remap cookie for the Elfeed show header tail.")
 
 ;;; Elfeed — feed reader engine -----------------------------------------
 
@@ -147,7 +153,10 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   (when my-feeds-search--font-remap-cookie
     (face-remap-remove-relative my-feeds-search--font-remap-cookie))
   (setq-local my-feeds-search--font-remap-cookie
-              (face-remap-add-relative 'default :height my-feeds-search-font-scale)))
+              (face-remap-add-relative 'default :height my-feeds-search-font-scale))
+  (setq-local my-feeds-search--header-remap-cookie
+              (my-feeds--remap-header-line-tail
+               my-feeds-search--header-remap-cookie)))
 
 (defun my-feeds--search-date-column-width ()
   "Return the configured Elfeed search date column width."
@@ -208,6 +217,30 @@ the current window body width."
   (let ((box (face-attribute 'header-line :box nil)))
     (or (and (listp box) (plist-get box :line-width))
         0)))
+
+(defun my-feeds--default-face-color (attribute fallback)
+  "Return the default face ATTRIBUTE, or FALLBACK when unspecified."
+  (let ((value (face-attribute 'default attribute nil t)))
+    (if (eq value 'unspecified)
+        fallback
+      value)))
+
+(defun my-feeds--remap-header-line-tail (cookie)
+  "Replace COOKIE with a remap that hides unused `header-line' cells."
+  (when cookie
+    (face-remap-remove-relative cookie))
+  (let* ((background (my-feeds--default-face-color
+                      :background (or (frame-parameter nil 'background-color)
+                                      "white")))
+         (foreground (my-feeds--default-face-color
+                      :foreground (or (frame-parameter nil 'foreground-color)
+                                      "black")))
+         (box-width (my-feeds--header-box-width)))
+    (face-remap-add-relative
+     'header-line
+     :background background
+     :foreground foreground
+     :box `(:line-width ,box-width :color ,background :style nil))))
 
 (defun my-feeds--sync-powerline-header-face (target source)
   "Make TARGET match SOURCE colors with full `header-line' height."
@@ -345,6 +378,9 @@ be `center' for headings or `left' for entry values."
     (face-remap-remove-relative my-feeds-show--font-remap-cookie))
   (setq-local my-feeds-show--font-remap-cookie
               (face-remap-add-relative 'default :height my-feeds-search-font-scale))
+  (setq-local my-feeds-show--header-remap-cookie
+              (my-feeds--remap-header-line-tail
+               my-feeds-show--header-remap-cookie))
   (dolist (window (get-buffer-window-list (current-buffer) nil t))
     (set-window-margins window nil nil)))
 

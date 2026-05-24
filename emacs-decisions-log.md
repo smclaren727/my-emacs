@@ -755,6 +755,9 @@ Search and preview headers share one renderer so future changes to widths,
 separators, faces, and edge handling apply to both panes.
 Search rows use the same reserved-width layout as the header so full-width rows
 do not trigger right-fringe overflow markers.
+The unused tail of `header-line` is remapped to the normal buffer background
+in Elfeed buffers, so the Powerline header visually stops where highlighted
+rows stop while still leaving room for the right fringe.
 
 ---
 
