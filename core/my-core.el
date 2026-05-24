@@ -68,6 +68,38 @@
 (defvar my-notes-directory "~/All-The-Things/"
   "Root directory for all notes and org files.")
 
+;;; Shared helpers ----------------------------------------------------
+;; Small utilities consumed by multiple modules.  Define them here so
+;; modules can use them without re-implementing or cross-requiring each
+;; other.
+
+(defun my-plist-non-empty-string (plist property)
+  "Return PROPERTY from PLIST as a trimmed string, or nil.
+Returns nil when PROPERTY is missing, not a string, or whitespace-only.
+Otherwise returns the value with leading and trailing whitespace
+stripped."
+  (require 'subr-x)
+  (let ((value (plist-get plist property)))
+    (when (and (stringp value) (not (string-empty-p (string-trim value))))
+      (string-trim value))))
+
+(defun my-org-protocol-register (name function &rest plist)
+  "Register FUNCTION as the handler for org-protocol NAME.
+NAME is a string used as both the alist key and the :protocol value.
+FUNCTION is the handler symbol.  PLIST is merged into the protocol
+entry after the default :protocol and :function pair (typical use:
+`:kill-client t').  Any existing entry with the same :protocol is
+replaced."
+  (require 'seq)
+  (defvar org-protocol-protocol-alist)
+  (setq org-protocol-protocol-alist
+        (cons
+         (cons name (append (list :protocol name :function function) plist))
+         (seq-remove
+          (lambda (entry)
+            (string= name (plist-get (cdr entry) :protocol)))
+          org-protocol-protocol-alist))))
+
 ;;; History and state -------------------------------------------------
 
 (use-package savehist

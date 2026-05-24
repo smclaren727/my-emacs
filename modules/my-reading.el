@@ -496,12 +496,6 @@ For non-read-later files, delegate to `dired-do-flagged-delete'."
 
 ;;; Org protocol helpers -----------------------------------------------
 
-(defun my-reading--plist-string (plist property)
-  "Return non-empty string value for PROPERTY in PLIST, or nil."
-  (let ((value (plist-get plist property)))
-    (when (and (stringp value) (not (string-empty-p (string-trim value))))
-      value)))
-
 (defun my-reading--archive-mode (value)
   "Return VALUE when it is a valid archive mode, otherwise the default."
   (if (member value '("readable" "metadata" "full" "defer"))
@@ -512,16 +506,16 @@ For non-read-later files, delegate to `dired-do-flagged-delete'."
   "Capture a browser link from org-protocol INFO.
 Expected INFO is a plist containing `:url', `:title', optional
 `:body', `:source', `:tags', `:note', and `:archive-mode'."
-  (let* ((url (my-reading--plist-string info :url))
-         (title (or (my-reading--plist-string info :title) url))
-         (selection (my-reading--plist-string info :body))
-         (source (or (my-reading--plist-string info :source) "browser"))
-         (tags (my-reading--plist-string info :tags))
-         (note (my-reading--plist-string info :note))
+  (let* ((url (my-plist-non-empty-string info :url))
+         (title (or (my-plist-non-empty-string info :title) url))
+         (selection (my-plist-non-empty-string info :body))
+         (source (or (my-plist-non-empty-string info :source) "browser"))
+         (tags (my-plist-non-empty-string info :tags))
+         (note (my-plist-non-empty-string info :note))
          (archive-mode
           (my-reading--archive-mode
-           (or (my-reading--plist-string info :archive-mode)
-               (my-reading--plist-string info :archive_mode)))))
+           (or (my-plist-non-empty-string info :archive-mode)
+               (my-plist-non-empty-string info :archive_mode)))))
     (unless url
       (user-error "org-protocol read-later capture requires a URL"))
     (my-reading-capture-url url title
@@ -532,21 +526,10 @@ Expected INFO is a plist containing `:url', `:title', optional
                             :archive-mode archive-mode)
     nil))
 
-(defun my-reading--register-org-protocol ()
-  "Register the read-later org-protocol handler."
-  (setq org-protocol-protocol-alist
-        (cons
-         '("read-later"
-           :protocol "read-later"
-           :function my-reading-capture-org-protocol
-           :kill-client t)
-         (seq-remove
-          (lambda (entry)
-            (string= "read-later" (plist-get (cdr entry) :protocol)))
-          org-protocol-protocol-alist))))
-
 (with-eval-after-load 'org-protocol
-  (my-reading--register-org-protocol))
+  (my-org-protocol-register "read-later"
+                            #'my-reading-capture-org-protocol
+                            :kill-client t))
 
 (require 'org-protocol nil t)
 

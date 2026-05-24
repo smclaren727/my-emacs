@@ -56,12 +56,6 @@ PROMPT is the minibuffer prompt string."
       (user-error "No bookmark selected"))
     url))
 
-(defun my-bookmarks--plist-string (plist property)
-  "Return PROPERTY from PLIST as a non-empty trimmed string."
-  (let ((value (plist-get plist property)))
-    (when (and (stringp value) (not (string-empty-p (string-trim value))))
-      (string-trim value))))
-
 (defun my-bookmarks--ensure-file ()
   "Ensure `my-bookmarks-file' exists with an Inbox heading."
   (make-directory (file-name-directory my-bookmarks-file) t)
@@ -150,29 +144,18 @@ The bookmark is written under the Inbox heading in
   "Capture a bookmark from org-protocol INFO.
 Expected INFO is a plist containing `:url', `:title', and optional
 `:tags'."
-  (let* ((url (my-bookmarks--plist-string info :url))
-         (title (or (my-bookmarks--plist-string info :title) url))
-         (tags (my-bookmarks--plist-string info :tags)))
+  (let* ((url (my-plist-non-empty-string info :url))
+         (title (or (my-plist-non-empty-string info :title) url))
+         (tags (my-plist-non-empty-string info :tags)))
     (unless url
       (user-error "org-protocol bookmark capture requires a URL"))
     (my-bookmarks-add-url url title tags)
     nil))
 
-(defun my-bookmarks--register-org-protocol ()
-  "Register the bookmark org-protocol handler."
-  (setq org-protocol-protocol-alist
-        (cons
-         '("bookmark"
-           :protocol "bookmark"
-           :function my-bookmarks-capture-org-protocol
-           :kill-client t)
-         (seq-remove
-          (lambda (entry)
-            (string= "bookmark" (plist-get (cdr entry) :protocol)))
-          org-protocol-protocol-alist))))
-
 (with-eval-after-load 'org-protocol
-  (my-bookmarks--register-org-protocol))
+  (my-org-protocol-register "bookmark"
+                            #'my-bookmarks-capture-org-protocol
+                            :kill-client t))
 
 (require 'org-protocol nil t)
 
