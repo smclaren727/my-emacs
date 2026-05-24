@@ -72,15 +72,14 @@
 (require 'my-leader)
 
 ;;; Platform module ---------------------------------------------------
-;; OS integration is selected automatically from `system-type`.
+;; OS integration is selected automatically from `my-host-type', which is
+;; derived from `system-type' at the top of this file (and may be
+;; overridden by a host-context shim, e.g. `node').
 
-(cond
- ((eq system-type 'darwin)
-  (my-load-module os-macos "my-os-macos"))
- ((eq system-type 'gnu/linux)
-  (my-load-module os-linux "my-os-linux"))
- ((eq system-type 'windows-nt)
-  (my-load-module os-windows "my-os-windows")))
+(pcase my-host-type
+  ('mac     (my-load-module os-macos   "my-os-macos"))
+  ('linux   (my-load-module os-linux   "my-os-linux"))
+  ('windows (my-load-module os-windows "my-os-windows")))
 
 ;;; Optional modules --------------------------------------------------
 ;; Each is guarded by its feature flag and wrapped in error handling.
