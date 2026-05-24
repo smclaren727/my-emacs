@@ -56,10 +56,12 @@ no Spacemacs).  Every package solves a concrete problem.
     my-node.el           — shared node-only hooks selected by host profile (provides 'my-node)
     my-ops.el            — placeholder, flag disabled (provides 'my-ops)
   elisp/
-    my-org-headline-bullets.el — display-only Org headline bullet glyphs
-    my-org-property-drawers.el — keep Org property drawers folded
-    my-org-tag-transitions.el  — automatic Org tag transition rules
-    my-node-contact-email.el   — org-node contact email completion helper
+    my-elfeed.el                 — shared Elfeed helpers (entry-at-point)
+    my-feeds-search-header.el    — Powerline header rendering for Elfeed search/show
+    my-node-contact-email.el     — org-node contact email completion helper
+    my-org-headline-bullets.el   — display-only Org headline bullet glyphs
+    my-org-property-drawers.el   — keep Org property drawers folded
+    my-org-tag-transitions.el    — automatic Org tag transition rules
   scripts/
     bookmark-open        — helper for opening bookmark URLs
     bootstrap-mail-config.sh — idempotent local mail bootstrap helper
