@@ -590,8 +590,9 @@ When LIMIT is non-nil, temporarily limit the number of results."
     :config
     (org-link-set-parameters mu4e-dashboard-link-name
                              :follow #'my-mail-dashboard-follow-link)
-    :hook
-    (mu4e-dashboard-mode . my-mail-dashboard-visual-setup)))
+    ;; Explicit list form so byte-compile parses the cons through the
+    ;; macro wrapping; single-cons :hook chokes on `proper-list-p' there.
+    :hook ((mu4e-dashboard-mode . my-mail-dashboard-visual-setup))))
 
 (provide 'my-mail)
 ;;; my-mail.el ends here

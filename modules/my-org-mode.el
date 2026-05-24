@@ -16,6 +16,91 @@
 (defvar so-long-minor-modes)
 (defvar so-long-variable-overrides)
 
+;;; Top-level Org helpers ---------------------------------------------
+;; Defined before `(use-package org …)' so they're testable, greppable,
+;; and visible at file load time.  All run after Org has loaded since
+;; they're either wired through `:hook' or referenced by capture
+;; templates that fire interactively.
+
+(defun my-org-refresh-ellipsis ()
+  "Apply `org-ellipsis' to Org fold specs in the current buffer."
+  (when (and (stringp org-ellipsis)
+             (not (string-empty-p org-ellipsis))
+             (boundp 'org-fold-core--specs)
+             (fboundp 'org-fold-core-set-folding-spec-property))
+    (unless buffer-display-table
+      (setq buffer-display-table (make-display-table)))
+    (set-display-table-slot
+     buffer-display-table 4
+     (vconcat (mapcar (lambda (c) (make-glyph-code c 'org-ellipsis))
+                      org-ellipsis)))
+    (dolist (spec '(outline org-fold-outline
+                    org-hide-block org-fold-block
+                    org-hide-drawer org-fold-drawer))
+      (when (assq spec org-fold-core--specs)
+        (setq buffer-invisibility-spec
+              (cl-remove-if
+               (lambda (entry)
+                 (or (eq entry spec)
+                     (and (consp entry) (eq (car entry) spec))))
+               buffer-invisibility-spec))
+        (org-fold-core-set-folding-spec-property
+         spec :ellipsis org-ellipsis t)))))
+
+;; Update a document-level UPDATED property automatically when present.
+;; Keeps top-of-file metadata honest without forcing every Org file
+;; into the same property convention.
+
+(defun my-org--document-updated-property-heading-position ()
+  "Return the first top-level heading with an UPDATED property, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (catch 'match
+      (while (re-search-forward org-heading-regexp nil t)
+        (when (and (= (org-outline-level) 1)
+                   (org-entry-get (point) "UPDATED"))
+          (throw 'match (point))))
+      nil)))
+
+(defun my-org-touch-updated-property-before-save ()
+  "Refresh a document-level UPDATED property before saving the current buffer."
+  (when (derived-mode-p 'org-mode)
+    (when-let* ((position (my-org--document-updated-property-heading-position)))
+      (save-excursion
+        (goto-char position)
+        (org-entry-put (point)
+                       "UPDATED"
+                       (format-time-string "[%Y-%m-%d %a %H:%M]"))))))
+
+(defun my-org-enable-updated-property-autosave ()
+  "Enable automatic UPDATED-property refreshes for the current Org buffer."
+  (add-hook 'before-save-hook #'my-org-touch-updated-property-before-save nil t))
+
+;; Project capture helper — prompts for a project name, creates a new
+;; file in 10-Projects/ with title and properties, returns the file
+;; path for capture.
+
+(defun my-org-capture-project-file ()
+  "Prompt for a project name and return its file in 10-Projects/.
+Creates the file with #+TITLE and a :PROPERTIES: drawer if it
+doesn't already exist."
+  (let* ((name (read-string "Project name: "))
+         (slug (downcase (replace-regexp-in-string "[^a-z0-9]+" "-"
+                          (downcase name))))
+         (slug (replace-regexp-in-string "^-\\|-$" "" slug))
+         (file (expand-file-name (concat "10-Projects/" slug ".org")
+                                 my-notes-directory)))
+    (unless (file-exists-p file)
+      (with-temp-file file
+        (insert (format "#+TITLE: %s\n" name))
+        (insert ":PROPERTIES:\n")
+        (insert (format ":CREATED: %s\n"
+                        (format-time-string "[%Y-%m-%d %a %H:%M]")))
+        (insert (format ":GOAL:    \n"))
+        (insert (format ":ID:       %s\n" (org-id-new)))
+        (insert ":END:\n\n")))
+    file))
+
 ;;; Org setup ---------------------------------------------------------
 (use-package org
   :ensure nil
@@ -23,7 +108,8 @@
   :hook ((org-mode . visual-line-mode)
          (org-mode . my-org-property-drawers-mode)
          (org-mode . my-org-enable-tag-transition-autosave)
-         (org-mode . my-org-enable-updated-property-autosave))
+         (org-mode . my-org-enable-updated-property-autosave)
+         (org-mode . my-org-refresh-ellipsis))
   :custom
   ;; Core paths — all derived from my-notes-directory.
   (org-directory my-notes-directory)
@@ -103,32 +189,6 @@
   ;; Ensure the notes directory exists.
   (make-directory my-notes-directory t)
 
-  (defun my-org-refresh-ellipsis ()
-    "Apply `org-ellipsis' to Org fold specs in the current buffer."
-    (when (and (stringp org-ellipsis)
-               (not (string-empty-p org-ellipsis))
-               (boundp 'org-fold-core--specs)
-               (fboundp 'org-fold-core-set-folding-spec-property))
-      (unless buffer-display-table
-        (setq buffer-display-table (make-display-table)))
-      (set-display-table-slot
-       buffer-display-table 4
-       (vconcat (mapcar (lambda (c) (make-glyph-code c 'org-ellipsis))
-                         org-ellipsis)))
-      (dolist (spec '(outline org-fold-outline
-                      org-hide-block org-fold-block
-                      org-hide-drawer org-fold-drawer))
-        (when (assq spec org-fold-core--specs)
-          (setq buffer-invisibility-spec
-                (cl-remove-if
-                 (lambda (entry)
-                   (or (eq entry spec)
-                       (and (consp entry) (eq (car entry) spec))))
-                 buffer-invisibility-spec))
-          (org-fold-core-set-folding-spec-property
-           spec :ellipsis org-ellipsis t)))))
-  (add-hook 'org-mode-hook #'my-org-refresh-ellipsis)
-
   ;; Offer source tags in Org tag completion without clobbering
   ;; any existing persistent tags.
   (setq org-tag-persistent-alist
@@ -159,58 +219,6 @@
   ;; Auto-save all org files after refile so the move is persisted immediately.
   (unless (advice-member-p #'org-save-all-org-buffers #'org-refile)
     (advice-add #'org-refile :after #'org-save-all-org-buffers))
-
-  ;; Update a top-level UPDATED property automatically when present.
-  ;; This keeps document-level metadata honest without forcing every Org file
-  ;; into the same property convention.
-  (defun my-org--document-updated-property-heading-position ()
-    "Return the first top-level heading with an UPDATED property, or nil."
-    (save-excursion
-      (goto-char (point-min))
-      (catch 'match
-        (while (re-search-forward org-heading-regexp nil t)
-          (when (and (= (org-outline-level) 1)
-                     (org-entry-get (point) "UPDATED"))
-            (throw 'match (point))))
-        nil)))
-
-  (defun my-org-touch-updated-property-before-save ()
-    "Refresh a document-level UPDATED property before saving the current buffer."
-    (when (derived-mode-p 'org-mode)
-      (when-let* ((position (my-org--document-updated-property-heading-position)))
-        (save-excursion
-          (goto-char position)
-          (org-entry-put (point)
-                         "UPDATED"
-                         (format-time-string "[%Y-%m-%d %a %H:%M]"))))))
-
-  (defun my-org-enable-updated-property-autosave ()
-    "Enable automatic UPDATED-property refreshes for the current Org buffer."
-    (add-hook 'before-save-hook #'my-org-touch-updated-property-before-save nil t))
-
-  ;; --- Project capture helper ---
-  ;; Prompts for a project name, creates a new file in 10-Projects/
-  ;; with title and properties, returns the file path for capture.
-  (defun my-org-capture-project-file ()
-    "Prompt for a project name and return its file in 10-Projects/.
-Creates the file with #+TITLE and a :PROPERTIES: drawer if it
-doesn't already exist."
-    (let* ((name (read-string "Project name: "))
-           (slug (downcase (replace-regexp-in-string "[^a-z0-9]+" "-"
-                            (downcase name))))
-           (slug (replace-regexp-in-string "^-\\|-$" "" slug))
-           (file (expand-file-name (concat "10-Projects/" slug ".org")
-                                   my-notes-directory)))
-      (unless (file-exists-p file)
-        (with-temp-file file
-          (insert (format "#+TITLE: %s\n" name))
-          (insert ":PROPERTIES:\n")
-          (insert (format ":CREATED: %s\n"
-                          (format-time-string "[%Y-%m-%d %a %H:%M]")))
-          (insert (format ":GOAL:    \n"))
-          (insert (format ":ID:       %s\n" (org-id-new)))
-          (insert ":END:\n\n")))
-      file))
 
   ;; --- Capture templates ---
   ;; C-c u c then press the key in parentheses to select a template.
@@ -301,8 +309,9 @@ doesn't already exist."
   ;; Custom headline bullets own stars; org-bars only draws rails.
   (setq org-bars-with-dynamic-stars-p nil
         org-bars-extra-pixels-height 1)
-  :hook
-  (org-mode . org-bars-mode))
+  ;; Explicit list form so byte-compile parses the cons through the
+  ;; macro wrapping; single-cons :hook chokes on `proper-list-p' there.
+  :hook ((org-mode . org-bars-mode)))
 
 (provide 'my-org-mode)
 ;;; my-org-mode.el ends here
