@@ -71,16 +71,14 @@
   "Dark Powerline face for the Elfeed search header."
   :group 'faces)
 
-(defvar my-feeds-directory nil
+(defvar my-feeds-directory
+  (expand-file-name "50-Resources/Saved-Articles/" my-notes-directory)
   "Directory for downloaded article Org files.")
-(setq my-feeds-directory
-      (expand-file-name "50-Resources/Saved-Articles/" my-notes-directory))
 
-(defvar my-feeds-org-file nil
+(defvar my-feeds-org-file
+  (expand-file-name "50-Resources/feeds.org" my-notes-directory)
   "Org file containing elfeed feed subscriptions.
 Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
-(setq my-feeds-org-file
-      (expand-file-name "50-Resources/feeds.org" my-notes-directory))
 
 (defvar my-feeds-update-interval (* 6 60 60)
   "Seconds between automatic Elfeed updates.")

@@ -8,18 +8,21 @@
 (defvar my-early--file-name-handler-alist)
 
 ;;; Startup timer -----------------------------------------------------
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (message "Emacs ready in %.2f seconds with %d garbage collections."
-                     (float-time (time-subtract after-init-time
-                                                before-init-time))
-                     gcs-done)))
+(defun my-core--report-startup-time ()
+  "Print Emacs startup duration and GC count to `*Messages*'."
+  (message "Emacs ready in %.2f seconds with %d garbage collections."
+           (float-time (time-subtract after-init-time before-init-time))
+           gcs-done))
+
+(add-hook 'emacs-startup-hook #'my-core--report-startup-time)
 
 ;;; Restore early-init overrides --------------------------------------
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (setq gc-cons-threshold (* 16 1024 1024)
-                  file-name-handler-alist my-early--file-name-handler-alist)))
+(defun my-core--restore-early-init-overrides ()
+  "Restore GC threshold and file-name handlers after init completes."
+  (setq gc-cons-threshold (* 16 1024 1024)
+        file-name-handler-alist my-early--file-name-handler-alist))
+
+(add-hook 'emacs-startup-hook #'my-core--restore-early-init-overrides)
 
 ;;; No-littering (keep .emacs.d clean) --------------------------------
 ;; Redirects package data into:
@@ -98,7 +101,7 @@
 (global-unset-key (kbd "C-x C-z"))
 
 ;; Silence the audible bell and visual flash.
-(setq ring-bell-function 'ignore)
+(setq ring-bell-function #'ignore)
 
 (blink-cursor-mode -1)
 
@@ -183,7 +186,7 @@
             server-socket-dir my-core-server-dir)
     (setq server-use-tcp t))
   (let ((server-state (server-running-p server-name)))
-    (when (null server-state)
+    (unless server-state
       (server-start)
       (setq server-state t))
     (when server-state

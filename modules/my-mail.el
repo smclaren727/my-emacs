@@ -9,6 +9,7 @@
 ;;   templates for ~/.mbsyncrc, ~/.msmtprc, and ~/.authinfo.example
 
 (require 'cl-lib)
+(require 'seq)
 (require 'subr-x)
 
 (declare-function my-emacs-source-file "my-core" (path))
@@ -481,21 +482,22 @@ When LIMIT is non-nil, temporarily limit the number of results."
             "* TODO Reply to %:from re: %:subject :email:reply:\nDEADLINE: %^{Deadline}t\n[[mu4e:msgid:%:message-id][Email Link]]\n%?"
             :empty-lines 1)))))
 
+(defun my-mail--tool-homebrew-fallback (tool)
+  "Return the Homebrew install path for TOOL, or nil if not tracked."
+  (pcase tool
+    ("mbsync" "/opt/homebrew/bin/mbsync")
+    ("mu"     "/opt/homebrew/bin/mu")
+    ("msmtp"  "/opt/homebrew/bin/msmtp")
+    ("gpg"    "/opt/homebrew/bin/gpg")))
+
 (defun my-mail--warn-about-missing-tools ()
   "Warn once at startup when expected mail tools are unavailable."
-  (let ((missing (delq nil
-                       (mapcar (lambda (tool)
-                                 (when (not (my-mail--find-executable tool
-                                                                     (when (string= tool "mbsync")
-                                                                       "/opt/homebrew/bin/mbsync")
-                                                                     (when (string= tool "mu")
-                                                                       "/opt/homebrew/bin/mu")
-                                                                     (when (string= tool "msmtp")
-                                                                       "/opt/homebrew/bin/msmtp")
-                                                                     (when (string= tool "gpg")
-                                                                       "/opt/homebrew/bin/gpg")))
-                                   tool))
-                               '("mbsync" "mu" "msmtp" "gpg")))))
+  (let ((missing (seq-remove
+                  (lambda (tool)
+                    (my-mail--find-executable
+                     tool
+                     (my-mail--tool-homebrew-fallback tool)))
+                  '("mbsync" "mu" "msmtp" "gpg"))))
     (when missing
       (display-warning
        'my-mail

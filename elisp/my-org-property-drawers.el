@@ -116,9 +116,9 @@ ORIGINAL and ARGS are the wrapped `org-cycle-internal-global' call."
 (defun my-org-property-drawers--ensure-cycle-advice ()
   "Install the Org cycle advices once."
   (unless my-org-property-drawers--cycle-advice-installed
-    (advice-add 'org-cycle-internal-local
+    (advice-add #'org-cycle-internal-local
                 :around #'my-org-property-drawers--cycle-internal-local)
-    (advice-add 'org-cycle-internal-global
+    (advice-add #'org-cycle-internal-global
                 :around #'my-org-property-drawers--cycle-internal-global)
     (setq my-org-property-drawers--cycle-advice-installed t)))
 

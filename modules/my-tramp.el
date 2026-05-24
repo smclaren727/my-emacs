@@ -118,9 +118,8 @@ Falls back to `my-tramp-nixos-directory' when modules dir is missing."
          (buffer-name (format "*eshell:%s*" host)))
     (if (get-buffer buffer-name)
         (pop-to-buffer buffer-name)
-      (progn
-        (eshell t)
-        (rename-buffer buffer-name t)))))
+      (eshell t)
+      (rename-buffer buffer-name t))))
 
 (defun my-tramp-open-shell (&optional prompt-host)
   "Open an Eshell on the default remote host.

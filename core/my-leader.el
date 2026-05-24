@@ -16,7 +16,7 @@
 ;;; Entry points ------------------------------------------------------
 
 ;; Conventional prefix — always works, no dependencies.
-(global-set-key (kbd "C-c u") 'my-leader-command)
+(global-set-key (kbd "C-c u") #'my-leader-command)
 
 ;; Ergonomic chord via key-chord.
 (if (or use-package-always-ensure
@@ -26,7 +26,7 @@
           :demand t
           :config
           (setq key-chord-two-keys-delay 0.05)
-          (key-chord-define-global "  " 'my-leader-command)
+          (key-chord-define-global "  " #'my-leader-command)
           (key-chord-mode 1))
       (error
        (display-warning

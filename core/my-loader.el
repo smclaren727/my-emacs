@@ -7,7 +7,10 @@
 
 (defmacro my-load-module (name file)
   "Load FILE as module NAME, catching errors gracefully.
-NAME is an unquoted symbol for logging.  FILE is a string passed to `load'."
+NAME is an unquoted symbol used for logging.  FILE is a string passed to
+`load'."
+  (declare (debug (symbolp form))
+           (indent 1))
   `(condition-case err
        (load ,file nil 'nomessage)
      (error

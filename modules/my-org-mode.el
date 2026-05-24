@@ -157,8 +157,8 @@
         org-refile-allow-creating-parent-nodes 'confirm)
 
   ;; Auto-save all org files after refile so the move is persisted immediately.
-  (unless (advice-member-p #'org-save-all-org-buffers 'org-refile)
-    (advice-add 'org-refile :after #'org-save-all-org-buffers))
+  (unless (advice-member-p #'org-save-all-org-buffers #'org-refile)
+    (advice-add #'org-refile :after #'org-save-all-org-buffers))
 
   ;; Update a top-level UPDATED property automatically when present.
   ;; This keeps document-level metadata honest without forcing every Org file

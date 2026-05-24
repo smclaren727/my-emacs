@@ -3,6 +3,7 @@
 ;; The CLI scripts own the durable file format.  Emacs is the fast local
 ;; control surface for EWW, Elfeed, minibuffer captures, and Reader migration.
 
+(require 'cl-lib)
 (require 'json)
 (require 'seq)
 (require 'subr-x)
@@ -55,8 +56,6 @@
 
 (defvar my-reading-default-archive-mode "metadata"
   "Default archive mode passed to `read-later-capture'.")
-
-(setq my-reading-default-archive-mode "metadata")
 
 (defvar my-reading-feed-file "feed.xml"
   "Generated RSS feed filename under `my-reading-root-directory'.")
@@ -525,7 +524,12 @@ Expected INFO is a plist containing `:url', `:title', optional
                (my-reading--plist-string info :archive_mode)))))
     (unless url
       (user-error "org-protocol read-later capture requires a URL"))
-    (my-reading-capture-url url title source tags note selection archive-mode)
+    (my-reading-capture-url url title
+                            :source source
+                            :tags tags
+                            :note note
+                            :selection selection
+                            :archive-mode archive-mode)
     nil))
 
 (defun my-reading--register-org-protocol ()
@@ -570,26 +574,29 @@ Expected INFO is a plist containing `:url', `:title', optional
 
 ;;; Capture commands ----------------------------------------------------
 
-(defun my-reading-capture-url (url title &optional source tags note selection archive-mode feed-tags)
+(cl-defun my-reading-capture-url (url title &key source tags note selection
+                                      archive-mode feed-tags)
   "Capture URL with TITLE into the local read-later store.
-SOURCE, TAGS, NOTE, SELECTION, ARCHIVE-MODE, and FEED-TAGS are
-passed through to the CLI capture contract."
+Keyword arguments SOURCE, TAGS, NOTE, SELECTION, ARCHIVE-MODE, and
+FEED-TAGS are passed through to the CLI capture contract."
   (interactive
    (list
     (read-string "URL: " (or (thing-at-point-url-at-point) ""))
     (read-string "Title: ")
-    "manual"
-    (read-string "Tags: ")
-    (read-string "Note: ")
-    (my-reading--region-text)
-    (completing-read "Archive mode: "
-                     '("readable" "metadata" "full" "defer")
-                     nil t nil nil my-reading-default-archive-mode)))
+    :source "manual"
+    :tags (read-string "Tags: ")
+    :note (read-string "Note: ")
+    :selection (my-reading--region-text)
+    :archive-mode (completing-read
+                   "Archive mode: "
+                   '("readable" "metadata" "full" "defer")
+                   nil t nil nil my-reading-default-archive-mode)))
   (let ((args (append
                (list "--url" url
                      "--title" title
                      "--source" (or source "manual")
-                     "--archive-mode" (or archive-mode my-reading-default-archive-mode))
+                     "--archive-mode" (or archive-mode
+                                          my-reading-default-archive-mode))
                (my-reading--arg "--tags" tags)
                (my-reading--arg "--feed-tags" feed-tags)
                (my-reading--arg "--note" note)
@@ -607,7 +614,10 @@ passed through to the CLI capture contract."
          (selection (my-reading--region-text)))
     (when (string-empty-p (string-trim url))
       (user-error "No page URL found"))
-    (my-reading-capture-url url title source "" "" selection my-reading-default-archive-mode)))
+    (my-reading-capture-url url title
+                            :source source
+                            :selection selection
+                            :archive-mode my-reading-default-archive-mode)))
 
 (defun my-reading--elfeed-entry-at-point ()
   "Return the current Elfeed entry."
@@ -630,7 +640,10 @@ passed through to the CLI capture contract."
                   (seq-remove (lambda (tag) (memq tag '(unread star saved)))
                               (elfeed-entry-tags entry))
                   ",")))
-      (my-reading-capture-url url title "elfeed" "" "" "" my-reading-default-archive-mode tags)
+      (my-reading-capture-url url title
+                              :source "elfeed"
+                              :archive-mode my-reading-default-archive-mode
+                              :feed-tags tags)
       (elfeed-tag entry 'saved)
       (when (derived-mode-p 'elfeed-search-mode)
         (elfeed-search-update-entry entry)))))

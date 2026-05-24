@@ -15,10 +15,9 @@
 
 ;;; Variables -----------------------------------------------------------
 
-(defvar my-bookmarks-file nil
+(defvar my-bookmarks-file
+  (expand-file-name "50-Resources/bookmarks.org" my-notes-directory)
   "Org file containing bookmarks.")
-(setq my-bookmarks-file
-      (expand-file-name "50-Resources/bookmarks.org" my-notes-directory))
 
 (defvar my-bookmarks-launcher-vertico-count 14
   "Number of completion candidates to show in the bookmark launcher.")

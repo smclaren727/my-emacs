@@ -98,7 +98,7 @@
                (my-dev--flymake-enable-request-p arg))
     (funcall orig-fn arg)))
 
-(advice-add 'flymake-mode :around #'my-dev--inhibit-flymake-in-scratch)
+(advice-add #'flymake-mode :around #'my-dev--inhibit-flymake-in-scratch)
 
 ;;; Misc dev quality of life ------------------------------------------
 

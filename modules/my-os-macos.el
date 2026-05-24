@@ -50,8 +50,8 @@
         (make-symbolic-link stable-socket default-socket))))))
 
 (add-hook 'my-core-after-server-ready-hook #'my-os-macos--link-default-server-socket)
-(unless (advice-member-p #'my-os-macos--link-default-server-socket 'server-start)
-  (advice-add 'server-start :after #'my-os-macos--link-default-server-socket))
+(unless (advice-member-p #'my-os-macos--link-default-server-socket #'server-start)
+  (advice-add #'server-start :after #'my-os-macos--link-default-server-socket))
 
 ;;; Clipboard ---------------------------------------------------------
 (setq select-enable-clipboard t
@@ -72,9 +72,9 @@
 
 ;;; Input protection --------------------------------------------------
 ;; Prevent trackpad pinch and ctrl-wheel from resizing font accidentally.
-(global-set-key (kbd "<pinch>") 'ignore)
-(global-set-key (kbd "<C-wheel-up>") 'ignore)
-(global-set-key (kbd "<C-wheel-down>") 'ignore)
+(global-set-key (kbd "<pinch>") #'ignore)
+(global-set-key (kbd "<C-wheel-up>") #'ignore)
+(global-set-key (kbd "<C-wheel-down>") #'ignore)
 
 ;;; Fonts — Unicode and emoji -----------------------------------------
 ;; Render Apple Color Emoji and SF symbols correctly in GUI frames.

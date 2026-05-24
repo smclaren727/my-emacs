@@ -29,10 +29,10 @@
   "Start org-node and org-mem in the intended order."
   (setq my-org-node--startup-timer nil)
   (require 'org-mem-updater)
-  (advice-add 'org-mem-tip-if-empty :override #'my-org-node--ignore-empty-tip)
+  (advice-add #'org-mem-tip-if-empty :override #'my-org-node--ignore-empty-tip)
   (unwind-protect
       (org-node-cache-mode 1)
-    (advice-remove 'org-mem-tip-if-empty #'my-org-node--ignore-empty-tip))
+    (advice-remove #'org-mem-tip-if-empty #'my-org-node--ignore-empty-tip))
   (org-mem-updater-mode 1)
   (org-node-backlink-mode 1))
 
@@ -109,10 +109,12 @@ electric-pair-mode which inserts ]] immediately after [[."
                                        (concat "id:" id) text)))))
                         (run-hooks 'org-node-insert-link-hook)))))))))))
 
-(add-hook 'org-mode-hook
-          (lambda ()
-            (add-to-list 'completion-at-point-functions
-                         #'my-org-node-link-capf nil #'eq)))
+(defun my-org-node--enable-link-capf ()
+  "Register the org-node link completion-at-point function for this buffer."
+  (add-to-list 'completion-at-point-functions
+               #'my-org-node-link-capf nil #'eq))
+
+(add-hook 'org-mode-hook #'my-org-node--enable-link-capf)
 
 ;;; Use ALIASES property through compatibility hooks --------------------
 
