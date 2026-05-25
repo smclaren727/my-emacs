@@ -18,6 +18,7 @@ no Spacemacs).  Every package solves a concrete problem.
 ~/.emacs.d/
   early-init.el          — startup perf, UI suppression, GC tuning (runs before init.el)
   init.el                — orchestration only: load-path → flags → packages → loader → core → leader → modules
+  Makefile               — `make test` runs the ERT suite in batch mode
   emacs-decisions-log.md — log of architectural and package decisions
   AGENTS.md              — canonical agent instructions for this repo
   CLAUDE.md              — one-line @AGENTS.md pointer
@@ -73,6 +74,10 @@ no Spacemacs).  Every package solves a concrete problem.
     read-later-readability — Playwright/Mozilla Readability article extractor
     read-later-snapshot  — fetch readable/full snapshots for queued captures
     readwise-export-import — one-time Readwise/Reader export importer
+  test/
+    my-feeds-search-header-tests.el — ERT tests for Elfeed search-header layout helpers
+    my-org-headline-bullets-tests.el — ERT tests for headline bullet glyph + matcher
+    my-org-tag-transitions-tests.el — ERT tests for tag transition rules and buffer transforms
 ```
 
 ## Load Order
@@ -238,6 +243,33 @@ behavior.
 - `C-x b *startup-errors*` to check for module failures
 - `C-x b *Messages*` for startup time and warnings
 - Startup target: under 1 second
+
+## Automated Tests (ERT)
+
+Tests live in `test/`, one `*-tests.el` file per source module.  Run the
+full suite with `make test` (uses `emacs -Q --batch -L elisp -L test`),
+or run interactively in a normal Emacs session with `M-x ert RET t RET`
+after evaluating the test file — interactive ERT gives clickable
+backtraces and lets you re-run a single failing test with debugging on.
+
+When deciding whether to add tests for a new file, apply this heuristic:
+
+- **Is there a pure function that takes inputs and returns outputs?**
+  If yes, test it.  This is where regressions hide and where ERT pays
+  back the maintenance cost.
+- **If the answer is no**, either refactor to expose one (e.g., split a
+  filtering step out of an interactive command so it can be unit-tested
+  with a list argument), or skip the file.
+- **Skip rendering, hooks, and advice by default.**  They are both the
+  hardest to test and the least likely to silently break — visible
+  breakage is its own test, and the fixtures required (face attributes,
+  buffer-local state, advice ordering, Org version coupling) cost more
+  than they save.
+
+Prefer testing buffer transforms with `with-temp-buffer` and
+`(let ((MODE-HOOK nil)) (MODE))` to isolate from user config.  Bind
+dynamic variables the function under test reads (e.g., rule tables,
+column widths) inside the test so each test owns its inputs.
 
 ## Files That Should Not Exist in ~/.emacs.d/
 
