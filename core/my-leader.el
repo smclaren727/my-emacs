@@ -69,106 +69,106 @@ KEY is a string accepted by `kbd'."
 
 ;;; Bindings ----------------------------------------------------------
 ;; Organized alphabetically by prefix.  Commands from optional modules
-;; are bound here as symbols; they resolve at call time so loading order
-;; doesn't matter.
+;; are bound as quoted symbols; they resolve at call time so loading order
+;; doesn't matter and native compilation does not require optional modules.
 
 ;; b = buffer
-(my-leader-define-default "b b" #'bury-buffer)
-(my-leader-define-default "b k" #'kill-current-buffer)
-(my-leader-define-default "b l" #'ibuffer)
-(my-leader-define-default "b r" #'rename-buffer)
-(my-leader-define-default "b s" #'switch-to-buffer)
-(my-leader-define-default "b v" #'revert-buffer)
+(my-leader-define-default "b b" 'bury-buffer)
+(my-leader-define-default "b k" 'kill-current-buffer)
+(my-leader-define-default "b l" 'ibuffer)
+(my-leader-define-default "b r" 'rename-buffer)
+(my-leader-define-default "b s" 'switch-to-buffer)
+(my-leader-define-default "b v" 'revert-buffer)
 
 ;; c = compile / build
-(my-leader-define-default "c c" #'compile)
-(my-leader-define-default "c d" #'flymake-show-buffer-diagnostics)
-(my-leader-define-default "c n" #'flymake-goto-next-error)
-(my-leader-define-default "c p" #'flymake-goto-prev-error)
-(my-leader-define-default "c r" #'recompile)
+(my-leader-define-default "c c" 'compile)
+(my-leader-define-default "c d" 'flymake-show-buffer-diagnostics)
+(my-leader-define-default "c n" 'flymake-goto-next-error)
+(my-leader-define-default "c p" 'flymake-goto-prev-error)
+(my-leader-define-default "c r" 'recompile)
 
 ;; d = dired
-(my-leader-define-default "d c" #'dired-create-directory)
-(my-leader-define-default "d d" #'dired)
-(my-leader-define-default "d g" #'revert-buffer)
-(my-leader-define-default "d j" #'dired-jump)
-(my-leader-define-default "d m" #'dired-mark)
-(my-leader-define-default "d n" #'dired-create-empty-file)
-(my-leader-define-default "d p" #'dired-jump-other-window)
-(my-leader-define-default "d r" #'wdired-change-to-wdired-mode)
-(my-leader-define-default "d t" #'dired-toggle-marks)
-(my-leader-define-default "d u" #'dired-unmark)
+(my-leader-define-default "d c" 'dired-create-directory)
+(my-leader-define-default "d d" 'dired)
+(my-leader-define-default "d g" 'revert-buffer)
+(my-leader-define-default "d j" 'dired-jump)
+(my-leader-define-default "d m" 'dired-mark)
+(my-leader-define-default "d n" 'dired-create-empty-file)
+(my-leader-define-default "d p" 'dired-jump-other-window)
+(my-leader-define-default "d r" 'wdired-change-to-wdired-mode)
+(my-leader-define-default "d t" 'dired-toggle-marks)
+(my-leader-define-default "d u" 'dired-unmark)
 
 ;; e = emacs / evaluate
-(my-leader-define-default "e b" #'eval-buffer)
-(my-leader-define-default "e r" #'eval-region)
-(my-leader-define-default "e e" #'eval-expression)
+(my-leader-define-default "e b" 'eval-buffer)
+(my-leader-define-default "e r" 'eval-region)
+(my-leader-define-default "e e" 'eval-expression)
 
 ;; f = files / search
-(my-leader-define-default "f f" #'project-find-file)
-(my-leader-define-default "f g" #'consult-ripgrep)
-(my-leader-define-default "f r" #'my-reveal-in-file-manager)
+(my-leader-define-default "f f" 'project-find-file)
+(my-leader-define-default "f g" 'consult-ripgrep)
+(my-leader-define-default "f r" 'my-reveal-in-file-manager)
 
 ;; g = git
-(my-leader-define-default "g b" #'magit-blame-addition)
-(my-leader-define-default "g c" #'magit-commit-create)
-(my-leader-define-default "g g" #'magit-status)
-(my-leader-define-default "g l" #'magit-log-current)
+(my-leader-define-default "g b" 'magit-blame-addition)
+(my-leader-define-default "g c" 'magit-commit-create)
+(my-leader-define-default "g g" 'magit-status)
+(my-leader-define-default "g l" 'magit-log-current)
 
 ;; h = help
-(my-leader-define-default "h f" #'describe-function)
-(my-leader-define-default "h k" #'describe-key)
-(my-leader-define-default "h m" #'describe-mode)
-(my-leader-define-default "h v" #'describe-variable)
+(my-leader-define-default "h f" 'describe-function)
+(my-leader-define-default "h k" 'describe-key)
+(my-leader-define-default "h m" 'describe-mode)
+(my-leader-define-default "h v" 'describe-variable)
 
 ;; n = news / feeds
-(my-leader-define-default "n b" #'my-feeds-browse-article)
-(my-leader-define-default "n d" #'my-feeds-save-article)
-(my-leader-define-default "n f" #'my-feeds-open-feed-file)
-(my-leader-define-default "n n" #'elfeed)
-(my-leader-define-default "n s" #'my-feeds-show-starred)
-(my-leader-define-default "n u" #'elfeed-update)
+(my-leader-define-default "n b" 'my-feeds-browse-article)
+(my-leader-define-default "n d" 'my-feeds-save-article)
+(my-leader-define-default "n f" 'my-feeds-open-feed-file)
+(my-leader-define-default "n n" 'elfeed)
+(my-leader-define-default "n s" 'my-feeds-show-starred)
+(my-leader-define-default "n u" 'elfeed-update)
 
 ;; o = org
-(my-leader-define-default "o a" #'org-agenda)
-(my-leader-define-default "o c" #'org-capture)
-(my-leader-define-default "o g" #'org-goto)
-(my-leader-define-default "o i" #'org-id-get-create)
-(my-leader-define-default "o l" #'org-store-link)
-(my-leader-define-default "o o" #'org-occur)
-(my-leader-define-default "o m" #'org-refile)
-(my-leader-define-default "o s" #'org-set-tags-command)
-(my-leader-define-default "o t" #'org-todo)
+(my-leader-define-default "o a" 'org-agenda)
+(my-leader-define-default "o c" 'org-capture)
+(my-leader-define-default "o g" 'org-goto)
+(my-leader-define-default "o i" 'org-id-get-create)
+(my-leader-define-default "o l" 'org-store-link)
+(my-leader-define-default "o o" 'org-occur)
+(my-leader-define-default "o m" 'org-refile)
+(my-leader-define-default "o s" 'org-set-tags-command)
+(my-leader-define-default "o t" 'org-todo)
 
 ;; p = project
-(my-leader-define-default "p f" #'project-find-file)
-(my-leader-define-default "p s" #'project-switch-project)
+(my-leader-define-default "p f" 'project-find-file)
+(my-leader-define-default "p s" 'project-switch-project)
 
 ;; r = remote / TRAMP
-(my-leader-define-default "r a" #'my-tramp-cleanup-all-connections)
-(my-leader-define-default "r b" #'my-tramp-cleanup-all-buffers)
-(my-leader-define-default "r c" #'my-tramp-cleanup-current-connection)
-(my-leader-define-default "r d" #'my-tramp-open-nixos-directory)
-(my-leader-define-default "r f" #'my-tramp-open-nixos-config)
-(my-leader-define-default "r l" #'my-tramp-open-local-shell)
-(my-leader-define-default "r n" #'my-tramp-open-nixos-modules)
-(my-leader-define-default "r s" #'my-tramp-sudo-edit-current-file)
-(my-leader-define-default "r t" #'my-tramp-open-shell)
-(my-leader-define-default "r T" #'my-tramp-open-tailscale-shell)
+(my-leader-define-default "r a" 'my-tramp-cleanup-all-connections)
+(my-leader-define-default "r b" 'my-tramp-cleanup-all-buffers)
+(my-leader-define-default "r c" 'my-tramp-cleanup-current-connection)
+(my-leader-define-default "r d" 'my-tramp-open-nixos-directory)
+(my-leader-define-default "r f" 'my-tramp-open-nixos-config)
+(my-leader-define-default "r l" 'my-tramp-open-local-shell)
+(my-leader-define-default "r n" 'my-tramp-open-nixos-modules)
+(my-leader-define-default "r s" 'my-tramp-sudo-edit-current-file)
+(my-leader-define-default "r t" 'my-tramp-open-shell)
+(my-leader-define-default "r T" 'my-tramp-open-tailscale-shell)
 
 ;; s = shell
-(my-leader-define-default "s n" #'my-shell-named)
-(my-leader-define-default "s s" #'my-shell-here)
-(my-leader-define-default "s w" #'my-shell-switch)
+(my-leader-define-default "s n" 'my-shell-named)
+(my-leader-define-default "s s" 'my-shell-here)
+(my-leader-define-default "s w" 'my-shell-switch)
 
 ;; w = window
-(my-leader-define-default "w b" #'balance-windows)
-(my-leader-define-default "w d" #'delete-window)
-(my-leader-define-default "w o" #'delete-other-windows)
-(my-leader-define-default "w r" #'winner-redo)
-(my-leader-define-default "w s" #'split-window-below)
-(my-leader-define-default "w u" #'winner-undo)
-(my-leader-define-default "w v" #'split-window-right)
+(my-leader-define-default "w b" 'balance-windows)
+(my-leader-define-default "w d" 'delete-window)
+(my-leader-define-default "w o" 'delete-other-windows)
+(my-leader-define-default "w r" 'winner-redo)
+(my-leader-define-default "w s" 'split-window-below)
+(my-leader-define-default "w u" 'winner-undo)
+(my-leader-define-default "w v" 'split-window-right)
 
 ;;; Which-key descriptions --------------------------------------------
 (with-eval-after-load 'which-key
