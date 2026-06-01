@@ -155,6 +155,22 @@ packages twice.
 
 ---
 
+### Emacs 31 third-party package warnings
+
+**Chosen:** Do not globally suppress Emacs 31 warnings for third-party packages.
+When package-managed code emits missing `lexical-binding` cookie warnings or
+obsolete API warnings, first update the package from ELPA/MELPA. If the current
+upstream package still warns, either tolerate the logged warning temporarily,
+replace the dependency, or carry a documented local package patch/fork.
+
+**Why:** Emacs 31's warnings are actionable compatibility signals. Suppressing
+warning types such as `(files missing-lexbind-cookie)` would also hide the same
+problem in future local code, which works against this config's drift-prevention
+goal. Package code in `elpa/` is ignored runtime state and should not be edited
+as the durable fix unless the patch is intentionally owned.
+
+---
+
 ## `my-core.el`
 
 ### `no-littering` for directory cleanliness
@@ -753,6 +769,11 @@ as a regular rectangular bar instead of a closing Powerline separator.
 Search and preview headers share one renderer so future changes to widths,
 separators, faces, and edge handling apply to both panes.
 
+**Future build note:** If Emacs 31 warnings from `elfeed-goodies`, `powerline`,
+or `popwin` remain noisy, replace `elfeed-goodies` with a small local split-pane
+implementation. The config already owns the Elfeed header and entry rendering,
+so the remaining dependency value is mostly the preview-window workflow.
+
 ### Elfeed header reaches the mode-line edge
 
 **Chosen:** Three coordinated tweaks let the Powerline header visually meet
@@ -997,6 +1018,7 @@ preview settings, and no attachment/contact extras on day one.
 | `my-ops.el` | No concrete need identified yet. |
 | Journaling workflow | Capture and ID scaffolding in place. Specific workflows deferred. |
 | consult-mu | Maybe later for fast async mail search from anywhere; start minimal if revisited. |
+| Replace `elfeed-goodies` | Future cleanup if Emacs 31 package warnings remain noisy; keep local rendering and rebuild only the split-pane behavior. |
 | elpaca migration | Future upgrade path from `package.el` once config stabilizes. |
 | `inhibit-redisplay` | Can be re-added to `early-init.el` once startup restoration is battle-tested. |
 | Linux / Windows OS module polish | Basic OS modules exist; deeper per-platform tuning deferred until needed. |
