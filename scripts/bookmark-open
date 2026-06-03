@@ -64,5 +64,12 @@ DAEMON_PID="$("$EMACSCLIENT" -s "$SOCKET" -e '(emacs-pid)' | tr -d '"')"
   -e '(my-bookmarks-open-frame)' \
   >/dev/null
 
-# Bring the daemon-owned Emacs frame to the foreground.
-osascript -e "tell application \"System Events\" to set frontmost of first process whose unix id is ${DAEMON_PID} to true"
+# Bring the daemon-owned Emacs frame to the foreground.  This is best-effort:
+# macOS updates can reset or tighten Automation/Accessibility permissions for
+# Shortcuts/Services, and a focus denial should not make the successful picker
+# launch look like a failed service.
+if ! /usr/bin/osascript \
+  -e "tell application \"System Events\" to set frontmost of first process whose unix id is ${DAEMON_PID} to true" \
+  >/dev/null 2>&1; then
+  :
+fi
