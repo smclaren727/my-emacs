@@ -15,6 +15,14 @@
 (declare-function vulpea-find "vulpea")
 (declare-function vulpea-insert "vulpea")
 (declare-function vulpea-find-backlink "vulpea")
+(declare-function vulpea-db-query "vulpea-db-query")
+(declare-function vulpea-db-query-by-tags-some "vulpea-db-query")
+(declare-function vulpea-note-id "vulpea-note")
+(declare-function vulpea-note-title "vulpea-note")
+(declare-function vulpea-note-aliases "vulpea-note")
+(declare-function vulpea-note-properties "vulpea-note")
+(declare-function org-in-src-block-p "org")
+(declare-function org-link-make-string "ol")
 (defvar my-notes-directory)
 (defvar my-leader-map)
 (defvar vulpea-db-location)
@@ -85,6 +93,97 @@
   (with-eval-after-load 'which-key
     (which-key-add-keymap-based-replacements my-leader-map
       "o v" "vulpea")))
+
+;;; Link completion via [[ ----------------------------------------------
+;; Port of the org-node `[[' capf.  Typing `[[' in an Org buffer offers
+;; vulpea note titles and aliases via corfu; selecting one replaces the
+;; bracket pair with a full [[id:..][title]] link (electric-pair aware).
+;; Disabled by default during coexistence so it does not double up with
+;; org-node's capf; enable at cutover (or to A/B test) by setting
+;; `my-vulpea-link-capf-enabled' non-nil.
+
+(defvar my-vulpea-link-capf-enabled nil
+  "When non-nil, offer vulpea note completion after `[[' in Org buffers.")
+
+(defun my-vulpea-link-capf ()
+  "Complete vulpea note titles after `[[' in Org buffers.
+Designed for `completion-at-point-functions'.  Inserts an
+[[id:..][title]] link on selection."
+  (when (and my-vulpea-link-capf-enabled
+             (derived-mode-p 'org-mode)
+             (not (org-in-src-block-p)))
+    (let ((pt (point)))
+      (save-excursion
+        (when (search-backward "[[" (line-beginning-position) t)
+          (let ((start (+ 2 (point))))
+            (when (<= start pt)
+              (let ((title<>id (make-hash-table :test 'equal))
+                    (titles nil))
+                (dolist (note (vulpea-db-query))
+                  (let ((id (vulpea-note-id note)))
+                    (when id
+                      (dolist (name (cons (vulpea-note-title note)
+                                          (vulpea-note-aliases note)))
+                        (when (and name (not (gethash name title<>id)))
+                          (puthash name id title<>id)
+                          (push name titles))))))
+                (list start pt
+                      (nreverse titles)
+                      :exclusive 'no
+                      :exit-function
+                      (lambda (text _status)
+                        (when-let* ((id (gethash text title<>id)))
+                          (atomic-change-group
+                            (let ((end (point))
+                                  (beg (save-excursion
+                                         (search-backward "[[" nil t))))
+                              (when beg
+                                (when (looking-at-p "\\]\\]")
+                                  (setq end (+ end 2)))
+                                (delete-region beg end)
+                                (goto-char beg)
+                                (insert (org-link-make-string
+                                         (concat "id:" id) text))))))))))))))))
+
+(defun my-vulpea--enable-link-capf ()
+  "Register the vulpea link completion-at-point function buffer-locally."
+  (add-hook 'completion-at-point-functions #'my-vulpea-link-capf nil t))
+
+(add-hook 'org-mode-hook #'my-vulpea--enable-link-capf)
+
+;;; Contact email completion -------------------------------------------
+;; Port of `my-node-contact-email'.  The original read only the EMAIL
+;; property, so it surfaced just the handful of contacts that use it.
+;; This version also searches EMAIL_WORK / EMAIL_HOME / EMAIL_OTHER and
+;; shows the address in the candidate, so every address is selectable.
+
+(defvar my-vulpea-contact-email-properties
+  '("EMAIL" "EMAIL_WORK" "EMAIL_HOME" "EMAIL_OTHER")
+  "Contact-note properties searched for an email address, in order.")
+
+(defun my-vulpea--contact-email-candidates ()
+  "Return an alist of (DISPLAY . EMAIL) from notes tagged `contact'."
+  (let (candidates)
+    (dolist (note (vulpea-db-query-by-tags-some '("contact")))
+      (let ((name (vulpea-note-title note))
+            (props (vulpea-note-properties note)))
+        (dolist (key my-vulpea-contact-email-properties)
+          (when-let* ((email (cdr (assoc key props))))
+            (push (cons (format "%s  <%s>" name email) email) candidates)))))
+    (nreverse candidates)))
+
+(defun my-vulpea-contact-email ()
+  "Complete a contact and insert their email address.
+Searches vulpea notes tagged `contact' for the properties in
+`my-vulpea-contact-email-properties'."
+  (interactive)
+  (let* ((candidates (my-vulpea--contact-email-candidates))
+         (choice (and candidates
+                      (completing-read "Contact email: " candidates nil t)))
+         (email (cdr (assoc choice candidates))))
+    (cond ((not candidates) (message "No contact emails found"))
+          (email (insert email))
+          (t (message "No email for %s" choice)))))
 
 (provide 'my-vulpea)
 ;;; my-vulpea.el ends here
