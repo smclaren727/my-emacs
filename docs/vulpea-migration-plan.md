@@ -70,8 +70,18 @@ Full comparison and rationale: `~/vulpea-vs-org-node-comparison.html`.
   - **Open (Step 1 safety net):** `~/All-The-Things/` is **not** under git.
     Put it under version control (or a snapshot) before cutover / drawer
     deletion.
-- Next: validate interactive parity in a live GUI session (`o v f/i/b`), then
-  Step 4 (port the `[[` capf + contact-email helper).
+- **2026-06-04 — Step 4 helpers ported.** Added `my-vulpea-link-capf`
+  (gated by `my-vulpea-link-capf-enabled`, default nil) and
+  `my-vulpea-contact-email` to `modules/my-vulpea.el`. Validated: check-parens
+  + byte-compile clean; against the live DB the capf builds 280 title/alias
+  candidates with valid id mapping, and the contact helper yields 58 addresses
+  (vs 18 for the original EMAIL-only helper). The old contact helper was
+  orphaned (never `require`d) and mail completion is independent — nothing to
+  repoint.
+- Next: in a live GUI session, validate parity (`o v f/i/b`; set
+  `my-vulpea-link-capf-enabled t` to try the capf), then Steps 5–6 (cutover:
+  repoint `o n`, delete `:BACKLINKS:` drawers, retire `my-nodes.el`). Put the
+  vault under git first.
 
 ## Phase 1 — migration steps
 
@@ -93,11 +103,11 @@ Full comparison and rationale: `~/vulpea-vs-org-node-comparison.html`.
 - [x] Warm the index on an idle timer after startup, mirroring `my-org-node--enable-modes`, to preserve the <1 s startup target.
 
 ### 4. Port the three helpers into `my-vulpea.el`
-- [ ] **`[[` → corfu capf.** Rebuild `my-org-node-link-capf` as `my-vulpea-link-capf`: same UX (type `[[`, corfu offers node titles, selection inserts `[[id:..][title]]`, electric-pair-aware). Candidates come from `vulpea-db` (title→id) instead of `org-mem--title<>id`. During coexistence, register it **without** removing org-node's capf; swap at cutover.
-- [ ] **Contact email.** Reimplement `my-node-contact-email` on `vulpea-db-query-by-tags-some '("contact")`, reading the `EMAIL` value from each note's `properties` (or `vulpea-db-query-by-property-key "EMAIL"`). Drops the manual `org-mem-all-id-nodes` loop. Re-point the mail-side caller once validated.
-- [ ] **Aliases.** Do **not** port the `org-mem-entry-roam-aliases` / `org-node-add-alias` shims — vulpea handles `ALIASES` natively. Net code removal.
-- [ ] **Leader bindings.** Add vulpea under a parallel prefix during coexistence (e.g. `o v f` `vulpea-find`, `o v i` `vulpea-insert`). Leave `o n …` on org-node until cutover.
-- [ ] **Grep.** No vulpea equivalent for `org-node-grep`; plan to bind `consult-ripgrep` over `my-notes-directory` at cutover.
+- [x] **`[[` → corfu capf.** `my-vulpea-link-capf` ports the org-node capf: candidates (titles **+ aliases**; 280) from `vulpea-db-query`, selection replaces the bracket pair with `[[id:..][title]]`. Gated by `my-vulpea-link-capf-enabled` (nil during coexistence so it does not double with org-node's capf); the `org-mode-hook` is registered now. Flip to `t` to A/B test or at cutover.
+- [x] **Contact email.** `my-vulpea-contact-email` queries `vulpea-db-query-by-tags-some '("contact")`. Also fixes a latent gap: the original read only `EMAIL` (18 contacts); the port covers `EMAIL_WORK`/`EMAIL_HOME`/`EMAIL_OTHER` too (58 addresses) and shows each address in the candidate. No mail-side caller to repoint — `my-mail.el` has its own contact completion and the old helper was orphaned (never `require`d).
+- [x] **Aliases.** Not ported — vulpea handles `ALIASES` natively. The `org-mem-entry-roam-aliases` / `org-node-add-alias` shims go away with `my-nodes.el` at cutover.
+- [x] **Leader bindings.** Done in Step 3: `o v f/i/b/s`. `o n …` stays on org-node until cutover.
+- [ ] **Grep.** No vulpea equivalent for `org-node-grep`; bind `consult-ripgrep` over `my-notes-directory` at cutover.
 
 ### 5. Validate parity (acceptance criteria)
 - [ ] vulpea indexes the vault; note count is consistent with `(length (org-mem-all-id-nodes))`.
