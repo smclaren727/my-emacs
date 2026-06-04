@@ -89,9 +89,14 @@ Full comparison and rationale: `~/vulpea-vs-org-node-comparison.html`.
   `my-nodes.el` + `elisp/my-node-contact-email.el` removed, and
   init/flags/AGENTS/decisions-log updated. **vulpea is now the sole notes
   engine.** Rollback = restore the snapshot tarball + `git revert`.
-- Next (post-migration): optionally add `vulpea-ui` (live backlinks sidebar);
-  uninstall the now-unused org-node/org-mem/el-job packages when convenient;
-  then Phase 2 (nix-node serve layer + Go PWA).
+- **2026-06-04 — post-migration housekeeping + vulpea-ui.** Uninstalled the
+  unused org-node/org-mem/el-job packages (`custom.el` selected-packages
+  updated). Refreshed the assistant memory (`MEMORY.md`). Installed `vulpea-ui`
+  (+ `vui`) and bound the live sidebar to `o n u`
+  (backlinks/outline/links/stats; replaces the deleted drawers).
+- Next: evaluate `vulpea-journal` (a journaling-model change — its own design
+  decision), then Phase 2 (re-enable Syncthing to the node; nix-node serve
+  layer + Go PWA reading `vulpea.db`).
 
 ## Phase 1 — migration steps
 
@@ -138,7 +143,7 @@ Full comparison and rationale: `~/vulpea-vs-org-node-comparison.html`.
 
 | Item | Why deferred |
 |---|---|
-| `vulpea-ui` sidebar (+ `vui`) | Live backlinks/outline/links view — the natural replacement for the deleted drawers. Add right after parity. Pulls in the `vui` dependency. |
+| `vulpea-ui` sidebar (+ `vui`) | **✅ Added 2026-06-04** (post-parity). Live backlinks/outline/links/stats sidebar, toggle `o n u`. Replaces the deleted `:BACKLINKS:` drawers. Mac-only convenience (irrelevant to the headless node / Go layer). |
 | `vulpea-journal` | Changes journal storage from the single datetree file to one-file-per-day ID notes. Its own decision; evaluate in Phase 3. Default: keep the current datetree for now. |
 | Node packaging | Phase 2. On the node `use-package-always-ensure` is off, so vulpea/emacsql/vui must be added to the node's Nix Emacs package set, not installed via package.el. |
 

@@ -13,6 +13,7 @@
 (declare-function vulpea-find "vulpea")
 (declare-function vulpea-insert "vulpea")
 (declare-function vulpea-find-backlink "vulpea")
+(declare-function vulpea-ui-sidebar-toggle "vulpea-ui")
 (declare-function vulpea-db-query "vulpea-db-query")
 (declare-function vulpea-db-query-by-tags-some "vulpea-db-query")
 (declare-function vulpea-note-id "vulpea-note")
@@ -100,6 +101,17 @@ Replaces the org-node `o n g' grep binding."
   (with-eval-after-load 'which-key
     (which-key-add-keymap-based-replacements my-leader-map
       "o n" "notes")))
+
+;;; Sidebar (vulpea-ui) -------------------------------------------------
+;; Live contextual panel for the focused note: backlinks (with context
+;; glyphs), outline, outgoing links, and stats.  Replaces the in-file
+;; :BACKLINKS: drawers removed at the org-node cutover.  Defaults are
+;; sensible (right side, 0.33 width, auto-hide, auto-refresh).
+
+(use-package vulpea-ui
+  :defer t
+  :init
+  (my-leader-define "o n u" #'vulpea-ui-sidebar-toggle))
 
 ;;; Link completion via [[ ----------------------------------------------
 ;; Typing `[[' in an Org buffer offers vulpea note titles and aliases via
