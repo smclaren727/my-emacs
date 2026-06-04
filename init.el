@@ -122,9 +122,6 @@
 (when my-flag-reading
   (my-load-module reading "my-reading"))
 
-(when my-flag-nodes
-  (my-load-module nodes "my-nodes"))
-
 (when my-flag-vulpea
   (my-load-module vulpea "my-vulpea"))
 

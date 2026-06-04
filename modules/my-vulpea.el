@@ -1,11 +1,9 @@
 ;;; my-vulpea.el --- Vulpea SQLite-backed notes engine -*- lexical-binding: t; -*-
 
 ;; Vulpea: networked notes backed by its own SQLite database, with a
-;; typed query API and structured `vulpea-meta' metadata.  Installed
-;; alongside org-node during the migration so both engines can index the
-;; same vault non-destructively; see docs/vulpea-migration-plan.md.
-;; Notes live in `my-notes-directory'.  Set `my-flag-vulpea' to nil to
-;; roll back to org-node alone.
+;; typed query API and structured `vulpea-meta' metadata.  This is the
+;; notes engine — it replaced org-node; see docs/vulpea-migration-plan.md.
+;; Notes live in `my-notes-directory'.
 
 ;;; Forward declarations ------------------------------------------------
 
@@ -23,6 +21,7 @@
 (declare-function vulpea-note-properties "vulpea-note")
 (declare-function org-in-src-block-p "org")
 (declare-function org-link-make-string "ol")
+(declare-function consult-ripgrep "consult")
 (defvar my-notes-directory)
 (defvar my-leader-map)
 (defvar vulpea-db-location)
@@ -65,6 +64,14 @@
                              nil
                              #'my-vulpea--enable-autosync-now)))
 
+;;; Notes search --------------------------------------------------------
+
+(defun my-vulpea-grep ()
+  "Search notes with `consult-ripgrep' rooted at `my-notes-directory'.
+Replaces the org-node `o n g' grep binding."
+  (interactive)
+  (consult-ripgrep my-notes-directory))
+
 ;;; Vulpea setup --------------------------------------------------------
 
 (use-package vulpea
@@ -81,28 +88,25 @@
         vulpea-db-sync-scan-on-enable 'async)
   (make-directory (file-name-directory my-vulpea-db-location) t)
 
-  ;; Coexistence bindings under `o v' (org -> vulpea).  Kept separate
-  ;; from org-node's `o n' until cutover so both engines stay usable.
-  (my-leader-define "o v f" #'vulpea-find)
-  (my-leader-define "o v i" #'vulpea-insert)
-  (my-leader-define "o v b" #'vulpea-find-backlink)
-  (my-leader-define "o v s" #'vulpea-db-sync-full-scan)
+  ;; Notes bindings under `o n' (org -> notes).
+  (my-leader-define "o n f" #'vulpea-find)
+  (my-leader-define "o n i" #'vulpea-insert)
+  (my-leader-define "o n b" #'vulpea-find-backlink)
+  (my-leader-define "o n g" #'my-vulpea-grep)
+  (my-leader-define "o n s" #'vulpea-db-sync-full-scan)
 
   (my-vulpea--enable-autosync)
 
   (with-eval-after-load 'which-key
     (which-key-add-keymap-based-replacements my-leader-map
-      "o v" "vulpea")))
+      "o n" "notes")))
 
 ;;; Link completion via [[ ----------------------------------------------
-;; Port of the org-node `[[' capf.  Typing `[[' in an Org buffer offers
-;; vulpea note titles and aliases via corfu; selecting one replaces the
-;; bracket pair with a full [[id:..][title]] link (electric-pair aware).
-;; Disabled by default during coexistence so it does not double up with
-;; org-node's capf; enable at cutover (or to A/B test) by setting
-;; `my-vulpea-link-capf-enabled' non-nil.
+;; Typing `[[' in an Org buffer offers vulpea note titles and aliases via
+;; corfu; selecting one replaces the bracket pair with a full
+;; [[id:..][title]] link (electric-pair aware).
 
-(defvar my-vulpea-link-capf-enabled nil
+(defvar my-vulpea-link-capf-enabled t
   "When non-nil, offer vulpea note completion after `[[' in Org buffers.")
 
 (defun my-vulpea-link-capf ()

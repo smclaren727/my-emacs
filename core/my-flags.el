@@ -41,13 +41,8 @@
 (defvar my-flag-reading t
   "Load local-first read-later capture module.")
 
-(defvar my-flag-nodes t
-  "Load org-node module (networked notes, backlinks, node search).")
-
 (defvar my-flag-vulpea t
-  "Load vulpea module (SQLite-backed notes engine).
-Runs alongside org-node during the migration; see
-docs/vulpea-migration-plan.md.  Set to nil to roll back to org-node.")
+  "Load vulpea module (SQLite-backed networked notes, backlinks, search).")
 
 (defvar my-flag-bookmarks t
   "Load bookmarks module (org-based bookmark manager).")

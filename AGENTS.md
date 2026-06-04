@@ -49,7 +49,7 @@ no Spacemacs).  Every package solves a concrete problem.
     my-shells.el         — project-aware shell management (provides 'my-shells)
     my-feeds.el          — Elfeed, elfeed-goodies, elfeed-tube, feed browsing (provides 'my-feeds)
     my-reading.el        — local-first read-later captures, snapshots, Reader migration (provides 'my-reading)
-    my-nodes.el          — org-node networked notes, backlinks, node search (provides 'my-nodes)
+    my-vulpea.el         — vulpea networked notes (SQLite), backlinks, [[ completion, contact email (provides 'my-vulpea)
     my-bookmarks.el      — org-backed bookmark manager (provides 'my-bookmarks)
     my-ai.el             — gptel + agent-shell: LLM chat, Claude Code, Codex (provides 'my-ai)
     my-mail.el           — mu4e, Org contact completion, mbsync, msmtp, org-msg, dashboard, org mail capture (provides 'my-mail)
@@ -59,7 +59,6 @@ no Spacemacs).  Every package solves a concrete problem.
   elisp/
     my-elfeed.el                 — shared Elfeed helpers (entry-at-point)
     my-feeds-search-header.el    — Powerline header rendering for Elfeed search/show
-    my-node-contact-email.el     — org-node contact email completion helper
     my-org-headline-bullets.el   — display-only Org headline bullet glyphs
     my-org-property-drawers.el   — keep Org property drawers folded
     my-org-tag-transitions.el    — automatic Org tag transition rules
@@ -183,7 +182,7 @@ Project-specific additions on top of the style guide:
   emacsclient --eval "(symbol-file 'consult-ripgrep 'defun)"
   emacsclient --eval "(boundp 'my-notes-directory)"
   emacsclient --eval "(symbol-value 'my-notes-directory)"
-  emacsclient --eval "(locate-library \"org-node\")"
+  emacsclient --eval "(locate-library \"vulpea\")"
   emacsclient --eval "(macroexpand-1 '(use-package consult :commands consult-ripgrep))"
   ```
 

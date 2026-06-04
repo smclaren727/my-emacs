@@ -5,6 +5,30 @@ configuration. Each entry captures what was chosen, why, and what the
 alternatives were. This serves as a reference for future changes and
 as onboarding documentation.
 
+## Current State Overrides (2026-06-04)
+
+These entries supersede older sections below where they conflict.
+
+- Networked notes use **vulpea** (its own SQLite DB) via `modules/my-vulpea.el`,
+  replacing org-node/org-mem.  `my-nodes.el` and
+  `elisp/my-node-contact-email.el` were removed and the `my-flag-nodes` flag is
+  gone.  Full record: `docs/vulpea-migration-plan.md`.
+- Notes leader prefix `o n` binds vulpea: `f` find, `i` insert-link, `b`
+  find-backlink, `g` notes grep (`my-vulpea-grep` → `consult-ripgrep`), `s`
+  full DB scan.  `[[` completes vulpea notes (titles + aliases) via
+  `my-vulpea-link-capf`; `my-vulpea-contact-email` inserts a contact address.
+- Why vulpea: structured, queryable `vulpea-meta` metadata plus a real SQLite
+  query API the org-node engine lacked — and the DB enables an out-of-Emacs
+  (Go/PWA) mobile layer.  vulpea v2 dropped org-roam, so this is an
+  engine-for-engine swap, not an org-roam adoption.
+- vulpea uses the `ALIASES` property natively (no shims).  The org-node
+  `:BACKLINKS:` drawers were deleted from the vault at cutover (only 3 files had
+  them); backlinks now live in the DB.
+- org-node/org-mem/el-job packages remain installed but unused; remove when
+  convenient.
+
+---
+
 ## Current State Overrides (2026-04-17)
 
 These entries supersede older sections below where they conflict.

@@ -78,10 +78,20 @@ Full comparison and rationale: `~/vulpea-vs-org-node-comparison.html`.
   (vs 18 for the original EMAIL-only helper). The old contact helper was
   orphaned (never `require`d) and mail completion is independent — nothing to
   repoint.
-- Next: in a live GUI session, validate parity (`o v f/i/b`; set
-  `my-vulpea-link-capf-enabled t` to try the capf), then Steps 5–6 (cutover:
-  repoint `o n`, delete `:BACKLINKS:` drawers, retire `my-nodes.el`). Put the
-  vault under git first.
+- **2026-06-04 — Step 5 parity validated (user).** `o v f/i/b`,
+  `my-vulpea-contact-email`, and the `[[` capf all work as expected in a live
+  session. Decision: at cutover, set `my-vulpea-link-capf-enabled` default to
+  `t` so the capf is always on (kept off until then to avoid a double capf
+  while org-node is still loaded).
+- **2026-06-04 — Step 6 cutover complete.** Snapshotted the vault, deleted the
+  3 `:BACKLINKS:` drawers (verified by diff against the snapshot), and retired
+  org-node: `o n` rebinds to vulpea, `[[` capf always-on, `my-flag-nodes` +
+  `my-nodes.el` + `elisp/my-node-contact-email.el` removed, and
+  init/flags/AGENTS/decisions-log updated. **vulpea is now the sole notes
+  engine.** Rollback = restore the snapshot tarball + `git revert`.
+- Next (post-migration): optionally add `vulpea-ui` (live backlinks sidebar);
+  uninstall the now-unused org-node/org-mem/el-job packages when convenient;
+  then Phase 2 (nix-node serve layer + Go PWA).
 
 ## Phase 1 — migration steps
 
@@ -117,12 +127,12 @@ Full comparison and rationale: `~/vulpea-vs-org-node-comparison.html`.
 - [ ] Inspect the DB: `sqlite3 <my-vulpea-db-location> '.tables'` and `'.schema'` — confirm it is populated and **capture the real column identifiers** (emacsql dash/underscore mangling) for the Go phase.
 
 ### 6. Cutover (single commit window)
-- [ ] Back up the vault; commit.
-- [ ] Run `org-node-backlink-mass-delete-drawers` once (org-node still loaded) to remove the now-unmaintained `:BACKLINKS:` drawers. Commit the vault change separately.
-- [ ] Repoint `o n f/i/g` to `vulpea-find` / `vulpea-insert` / `consult-ripgrep`; swap the capf to `my-vulpea-link-capf`.
-- [ ] Set `my-flag-nodes nil`; remove (or archive) `modules/my-nodes.el` and `elisp/my-node-contact-email.el`.
-- [ ] Update `AGENTS.md`, `MEMORY.md`, and `emacs-decisions-log.md` to describe the vulpea engine.
-- [ ] Final commit: `modules: migrate notes engine org-node -> vulpea`.
+- [x] Snapshot the vault → `~/All-The-Things-backup-pre-vulpea-20260604-152832.tar.gz`.
+- [x] Delete the `:BACKLINKS:` drawers — only **3 files** had them (vault is sparsely linked). Removed via a verified pure-text edit (diffed against the snapshot: only drawer lines removed, nothing else).
+- [x] Repoint `o n f/i/b/g/s` to vulpea (`vulpea-find` / `vulpea-insert` / `vulpea-find-backlink` / `my-vulpea-grep` / `vulpea-db-sync-full-scan`); `my-vulpea-link-capf-enabled` default now `t`; org-node's capf removed with `my-nodes.el`.
+- [x] Removed the `my-flag-nodes` flag + its init load block; deleted `modules/my-nodes.el` and `elisp/my-node-contact-email.el`.
+- [x] Updated `AGENTS.md` and `emacs-decisions-log.md`. (MEMORY.md is the assistant auto-memory and already stale on unrelated points — left for a separate `consolidate-memory` pass.)
+- [ ] Final commit: `modules: complete cutover from org-node to vulpea`.
 
 ## Deferred (not blocking Phase 1 parity)
 
