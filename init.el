@@ -125,6 +125,9 @@
 (when my-flag-nodes
   (my-load-module nodes "my-nodes"))
 
+(when my-flag-vulpea
+  (my-load-module vulpea "my-vulpea"))
+
 (when my-flag-bookmarks
   (my-load-module bookmarks "my-bookmarks"))
 

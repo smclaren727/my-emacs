@@ -44,6 +44,11 @@
 (defvar my-flag-nodes t
   "Load org-node module (networked notes, backlinks, node search).")
 
+(defvar my-flag-vulpea t
+  "Load vulpea module (SQLite-backed notes engine).
+Runs alongside org-node during the migration; see
+docs/vulpea-migration-plan.md.  Set to nil to roll back to org-node.")
+
 (defvar my-flag-bookmarks t
   "Load bookmarks module (org-based bookmark manager).")
 
