@@ -24,8 +24,9 @@ These entries supersede older sections below where they conflict.
 - vulpea uses the `ALIASES` property natively (no shims).  The org-node
   `:BACKLINKS:` drawers were deleted from the vault at cutover (only 3 files had
   them); backlinks now live in the DB.
-- org-node/org-mem/el-job packages remain installed but unused; remove when
-  convenient.
+- org-node/org-mem/el-job packages were uninstalled (2026-06-04). Post-cutover,
+  added `vulpea-ui` (live sidebar, `o n u`) and `vulpea-journal` (daily journal
+  notes in `journal/`, `o n j` today / `o n J` date).
 
 ---
 

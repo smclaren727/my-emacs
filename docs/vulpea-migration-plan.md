@@ -94,9 +94,13 @@ Full comparison and rationale: `~/vulpea-vs-org-node-comparison.html`.
   updated). Refreshed the assistant memory (`MEMORY.md`). Installed `vulpea-ui`
   (+ `vui`) and bound the live sidebar to `o n u`
   (backlinks/outline/links/stats; replaces the deleted drawers).
-- Next: evaluate `vulpea-journal` (a journaling-model change — its own design
-  decision), then Phase 2 (re-enable Syncthing to the node; nix-node serve
-  layer + Go PWA reading `vulpea.db`).
+- **2026-06-04 — vulpea-journal adopted (daily).** `journal.org` was empty (no
+  history to migrate). Installed `vulpea-journal`; daily `:ID:` notes in
+  `journal/` (defaults), leader `o n j`/`o n J`, `vulpea-journal-setup` wires the
+  calendar + "on this day" widgets into the sidebar. Retired the datetree `j`
+  capture template (`my-org-mode.el`).
+- Next: **Phase 2** — re-enable Syncthing to the node; stand up the nix-node
+  serve layer (vulpea indexes the synced vault → `vulpea.db`) + the Go PWA backend.
 
 ## Phase 1 — migration steps
 
@@ -144,7 +148,7 @@ Full comparison and rationale: `~/vulpea-vs-org-node-comparison.html`.
 | Item | Why deferred |
 |---|---|
 | `vulpea-ui` sidebar (+ `vui`) | **✅ Added 2026-06-04** (post-parity). Live backlinks/outline/links/stats sidebar, toggle `o n u`. Replaces the deleted `:BACKLINKS:` drawers. Mac-only convenience (irrelevant to the headless node / Go layer). |
-| `vulpea-journal` | Changes journal storage from the single datetree file to one-file-per-day ID notes. Its own decision; evaluate in Phase 3. Default: keep the current datetree for now. |
+| `vulpea-journal` | **✅ Added 2026-06-04.** Daily `:ID:` notes in `journal/` (vulpea-journal defaults). Leader `o n j` (today) / `o n J` (date); calendar + "on this day" widgets via `vulpea-ui`. Retired the unused datetree `j` capture template. `journal.org` was empty, so no history migration. |
 | Node packaging | Phase 2. On the node `use-package-always-ensure` is off, so vulpea/emacsql/vui must be added to the node's Nix Emacs package set, not installed via package.el. |
 
 ## Phase 2 — serve layer (sketch)

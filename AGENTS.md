@@ -215,16 +215,17 @@ behavior.
 
 - Root: `~/All-The-Things/` (controlled by `my-notes-directory`)
 - Structure follows PARA methodology:
-  - `00-Capture/` — inbox.org, journal.org, newly captured items awaiting refile
+  - `00-Capture/` — inbox.org, newly captured items awaiting refile
   - `10-Projects/` — one .org file per project (e.g. `refinance-home-mortgage.org`)
   - `20-Areas/` — one .org file per area (e.g. `household.org`, `pc-sarasota.org`)
   - `30-Interests/` — currently `interests.org`
   - `40-Knowledge/` — currently `knowledge.org`
   - `50-Resources/` — bookmarks.org, feeds.org, Saved-Articles/, Contacts/
   - `60-Archive/` — archive.org
-- Capture templates: todo (`t`), note (`n`), journal (`j`), project (`p`)
+  - `journal/` — vulpea-journal daily notes (`journal/%Y-%m-%d.org`), tagged `journal`
+- Capture templates: todo (`t`), note (`n`), project (`p`)
 - Project capture creates a new file in `10-Projects/` via `my-org-capture-project-file`
-- Journal uses `file+olp+datetree` with `:tree-type day` (Year → Month → Day)
+- Journal: `vulpea-journal` daily notes (one `:ID:` note per day in `journal/`); leader `o n j` (today) / `o n J` (pick date); calendar + "on this day in previous years" via the `vulpea-ui` sidebar
 - `org-id` enabled from day one — IDs generated on every capture
 - Refile targets: all project files, inbox, areas, interests
 - Auto-save after refile via advice on `org-refile`

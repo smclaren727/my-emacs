@@ -14,6 +14,9 @@
 (declare-function vulpea-insert "vulpea")
 (declare-function vulpea-find-backlink "vulpea")
 (declare-function vulpea-ui-sidebar-toggle "vulpea-ui")
+(declare-function vulpea-journal-today "vulpea-journal")
+(declare-function vulpea-journal-date "vulpea-journal")
+(declare-function vulpea-journal-setup "vulpea-journal")
 (declare-function vulpea-db-query "vulpea-db-query")
 (declare-function vulpea-db-query-by-tags-some "vulpea-db-query")
 (declare-function vulpea-note-id "vulpea-note")
@@ -112,6 +115,21 @@ Replaces the org-node `o n g' grep binding."
   :defer t
   :init
   (my-leader-define "o n u" #'vulpea-ui-sidebar-toggle))
+
+;;; Journal (vulpea-journal) --------------------------------------------
+;; Daily journal: one :ID: note per day at `journal/%Y-%m-%d.org' under
+;; `my-notes-directory', tagged `journal' (all vulpea-journal defaults, so
+;; no template override).  `vulpea-journal-setup' registers the calendar
+;; and "on this day in previous years" widgets in the vulpea-ui sidebar.
+;; `o n j' opens today's entry; `o n J' prompts for a date.
+
+(use-package vulpea-journal
+  :defer t
+  :init
+  (my-leader-define "o n j" #'vulpea-journal-today)
+  (my-leader-define "o n J" #'vulpea-journal-date)
+  :config
+  (vulpea-journal-setup))
 
 ;;; Link completion via [[ ----------------------------------------------
 ;; Typing `[[' in an Org buffer offers vulpea note titles and aliases via

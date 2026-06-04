@@ -236,11 +236,8 @@ doesn't already exist."
            (file ,(expand-file-name "00-Capture/inbox.org" my-notes-directory))
            "* %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n%a\n%i"
            :empty-lines 1)
-          ("j" "Journal" entry
-           (file+olp+datetree ,(expand-file-name "00-Capture/journal.org" my-notes-directory))
-           "* %?\n%U\n"
-           :tree-type day
-           :empty-lines 1)
+          ;; Journaling moved to vulpea-journal (leader `o n j'); see
+          ;; modules/my-vulpea.el.
           ("p" "Project" entry
            (file my-org-capture-project-file)
            "* NEXT Define first action\n"
