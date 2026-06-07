@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Delete read-later items and their generated/queued state."""
+"""Delete save-link items and their generated/queued state."""
 
 from __future__ import annotations
 
@@ -34,10 +34,10 @@ def iso_timestamp(moment: dt.datetime | None = None) -> str:
 
 
 def default_root() -> Path:
-    root = os.environ.get("MY_READING_ROOT")
+    root = os.environ.get("MY_SAVE_LINK_ROOT")
     if root:
         return Path(root).expanduser()
-    return Path("~/All-The-Things/50-Resources/Read-Later").expanduser()
+    return Path("~/All-The-Things/50-Resources/Save-Link").expanduser()
 
 
 def normalize_url(url: str) -> str:
@@ -111,10 +111,10 @@ def item_path_in_root(root: Path, path: Path) -> bool:
 def item_record(root: Path, path: Path) -> dict:
     path = path.expanduser()
     if not item_path_in_root(root, path):
-        raise ValueError(f"Refusing to delete non-read-later item path: {path}")
+        raise ValueError(f"Refusing to delete non-save-link item path: {path}")
     text = read_text(path)
     canonical_url = read_org_property(text, "CANONICAL_URL") or read_org_property(text, "URL")
-    org_id = read_org_property(text, "ID") or read_org_property(text, "READ_LATER_ID")
+    org_id = read_org_property(text, "ID")
     return {
         "org_id": org_id,
         "path": str(path),
@@ -161,7 +161,7 @@ def collect_records(root: Path, args: argparse.Namespace) -> list[dict]:
     for value in args.item:
         path = Path(value).expanduser()
         if not path.exists():
-            raise FileNotFoundError(f"Read-later item does not exist: {path}")
+            raise FileNotFoundError(f"Save-link item does not exist: {path}")
         add(item_record(root, path))
 
     for org_id in args.org_id:
@@ -241,7 +241,7 @@ def delete_queue_entries(root: Path, records: list[dict], dry_run: bool) -> list
 def refresh_feed(root: Path, dry_run: bool) -> dict:
     if dry_run:
         return {}
-    script = Path(__file__).with_name("read-later-feed")
+    script = Path(__file__).with_name("save-link-feed")
     if not script.exists():
         return {}
     result = subprocess.run(
@@ -253,11 +253,11 @@ def refresh_feed(root: Path, dry_run: bool) -> dict:
     )
     if result.returncode != 0:
         message = result.stderr.strip() or result.stdout.strip()
-        return {"error": message or "read-later-feed failed"}
+        return {"error": message or "save-link-feed failed"}
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError:
-        return {"error": "read-later-feed returned invalid JSON"}
+        return {"error": "save-link-feed returned invalid JSON"}
 
 
 def delete_records(root: Path, records: list[dict], dry_run: bool) -> dict:
@@ -305,7 +305,7 @@ def main() -> int:
 
     records = collect_records(root, args)
     if not records:
-        parser.error("No matching read-later items found")
+        parser.error("No matching save-link items found")
 
     result = delete_records(root, records, args.dry_run)
     if args.json:
@@ -323,5 +323,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except (OSError, ValueError) as error:
-        print(f"read-later-delete: {error}", file=sys.stderr)
+        print(f"save-link-delete: {error}", file=sys.stderr)
         sys.exit(1)

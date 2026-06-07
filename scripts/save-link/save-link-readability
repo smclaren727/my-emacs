@@ -5,7 +5,7 @@ const fs = require("fs");
 
 function chromiumExecutablePath(chromium) {
   const candidates = [
-    process.env.READ_LATER_CHROMIUM,
+    process.env.SAVE_LINK_CHROMIUM,
     chromium.executablePath(),
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -47,7 +47,7 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    "Usage: read-later-readability --url URL [--output PATH] [--timeout MS]",
+    "Usage: save-link-readability --url URL [--output PATH] [--timeout MS]",
     "",
     "Runs Chromium through Playwright, extracts the main article with",
     "Mozilla Readability, and writes JSON containing rendered HTML and",
@@ -108,7 +108,7 @@ async function run() {
       userAgent:
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
         "AppleWebKit/537.36 (KHTML, like Gecko) " +
-        "Chrome/122.0.0.0 Safari/537.36 read-later-snapshot/1.0",
+        "Chrome/122.0.0.0 Safari/537.36 save-link-snapshot/1.0",
       viewport: { width: 1365, height: 1800 },
     });
     await page.goto(args.url, {
@@ -154,6 +154,6 @@ async function run() {
 }
 
 run().catch((error) => {
-  console.error(`read-later-readability: ${error.message}`);
+  console.error(`save-link-readability: ${error.message}`);
   process.exit(1);
 });

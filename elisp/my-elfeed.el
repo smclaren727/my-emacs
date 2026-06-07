@@ -1,6 +1,6 @@
 ;;; my-elfeed.el --- Shared Elfeed helpers -*- lexical-binding: t; -*-
 
-;; Small helpers shared between `my-feeds' and `my-reading'.  Keeping
+;; Small helpers shared between `my-feeds' and `my-save-link'.  Keeping
 ;; them here lets both modules call into a single source instead of
 ;; carrying byte-identical copies that can drift.
 

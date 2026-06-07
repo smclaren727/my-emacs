@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate an RSS feed from canonical read-later Org items."""
+"""Generate an RSS feed from canonical save-link Org items."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from email.utils import format_datetime
 from pathlib import Path
 
 
-SNAPSHOT_BEGIN = "# READ-LATER-SNAPSHOT-BEGIN"
+SNAPSHOT_BEGIN = "# SAVE-LINK-SNAPSHOT-BEGIN"
 
 
 def utc_now() -> dt.datetime:
@@ -28,10 +28,10 @@ def iso_timestamp(moment: dt.datetime | None = None) -> str:
 
 
 def default_root() -> Path:
-    root = os.environ.get("MY_READING_ROOT")
+    root = os.environ.get("MY_SAVE_LINK_ROOT")
     if root:
         return Path(root).expanduser()
-    return Path("~/All-The-Things/50-Resources/Read-Later").expanduser()
+    return Path("~/All-The-Things/50-Resources/Save-Link").expanduser()
 
 
 def atomic_write(path: Path, text: str) -> None:
@@ -182,9 +182,9 @@ def generate_feed(root: Path, output: Path) -> dict:
     ET.register_namespace("atom", "http://www.w3.org/2005/Atom")
     rss = ET.Element("rss", {"version": "2.0"})
     channel = ET.SubElement(rss, "channel")
-    ET.SubElement(channel, "title").text = "Read Later"
+    ET.SubElement(channel, "title").text = "Save Link"
     ET.SubElement(channel, "link").text = file_uri(root)
-    ET.SubElement(channel, "description").text = "Local-first saved links and articles from read-later Org items."
+    ET.SubElement(channel, "description").text = "Local-first saved links and articles from save-link Org items."
     ET.SubElement(channel, "lastBuildDate").text = format_datetime(utc_now())
     ET.SubElement(
         channel,
@@ -228,7 +228,7 @@ def main() -> int:
     if args.json:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     else:
-        print(f"Generated {result['items']} read-later feed items: {output}")
+        print(f"Generated {result['items']} save-link feed items: {output}")
     return 0
 
 

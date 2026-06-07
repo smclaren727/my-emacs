@@ -119,8 +119,8 @@
 (when my-flag-feeds
   (my-load-module feeds "my-feeds"))
 
-(when my-flag-reading
-  (my-load-module reading "my-reading"))
+(when my-flag-save-link
+  (my-load-module save-link "my-save-link"))
 
 (when my-flag-vulpea
   (my-load-module vulpea "my-vulpea"))

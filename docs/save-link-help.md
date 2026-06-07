@@ -1,21 +1,22 @@
-# Local-First Read-Later Help
+# Local-First Save-Link Help
 
-This setup moves saved reading away from Readwise/Reader and into a shared
-local-first folder. Emacs, Safari, and Elfeed currently write into the same
-read-later contract; iPhone and loxley ingress remain roadmap work.
+This setup stores saved links and article candidates in a shared local-first
+folder. Emacs, Safari, and Elfeed currently write into the same save-link
+contract; one-time Readwise/Reader imports are supported by the importer, and
+iPhone/loxley ingress remains roadmap work.
 
 ## Storage Layout
 
 Mac default root:
 
 ```text
-~/All-The-Things/50-Resources/Read-Later/
+~/All-The-Things/50-Resources/Save-Link/
 ```
 
-Loxley root:
+Planned loxley root:
 
 ```text
-/srv/loxley/All-The-Things/50-Resources/Read-Later/
+/srv/loxley/All-The-Things/50-Resources/Save-Link/
 ```
 
 Folder roles:
@@ -23,7 +24,7 @@ Folder roles:
 ```text
 AGENTS.md
 items/              canonical Org capture files
-queue/              pending snapshot/ingress work
+queue/              pending snapshot work
 snapshots/html/     fetched HTML snapshots
 snapshots/readable/ readable Org conversions
 imports/readwise/   one-time Reader export material
@@ -53,7 +54,7 @@ metadata plus a property drawer:
 :SOURCE_APP: eww
 :CAPTURED: [2026-05-20 Wed 20:27]
 :ARCHIVE_MODE: metadata
-:TAGS: emacs,reading,news
+:TAGS: emacs,article,news
 :CONTENT_SHA256:
 :SNAPSHOT_STATUS: not-requested
 :END:
@@ -63,75 +64,78 @@ metadata plus a property drawer:
 local object references, snapshot filenames, and queue records. `SOURCE_APP`
 records the most recent capture surface; the capture log preserves earlier
 captures. `TAGS` stores tags from manual/browser capture and Elfeed category
-tags. Older items that still have `READ_LATER_ID`, `CAPTURE_TAGS`, or
-`FEED_TAGS` are tolerated by the normalizer, but new captures should not
-create those properties.
+tags.
 
 ## Emacs Commands
 
 Available with `M-x`:
 
 ```text
-my-reading-capture-dwim
-my-reading-capture-url
-my-reading-capture-current-page
-my-reading-capture-elfeed-entry
-my-reading-open-root
-my-reading-open-queue
-my-reading-generate-feed
-my-reading-update-feed
-my-reading-delete-dwim
-my-reading-delete-files
-my-reading-promote-elfeed-entries
-my-reading-snapshot-items
-my-reading-snapshot-queue
+my-save-link-capture-dwim
+my-save-link-capture-url
+my-save-link-capture-current-page
+my-save-link-capture-elfeed-entry
+my-save-link-open-root
+my-save-link-open-queue
+my-save-link-generate-feed
+my-save-link-update-feed
+my-save-link-delete-dwim
+my-save-link-delete-files
+my-save-link-promote-elfeed-entries
+my-save-link-snapshot-items
+my-save-link-snapshot-queue
+my-save-link-import-readwise-export
 ```
 
 Leader bindings, using `C-c u` or the double-space leader:
 
 ```text
-n d   save to read-later
-n D   delete read-later item
+n d   save to save-link
+n D   delete save-link item
 n p   promote selected Elfeed entries
 n w   capture current Emacs browser/page
-n l   update generated read-later feed
-n q   open read-later queue
-n r   open read-later root
+n l   update generated save-link feed
+n q   open save-link queue
+n r   open save-link root
 n x   process snapshot queue
 ```
 
 In Elfeed:
 
 ```text
-d     save current Elfeed item to read-later
-D     delete generated read-later item and clean related state
+d     save current Elfeed item to save-link
+D     delete generated save-link item and clean related state
 P     promote selected entries to saved snapshots
 ```
 
+Use `d` mostly on regular RSS entries. On an existing generated `+savelink`
+entry it will dedupe against the existing item and append another capture-log
+entry. Use `P` to promote/snapshot and `D` to delete generated save-link items.
+
 In Dired, normal delete commands are intercepted only for Org files under the
-read-later `items/` directory:
+save-link `items/` directory:
 
 ```text
-D     delete marked/current read-later item with cleanup
-d x   flag then execute read-later item deletion with cleanup
+D     delete marked/current save-link item with cleanup
+d x   flag then execute save-link item deletion with cleanup
 ```
 
-For non-read-later files, Dired delete behavior stays unchanged.
+For non-save-link files, Dired delete behavior stays unchanged.
 
 ## Elfeed Review Feed
 
 Saved links are exposed back to Elfeed through a generated local RSS feed:
 
 ```text
-~/All-The-Things/50-Resources/Read-Later/feed.xml
+~/All-The-Things/50-Resources/Save-Link/feed.xml
 ```
 
 That feed is listed in `~/All-The-Things/50-Resources/feeds.org` under the
 normal `:elfeed:` tree:
 
 ```org
-** Read Later :readlater:
-*** [[file:///Users/seanmclaren/All-The-Things/50-Resources/Read-Later/feed.xml][Read Later]]
+** Save Link :savelink:
+*** [[file:///Users/seanmclaren/All-The-Things/50-Resources/Save-Link/feed.xml][Save Link]]
 ```
 
 Captures and snapshot processing refresh `feed.xml`; Emacs captures also ask
@@ -145,12 +149,12 @@ SPC SPC n l
 To see saved links and promoted items inside Elfeed, use a filter such as:
 
 ```text
-+readlater
++savelink
 ```
 
-The feed carries item categories, and the Emacs read-later layer turns those
+The feed carries item categories, and the Emacs save-link layer turns those
 into Elfeed search tags like `saved-link`, `saved-article`, `source-safari`,
-`source-eww`, `source-elfeed`, and any tags stored on the read-later item.
+`source-eww`, `source-elfeed`, and any tags stored on the save-link item.
 The feed description stays intentionally lightweight: source, capture time,
 snapshot status, original URL, Org item link, notes, and selections. Snapshot
 bodies are kept in the Org item and `snapshots/`, not embedded in `feed.xml`.
@@ -168,17 +172,17 @@ SPC SPC n p
 ```
 
 For regular RSS entries, promotion first captures the entry as a lightweight
-read-later item, tags the original Elfeed entry as `saved`, and then snapshots
-that item. For generated `+readlater` entries, promotion reuses the existing Org
-item and snapshots that item directly. Unselected files in `Read-Later/items/`
+save-link item, tags the original Elfeed entry as `saved`, and then snapshots
+that item. For generated `+savelink` entries, promotion reuses the existing Org
+item and snapshots that item directly. Unselected files in `Save-Link/items/`
 are not processed.
 
 ## Browser Bookmarklet
 
-The read-later module registers this org-protocol endpoint:
+The save-link module registers this org-protocol endpoint:
 
 ```text
-org-protocol://read-later
+org-protocol://save-link
 ```
 
 Safari stores custom-URL-scheme permissions per website. To avoid an
@@ -186,22 +190,26 @@ Allow/Deny prompt on every domain, these bookmarklets open the org-protocol URL
 from a temporary `about:blank` tab.
 
 Use this setup bookmarklet once if Safari still prompts. Choose **Always
-Allow**, then close the blank tab manually:
+Allow**, then close the blank tab manually. The code is URL-encoded for pasting
+into Safari's bookmark URL field:
 
 ```javascript
-javascript:(function(){var p=new URLSearchParams({url:location.href,title:document.title,body:window.getSelection().toString(),source:'safari'});var w=window.open();var a=w.document.createElement('a');a.href='org-protocol://read-later?'+p.toString();w.document.body.appendChild(a);a.click();})();
+javascript:(function(){var%20p=new%20URLSearchParams({url:location.href,title:document.title,body:window.getSelection().toString(),source:'safari'});var%20w=window.open();var%20a=w.document.createElement('a');a.href='org-protocol://save-link?'+p.toString();w.document.body.appendChild(a);a.click();})();
 ```
 
 After that, use this daily bookmarklet. It captures the page and closes the
 temporary blank tab:
 
 ```javascript
-javascript:(function(){var p=new URLSearchParams({url:location.href,title:document.title,body:window.getSelection().toString(),source:'safari'});var w=window.open();var a=w.document.createElement('a');a.href='org-protocol://read-later?'+p.toString();w.document.body.appendChild(a);a.click();w.close();})();
+javascript:(function(){var%20p=new%20URLSearchParams({url:location.href,title:document.title,body:window.getSelection().toString(),source:'safari'});var%20w=window.open();var%20a=w.document.createElement('a');a.href='org-protocol://save-link?'+p.toString();w.document.body.appendChild(a);a.click();w.close();})();
 ```
 
 Using the daily bookmarklet captures the current Safari page through the same
-local read-later path as Emacs. Selected text is stored as the capture
+local save-link path as Emacs. Selected text is stored as the capture
 selection, and the saved item gets `:SOURCE_APP: safari`.
+
+If updating an older bookmarklet, the protocol portion must be
+`org-protocol://save-link`; the old `read-later` protocol is not registered.
 
 Focus behavior is handled by `/Applications/Emacs Client.app`, which owns the
 `org-protocol` URL scheme. Its `open location` handler should call
@@ -210,41 +218,49 @@ correctly but Emacs will come to the front after every capture.
 
 ## Shell Commands
 
+The five feature scripts live together in `~/.emacs.d/scripts/save-link/`.
+They all accept `--root` to target a non-default store. Without `--root`,
+they use `MY_SAVE_LINK_ROOT` when set, otherwise
+`~/All-The-Things/50-Resources/Save-Link`. The core scripts also support
+`--json` for automation-friendly output.
+
 Capture a URL:
 
 ```sh
-~/.emacs.d/scripts/read-later-capture \
+~/.emacs.d/scripts/save-link/save-link-capture \
   --url "https://example.com/article" \
   --title "Article Title" \
   --source manual \
-  --tags "emacs,reading" \
+  --tags "emacs,article" \
   --note "Why I saved it"
 ```
 
-Normalize existing read-later items after a format change:
+Normalize existing save-link items after a format change:
 
 ```sh
-~/.emacs.d/scripts/read-later-capture --normalize-existing
+~/.emacs.d/scripts/save-link/save-link-capture --normalize-existing
 ```
 
 Process all queued local snapshots:
 
 ```sh
-~/.emacs.d/scripts/read-later-snapshot --all
+~/.emacs.d/scripts/save-link/save-link-snapshot --all
 ```
 
 Regenerate the Elfeed review feed:
 
 ```sh
-~/.emacs.d/scripts/read-later-feed
+~/.emacs.d/scripts/save-link/save-link-feed
 ```
 
-Delete a read-later item and clean generated state:
+Delete a save-link item and clean generated state:
 
 ```sh
-~/.emacs.d/scripts/read-later-delete \
-  --item ~/All-The-Things/50-Resources/Read-Later/items/some-item.org
+~/.emacs.d/scripts/save-link/save-link-delete \
+  --item ~/All-The-Things/50-Resources/Save-Link/items/some-item.org
 ```
+
+The delete script can also select items with `--org-id` or `--url`.
 
 The delete command removes the canonical item file, matching queue entries, and
 matching `snapshots/html/` and `snapshots/readable/` files. It then regenerates
@@ -260,7 +276,7 @@ HTML-to-Org conversion, or `--extractor eww` to fail instead of falling back.
 The Readability path uses `npm exec` with pinned transient packages, so it does
 not create a persistent `node_modules/` directory in this repo. On macOS it
 uses Playwright's cached browser when available and falls back to local Chrome,
-Chromium, or Edge. Set `READ_LATER_CHROMIUM` to override the browser path.
+Chromium, or Edge. Set `SAVE_LINK_CHROMIUM` to override the browser path.
 
 From Emacs, use:
 
@@ -271,15 +287,15 @@ SPC SPC n x
 Process one item:
 
 ```sh
-~/.emacs.d/scripts/read-later-snapshot \
-  --item ~/All-The-Things/50-Resources/Read-Later/items/some-item.org
+~/.emacs.d/scripts/save-link/save-link-snapshot \
+  --item ~/All-The-Things/50-Resources/Save-Link/items/some-item.org
 ```
 
 Force the Playwright/Readability extractor for one item:
 
 ```sh
-~/.emacs.d/scripts/read-later-snapshot \
-  --item ~/All-The-Things/50-Resources/Read-Later/items/some-item.org \
+~/.emacs.d/scripts/save-link/save-link-snapshot \
+  --item ~/All-The-Things/50-Resources/Save-Link/items/some-item.org \
   --extractor readability
 ```
 
@@ -299,7 +315,7 @@ Import OPML into the Elfeed feeds file:
 
 ## Archive Modes
 
-`read-later-capture` supports:
+`save-link-capture` supports:
 
 ```text
 metadata   create item only, no snapshot queue
@@ -315,7 +331,7 @@ Default mode is `metadata`.
 The intended loxley service shape is:
 
 ```text
-loxley-read-later-ingress.service
+loxley-save-link-ingress.service
 ```
 
 Endpoint:
@@ -327,7 +343,7 @@ POST http://loxley:45741/capture
 Required header:
 
 ```text
-Authorization: Bearer <read_later_ingress_token>
+Authorization: Bearer <save_link_ingress_token>
 ```
 
 Example:
@@ -335,7 +351,7 @@ Example:
 ```sh
 curl -X POST http://loxley:45741/capture \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $READ_LATER_TOKEN" \
+  -H "Authorization: Bearer $SAVE_LINK_TOKEN" \
   -d '{"url":"https://example.com","title":"Example","source":"iphone","tags":["mobile"]}'
 ```
 
@@ -348,7 +364,7 @@ curl http://loxley:45741/health
 The token should be stored on loxley via `sops-nix` as:
 
 ```text
-/run/secrets/read_later_ingress_token
+/run/secrets/save_link_ingress_token
 ```
 
 ## Current Boundary
@@ -356,6 +372,11 @@ The token should be stored on loxley via `sops-nix` as:
 Local Mac/Emacs captures create canonical `items/` entries and default to
 metadata-only saves. Snapshot work happens only when you explicitly promote
 selected Elfeed entries or run the snapshot queue processor.
+
+There is no separate kind or state field in the current item contract.
+`SNAPSHOT_STATUS` is the only lifecycle-like property: feed categories derive
+`saved-link` versus `saved-article` from whether a readable snapshot exists.
+Use tags, notes, and the capture log for lightweight context.
 
 Loxley/mobile ingress is not the active capture path yet. A future worker
 should accept remote/mobile captures and materialize them into the same

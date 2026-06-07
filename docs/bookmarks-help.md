@@ -7,7 +7,7 @@ Bookmarks are stored in:
 ```
 
 They are durable references: reusable sites, tools, dashboards, and links you
-expect to come back to. Use read-later for interesting links you may or may not
+expect to come back to. Use save-link for interesting links you may or may not
 return to.
 
 ## Emacs Commands
@@ -50,7 +50,7 @@ javascript:(function(){var p=new URLSearchParams({url:location.href,title:docume
 ```
 
 Using the daily bookmarklet saves the current Safari page as a bookmark,
-separate from the read-later capture flow.
+separate from the save-link capture flow.
 
 Focus behavior is handled by `/Applications/Emacs Client.app`, which owns the
 `org-protocol` URL scheme. Its `open location` handler should call

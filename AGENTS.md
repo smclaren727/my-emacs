@@ -48,7 +48,7 @@ no Spacemacs).  Every package solves a concrete problem.
     my-tramp.el          — TRAMP helpers and Nix host shortcuts (provides 'my-tramp)
     my-shells.el         — project-aware shell management (provides 'my-shells)
     my-feeds.el          — Elfeed, elfeed-goodies, elfeed-tube, feed browsing (provides 'my-feeds)
-    my-reading.el        — local-first read-later captures, snapshots, Reader migration (provides 'my-reading)
+    my-save-link.el      — local-first save-link captures, snapshots, Reader migration (provides 'my-save-link)
     my-vulpea.el         — vulpea networked notes (SQLite), backlinks, [[ completion, contact email (provides 'my-vulpea)
     my-bookmarks.el      — org-backed bookmark manager (provides 'my-bookmarks)
     my-ai.el             — gptel + agent-shell: LLM chat, Claude Code, Codex (provides 'my-ai)
@@ -67,11 +67,12 @@ no Spacemacs).  Every package solves a concrete problem.
     bootstrap-mail-config.sh — idempotent local mail bootstrap helper
     mail-auth-value      — authinfo reader for mbsync/msmtp password helpers
     mail-sync            — launchd-friendly mail sync/index helper
-    read-later-capture   — canonical CLI capture entrypoint for URLs and metadata
-    read-later-delete    — deletes items plus generated queue/snapshot/feed state
-    read-later-feed      — generates the local RSS feed consumed by elfeed-org
-    read-later-readability — Playwright/Mozilla Readability article extractor
-    read-later-snapshot  — fetch readable/full snapshots for queued captures
+    save-link/
+      save-link-capture   — canonical CLI capture entrypoint for URLs and metadata
+      save-link-delete    — deletes items plus generated queue/snapshot/feed state
+      save-link-feed      — generates the local RSS feed consumed by elfeed-org
+      save-link-readability — Playwright/Mozilla Readability article extractor
+      save-link-snapshot  — fetch readable/full snapshots for queued captures
     readwise-export-import — one-time Readwise/Reader export importer
   test/
     my-feeds-search-header-tests.el — ERT tests for Elfeed search-header layout helpers

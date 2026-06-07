@@ -32,7 +32,7 @@ Full comparison and rationale: `~/vulpea-vs-org-node-comparison.html`.
 |---|---|---|
 | 1 | Swap the Mac notes engine org-node → vulpea, at feature parity, producing `vulpea.db`. | In progress |
 | 2 | Serve layer on the nix-node: vulpea on the node's daemon indexes the vault; Go service reads `vulpea.db`; write-bridge via `emacsclient` to whitelisted commands; Tailscale/SSH access. | Not started |
-| 3 | Build the PWAs (Go backend + Add-to-Home-Screen frontends): reading queue first, then bookmarks / contacts / capture / today. | Not started |
+| 3 | Build the PWAs (Go backend + Add-to-Home-Screen frontends): save-link queue first, then bookmarks / contacts / capture / today. | Not started |
 
 ## Pre-flight findings (verified, de-risked)
 
@@ -163,7 +163,7 @@ Full comparison and rationale: `~/vulpea-vs-org-node-comparison.html`.
 
 ## Phase 3 — PWAs (sketch)
 
-- First vertical slice: **reading queue** — exercises the EAV `meta` table end-to-end (list `status :: queued`, tap → flip to `done` via the write-bridge), and it's a genuinely useful mobile view of `my-reading.el`.
+- First vertical slice: **save-link queue/view** — expose saved items and snapshot status from `my-save-link.el`; writes should go through save-link commands rather than inventing a separate state field.
 - Then: bookmarks (replace `my-bookmarks.el`'s org-element parsing with meta-notes), contacts lookup (read-only from `vulpea.db`), quick capture (iOS Shortcut → endpoint, mirroring the existing `org-protocol` capture pattern), today/agenda.
 - Frontends are static HTML/CSS/JS with a `manifest.json` (`display: standalone`) for Add-to-Home-Screen; service worker for offline reads.
 

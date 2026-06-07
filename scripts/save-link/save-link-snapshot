@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch readable/full snapshots for read-later capture items."""
+"""Fetch readable/full snapshots for save-link capture items."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import urllib.request
 from pathlib import Path
 
 
-USER_AGENT = "Mozilla/5.0 read-later-snapshot/1.0"
+USER_AGENT = "Mozilla/5.0 save-link-snapshot/1.0"
 READABILITY_PACKAGES = (
     "playwright@1.60.0",
     "@mozilla/readability@0.6.0",
@@ -31,10 +31,10 @@ def iso_timestamp() -> str:
 
 
 def default_root() -> Path:
-    root = os.environ.get("MY_READING_ROOT")
+    root = os.environ.get("MY_SAVE_LINK_ROOT")
     if root:
         return Path(root).expanduser()
-    return Path("~/All-The-Things/50-Resources/Read-Later").expanduser()
+    return Path("~/All-The-Things/50-Resources/Save-Link").expanduser()
 
 
 class TextExtractor(html.parser.HTMLParser):
@@ -81,7 +81,6 @@ def read_item_property(path: Path, key: str) -> str:
 def read_item_identifier(path: Path) -> str:
     return (
         read_item_property(path, "ID")
-        or read_item_property(path, "READ_LATER_ID")
         or path.stem
     )
 
@@ -110,10 +109,10 @@ def playwright_readability_page(url: str) -> dict:
     npm = shutil.which("npm")
     if not npm:
         raise RuntimeError("npm executable not found")
-    script = Path(__file__).with_name("read-later-readability")
+    script = Path(__file__).with_name("save-link-readability")
     if not script.exists():
-        raise RuntimeError(f"read-later-readability helper not found: {script}")
-    with tempfile.TemporaryDirectory(prefix="read-later-readability-") as tmp:
+        raise RuntimeError(f"save-link-readability helper not found: {script}")
+    with tempfile.TemporaryDirectory(prefix="save-link-readability-") as tmp:
         output_path = Path(tmp) / "article.json"
         command = [npm, "exec", "--yes"]
         for package in READABILITY_PACKAGES:
@@ -124,7 +123,7 @@ def playwright_readability_page(url: str) -> dict:
                 "sh",
                 "-c",
                 'NODE_PATH="${PATH%%/.bin*}" exec node "$@"',
-                "read-later-readability",
+                "save-link-readability",
                 str(script),
                 "--url",
                 url,
@@ -153,7 +152,7 @@ def playwright_readability_page(url: str) -> dict:
 
 
 EWW_READABLE_ELISP = r"""
-;;; read-later-eww-readable.el --- Extract readable text -*- lexical-binding: t; -*-
+;;; save-link-eww-readable.el --- Extract readable text -*- lexical-binding: t; -*-
 (require 'eww)
 (require 'shr)
 (require 'subr-x)
@@ -186,7 +185,7 @@ def eww_readable_text(html: str, url: str) -> str:
     emacs = shutil.which("emacs")
     if not emacs:
         raise RuntimeError("emacs executable not found")
-    with tempfile.TemporaryDirectory(prefix="read-later-eww-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="save-link-eww-") as tmp:
         tmp_path = Path(tmp)
         html_path = tmp_path / "page.html"
         elisp_path = tmp_path / "eww-readable.el"
@@ -271,8 +270,8 @@ def snapshot_item(root: Path, item_path: Path, mode: str, extractor: str) -> dic
     readable_path.parent.mkdir(parents=True, exist_ok=True)
     readable_path.write_text(org_content + "\n", encoding="utf-8")
 
-    marker_begin = "# READ-LATER-SNAPSHOT-BEGIN"
-    marker_end = "# READ-LATER-SNAPSHOT-END"
+    marker_begin = "# SAVE-LINK-SNAPSHOT-BEGIN"
+    marker_end = "# SAVE-LINK-SNAPSHOT-END"
     fetched = dt.datetime.now().astimezone().strftime("[%Y-%m-%d %a %H:%M]")
     section = (
         f"\n{marker_begin}\n"
@@ -394,7 +393,7 @@ def process_queue_file(root: Path, queue_path: Path, extractor: str) -> dict:
 
 
 def refresh_feed(root: Path) -> None:
-    script = Path(__file__).with_name("read-later-feed")
+    script = Path(__file__).with_name("save-link-feed")
     if not script.exists():
         return
     subprocess.run(
@@ -445,5 +444,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except (OSError, urllib.error.URLError, subprocess.SubprocessError, ValueError, RuntimeError) as error:
-        print(f"read-later-snapshot: {error}", file=sys.stderr)
+        print(f"save-link-snapshot: {error}", file=sys.stderr)
         sys.exit(1)

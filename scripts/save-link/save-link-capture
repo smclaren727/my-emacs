@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture a URL into the local-first read-later store."""
+"""Capture a URL into the local-first save-link store."""
 
 from __future__ import annotations
 
@@ -27,9 +27,9 @@ TRACKING_PARAMS = {
 }
 
 
-AGENTS_TEXT = """# AGENTS.md - Read-Later Shared Folder
+AGENTS_TEXT = """# AGENTS.md - Save-Link Shared Folder
 
-This folder is the local-first read-later and web-clipping store shared by
+This folder is the local-first save-link and web-clipping store shared by
 Mac, Emacs, iPhone shortcuts, and loxley.
 
 ## Guardrails
@@ -37,7 +37,7 @@ Mac, Emacs, iPhone shortcuts, and loxley.
 - Treat `items/` as the canonical capture archive.
 - Treat `queue/` as append-only ingest work for snapshot processors.
 - Treat `feed.xml` as generated Elfeed review output, not canonical state.
-- Use `read-later-delete` or Emacs read-later delete commands for item cleanup
+- Use `save-link-delete` or Emacs save-link delete commands for item cleanup
   instead of raw filesystem deletion when possible.
 - Do not delete `imports/`, `snapshots/`, `failures/`, or `logs/` during cleanup.
 - Preserve `ID`, `SOURCE_APP`, `URL`, `CANONICAL_URL`, and `CAPTURED`
@@ -62,10 +62,10 @@ def iso_timestamp(moment: dt.datetime | None = None) -> str:
 
 
 def default_root() -> Path:
-    root = os.environ.get("MY_READING_ROOT")
+    root = os.environ.get("MY_SAVE_LINK_ROOT")
     if root:
         return Path(root).expanduser()
-    return Path("~/All-The-Things/50-Resources/Read-Later").expanduser()
+    return Path("~/All-The-Things/50-Resources/Save-Link").expanduser()
 
 
 def ensure_layout(root: Path) -> None:
@@ -84,7 +84,7 @@ def ensure_layout(root: Path) -> None:
         agents.write_text(AGENTS_TEXT, encoding="utf-8")
     else:
         text = agents.read_text(encoding="utf-8")
-        if "Read-Later Shared Folder" in text and "READ_LATER_ID" in text:
+        if "Save-Link Shared Folder" not in text:
             agents.write_text(AGENTS_TEXT, encoding="utf-8")
 
 
@@ -259,7 +259,6 @@ def normalize_item(path: Path, source: str | None = None) -> tuple[str, bool]:
     updated = remove_org_property(updated, "FEED_TAGS")
     if tags:
         updated = insert_org_property(updated, "TAGS", format_tags(tags))
-    updated = remove_org_property(updated, "READ_LATER_ID")
     updated = insert_org_property(updated, "ID", org_id)
     if source:
         updated = insert_org_property(updated, "SOURCE_APP", org_property(source))
@@ -385,7 +384,7 @@ def queue_snapshot(root: Path, path: Path, args: argparse.Namespace, org_id: str
 
 
 def refresh_feed(root: Path) -> dict:
-    script = Path(__file__).with_name("read-later-feed")
+    script = Path(__file__).with_name("save-link-feed")
     if not script.exists():
         return {}
     result = subprocess.run(
@@ -397,11 +396,11 @@ def refresh_feed(root: Path) -> dict:
     )
     if result.returncode != 0:
         message = result.stderr.strip() or result.stdout.strip()
-        return {"error": message or "read-later-feed failed"}
+        return {"error": message or "save-link-feed failed"}
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError:
-        return {"error": "read-later-feed returned invalid JSON"}
+        return {"error": "save-link-feed returned invalid JSON"}
 
 
 def main() -> int:
@@ -429,7 +428,7 @@ def main() -> int:
         if args.json:
             print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         else:
-            print(f"Normalized {result['changed']} of {result['checked']} read-later items")
+            print(f"Normalized {result['changed']} of {result['checked']} save-link items")
         return 0
 
     if not args.url:

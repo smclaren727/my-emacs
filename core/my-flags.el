@@ -38,8 +38,8 @@
 (defvar my-flag-feeds t
   "Load feeds module (elfeed RSS reader).")
 
-(defvar my-flag-reading t
-  "Load local-first read-later capture module.")
+(defvar my-flag-save-link t
+  "Load local-first save-link capture module.")
 
 (defvar my-flag-vulpea t
   "Load vulpea module (SQLite-backed networked notes, backlinks, search).")

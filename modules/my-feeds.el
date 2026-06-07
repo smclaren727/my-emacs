@@ -4,8 +4,10 @@
 ;; subscriptions in an org file with hierarchical tagging.
 ;; org-web-tools handles full-article download via pandoc.
 
-(require 'subr-x)
 (require 'cl-lib)
+(require 'org)
+(require 'org-element)
+(require 'subr-x)
 (require 'my-elfeed)
 (require 'my-feeds-search-header)
 
@@ -45,6 +47,7 @@
 (defvar elfeed-search-remain-on-entry)
 (defvar elfeed-show-entry)
 (defvar elfeed-show-mode-map)
+(defvar org-protocol-protocol-alist)
 
 ;;; Variables -----------------------------------------------------------
 
@@ -62,6 +65,9 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 
 (defvar my-feeds-update-timer nil
   "Timer used for automatic Elfeed updates.")
+
+(defvar my-feeds-inbox-heading "Inbox"
+  "Heading under the Elfeed root where browser-captured feeds land.")
 
 ;;; Elfeed — feed reader engine -----------------------------------------
 
@@ -163,6 +169,100 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
 
 ;;; Internal helpers ----------------------------------------------------
 
+(defun my-feeds--goto-root ()
+  "Move point to the top-level Feeds heading, creating it if needed."
+  (goto-char (point-min))
+  (if (re-search-forward "^\\* Feeds\\(?:[ \t]+:.*:\\)?[ \t]*$" nil t)
+      (progn
+        (beginning-of-line)
+        (unless (member "elfeed" (org-get-tags nil t))
+          (org-set-tags (cons "elfeed" (org-get-tags nil t)))))
+    (goto-char (point-max))
+    (unless (bolp)
+      (insert "\n"))
+    (insert "\n* Feeds :elfeed:\n")
+    (forward-line -1)))
+
+(defun my-feeds--goto-inbox ()
+  "Move point to the first feed Inbox heading, creating it if needed."
+  (my-feeds--goto-root)
+  (let* ((insert-point (copy-marker (save-excursion
+                                      (forward-line 1)
+                                      (point))
+                                    t))
+         (end (save-excursion
+                (org-end-of-subtree t t)
+                (point))))
+    (goto-char insert-point)
+    (if (re-search-forward
+         (format "^\\*\\* %s\\(?:[ \t]+:.*:\\)?[ \t]*$"
+                 (regexp-quote my-feeds-inbox-heading))
+         end t)
+        (progn
+          (beginning-of-line)
+          (unless (member "inbox" (org-get-tags nil t))
+            (org-set-tags (cons "inbox" (org-get-tags nil t))))
+          (unless (= (point) insert-point)
+            (let ((subtree (buffer-substring
+                            (point)
+                            (save-excursion
+                              (org-end-of-subtree t t)
+                              (point)))))
+              (delete-region (point)
+                             (save-excursion
+                               (org-end-of-subtree t t)
+                               (point)))
+              (goto-char insert-point)
+              (insert subtree)))
+          (goto-char insert-point))
+      (goto-char insert-point)
+      (insert (format "** %s :inbox:\n" my-feeds-inbox-heading)))))
+
+(defun my-feeds--ensure-file ()
+  "Ensure `my-feeds-org-file' exists with an Elfeed root and Inbox."
+  (make-directory (file-name-directory my-feeds-org-file) t)
+  (unless (file-exists-p my-feeds-org-file)
+    (with-temp-file my-feeds-org-file
+      (insert "#+TITLE: RSS Feeds\n#+STARTUP: showall\n\n"
+              "* Feeds :elfeed:\n"
+              "** Inbox :inbox:\n")))
+  (with-current-buffer (find-file-noselect my-feeds-org-file)
+    (widen)
+    (org-mode)
+    (my-feeds--goto-inbox)
+    (save-buffer)))
+
+(defun my-feeds--headline-feed-url (headline)
+  "Return the feed URL from org HEADLINE, or nil."
+  (let ((raw-value (or (org-element-property :raw-value headline) "")))
+    (cond
+     ((string-match "\\[\\[\\([^]\n]+\\)\\]" raw-value)
+      (match-string 1 raw-value))
+     ((string-match "\\(?:https?\\|file\\)://[^[:space:]\t\n]+" raw-value)
+      (match-string 0 raw-value)))))
+
+(defun my-feeds--collect-feed-urls ()
+  "Return feed URLs stored as headings in `my-feeds-org-file'."
+  (when (file-exists-p my-feeds-org-file)
+    (with-temp-buffer
+      (insert-file-contents my-feeds-org-file)
+      (org-mode)
+      (let (urls)
+        (org-element-map (org-element-parse-buffer) 'headline
+          (lambda (headline)
+            (when-let* ((url (my-feeds--headline-feed-url headline)))
+              (push url urls))))
+        (nreverse urls)))))
+
+(defun my-feeds--url-exists-p (url)
+  "Return non-nil when URL is already present in `my-feeds-org-file'."
+  (member url (my-feeds--collect-feed-urls)))
+
+(defun my-feeds--feed-url-p (url)
+  "Return non-nil when URL is a supported feed subscription URL."
+  (and (stringp url)
+       (string-match-p "\\`\\(?:https?\\|file\\)://" url)))
+
 (defun my-feeds--slugify (title)
   "Convert TITLE to a filesystem-safe slug.
 Downcase, replace non-alphanumeric runs with hyphens, trim edges."
@@ -239,6 +339,70 @@ DATE, and TAGS are included as org metadata."
     filepath))
 
 ;;; Interactive commands ------------------------------------------------
+
+(defun my-feeds-add-url (url title &optional page-url feed-type)
+  "Save feed URL with TITLE and optional PAGE-URL and FEED-TYPE.
+The feed is written under `my-feeds-inbox-heading' in
+`my-feeds-org-file'.  Existing matching feed URLs are not duplicated."
+  (interactive
+   (let* ((url (read-string "Feed URL: "))
+          (title (read-string "Feed title: " url))
+          (page-url (read-string "Page URL: "))
+          (feed-type (read-string "Feed type: ")))
+     (list url title page-url feed-type)))
+  (let ((url (string-trim url))
+        (title (string-trim (or title "")))
+        (page-url (string-trim (or page-url "")))
+        (feed-type (string-trim (or feed-type ""))))
+    (unless (my-feeds--feed-url-p url)
+      (user-error "Feed URL must start with http://, https://, or file://"))
+    (my-feeds--ensure-file)
+    (if (my-feeds--url-exists-p url)
+        (progn
+          (message "Feed already exists: %s" url)
+          `(:duplicate t :url ,url))
+      (with-current-buffer (find-file-noselect my-feeds-org-file)
+        (widen)
+        (org-mode)
+        (my-feeds--goto-inbox)
+        (org-end-of-subtree t t)
+        (unless (bolp)
+          (insert "\n"))
+        (insert (format "*** %s\n"
+                        (org-link-make-string
+                         url
+                         (if (string-empty-p title) url title))))
+        (insert ":PROPERTIES:\n")
+        (insert (format ":CREATED: %s\n" (format-time-string "[%Y-%m-%d]")))
+        (unless (string-empty-p page-url)
+          (insert (format ":PAGE_URL: %s\n" page-url)))
+        (unless (string-empty-p feed-type)
+          (insert (format ":FEED_TYPE: %s\n" feed-type)))
+        (insert ":END:\n")
+        (save-buffer))
+      (message "Saved feed: %s" url)
+      `(:duplicate nil :url ,url))))
+
+(defun my-feeds-capture-org-protocol (info)
+  "Capture a feed subscription from org-protocol INFO.
+Expected INFO is a plist containing `:url', `:title', and optional
+`:page_url', `:page-url', and `:type'."
+  (let* ((url (my-plist-non-empty-string info :url))
+         (title (or (my-plist-non-empty-string info :title) url))
+         (page-url (or (my-plist-non-empty-string info :page_url)
+                       (my-plist-non-empty-string info :page-url)))
+         (feed-type (my-plist-non-empty-string info :type)))
+    (unless url
+      (user-error "org-protocol feed capture requires a URL"))
+    (my-feeds-add-url url title page-url feed-type)
+    nil))
+
+(with-eval-after-load 'org-protocol
+  (my-org-protocol-register "feed"
+                            #'my-feeds-capture-org-protocol
+                            :kill-client t))
+
+(require 'org-protocol nil t)
 
 (defun my-feeds-star ()
   "Toggle the `star' tag on the elfeed entry at point."
@@ -355,6 +519,15 @@ In `elfeed-search-mode', open all selected entries.  In
   "Preview the current Elfeed entry without leaving search."
   (interactive)
   (my-feeds-search-preview-entry 0))
+
+;;; Leader bindings -----------------------------------------------------
+
+(my-leader-define "n f" #'my-feeds-open-feed-file)
+
+(with-eval-after-load 'which-key
+  (which-key-add-keymap-based-replacements my-leader-map
+    "n" "news/feeds"
+    "n f" '("open feeds.org" . my-feeds-open-feed-file)))
 
 ;;; Mode-local keybindings ----------------------------------------------
 

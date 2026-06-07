@@ -1,4 +1,4 @@
-;;; my-reading.el --- Local-first read-later captures -*- lexical-binding: t; -*-
+;;; my-save-link.el --- Local-first save-link captures -*- lexical-binding: t; -*-
 
 ;; The CLI scripts own the durable file format.  Emacs is the fast local
 ;; control surface for EWW, Elfeed, minibuffer captures, and Reader migration.
@@ -49,69 +49,78 @@
 
 ;;; Variables -----------------------------------------------------------
 
-(defvar my-reading-root-directory
+(defvar my-save-link-root-directory
   (expand-file-name
-   (or (getenv "MY_READING_ROOT")
-       (expand-file-name "50-Resources/Read-Later/" my-notes-directory)))
-  "Root directory for local-first read-later captures.")
+   (or (getenv "MY_SAVE_LINK_ROOT")
+       (expand-file-name "50-Resources/Save-Link/" my-notes-directory)))
+  "Root directory for local-first save-link captures.")
 
-(defvar my-reading-default-archive-mode "metadata"
-  "Default archive mode passed to `read-later-capture'.")
+(defvar my-save-link-default-archive-mode "metadata"
+  "Default archive mode passed to `save-link-capture'.")
 
-(defvar my-reading-feed-file "feed.xml"
-  "Generated RSS feed filename under `my-reading-root-directory'.")
+(defvar my-save-link-feed-file "feed.xml"
+  "Generated RSS feed filename under `my-save-link-root-directory'.")
 
-(defvar-local my-reading--snapshot-promote-count nil
+(defvar-local my-save-link--snapshot-promote-count nil
   "Number of selected entries being promoted by this compilation buffer.")
 
 ;;; Script helpers ------------------------------------------------------
 
-(defvar my-reading-script-directory
-  (when-let* ((directory (getenv "MY_READING_SCRIPT_DIR")))
+(defvar my-save-link-script-directory
+  (when-let* ((directory (getenv "MY_SAVE_LINK_SCRIPT_DIR")))
     (unless (string-empty-p (string-trim directory))
       (file-name-as-directory (expand-file-name directory))))
-  "Optional directory containing read-later helper scripts.")
+  "Optional directory containing save-link helper scripts.")
 
-(defconst my-reading--module-directory
+(defconst my-save-link--module-directory
   (file-name-directory (or load-file-name buffer-file-name))
   "Directory containing this module when it was loaded.")
 
-(defun my-reading--script-candidates (name)
-  "Return candidate paths for read-later script NAME."
+(defun my-save-link--script-candidates (name)
+  "Return candidate paths for save-link script NAME."
   (delete-dups
    (delq nil
          (list
-          (when my-reading-script-directory
-            (expand-file-name name my-reading-script-directory))
+          (when my-save-link-script-directory
+            (expand-file-name name my-save-link-script-directory))
+          (when my-save-link-script-directory
+            (expand-file-name (concat "save-link/" name)
+                              my-save-link-script-directory))
+          (my-emacs-source-file (expand-file-name name "scripts/save-link/"))
           (my-emacs-source-file (expand-file-name name "scripts/"))
+          (expand-file-name (concat "scripts/save-link/" name)
+                            user-emacs-directory)
           (expand-file-name (concat "scripts/" name) user-emacs-directory)
-          (when my-reading--module-directory
+          (when my-save-link--module-directory
+            (expand-file-name (concat "../scripts/save-link/" name)
+                              my-save-link--module-directory))
+          (when my-save-link--module-directory
             (expand-file-name (concat "../scripts/" name)
-                              my-reading--module-directory))))))
+                              my-save-link--module-directory))))))
 
-(defun my-reading--script (name)
-  "Return executable read-later script NAME."
-  (let ((candidates (my-reading--script-candidates name)))
+(defun my-save-link--script (name)
+  "Return executable save-link script NAME."
+  (let ((candidates (my-save-link--script-candidates name)))
     (or (seq-find #'file-executable-p candidates)
-        (user-error "No executable read-later script %s found. Checked: %s"
+        (user-error "No executable save-link script %s found. Checked: %s"
                     name
                     (string-join candidates ", ")))))
 
-(defun my-reading--arg (name value)
+(defun my-save-link--arg (name value)
   "Return CLI argument pair NAME VALUE when VALUE is a non-empty string."
   (when (and (stringp value) (not (string-empty-p (string-trim value))))
     (list name value)))
 
-(defun my-reading--call-json (script &rest args)
+(defun my-save-link--call-json (script &rest args)
   "Run SCRIPT with ARGS and parse one JSON object from stdout."
   (unless (and script (file-executable-p script))
     (let ((name (and script (file-name-nondirectory script))))
-      (user-error "Read-later script is not executable: %s%s"
+      (user-error "Save-link script is not executable: %s%s"
                   (or script "<none>")
                   (if name
                       (format " (checked: %s)"
                               (string-join
-                               (my-reading--script-candidates name)
+                               (my-save-link--script-candidates name)
                                ", "))
                     ""))))
   (with-temp-buffer
@@ -120,19 +129,19 @@
         (user-error "%s failed: %s" script (string-trim (buffer-string)))))
     (json-parse-string (buffer-string) :object-type 'alist :array-type 'list)))
 
-(defun my-reading--capture-script (&rest args)
-  "Run `read-later-capture' with ARGS."
-  (apply #'my-reading--call-json
-         (my-reading--script "read-later-capture")
-         (append (list "--root" my-reading-root-directory "--json") args)))
+(defun my-save-link--capture-script (&rest args)
+  "Run `save-link-capture' with ARGS."
+  (apply #'my-save-link--call-json
+         (my-save-link--script "save-link-capture")
+         (append (list "--root" my-save-link-root-directory "--json") args)))
 
-(defun my-reading--delete-script (&rest args)
-  "Run `read-later-delete' with ARGS."
-  (apply #'my-reading--call-json
-         (my-reading--script "read-later-delete")
-         (append (list "--root" my-reading-root-directory "--json") args)))
+(defun my-save-link--delete-script (&rest args)
+  "Run `save-link-delete' with ARGS."
+  (apply #'my-save-link--call-json
+         (my-save-link--script "save-link-delete")
+         (append (list "--root" my-save-link-root-directory "--json") args)))
 
-(defun my-reading--read-org-property (path key)
+(defun my-save-link--read-org-property (path key)
   "Read Org property KEY from PATH."
   (with-temp-buffer
     (insert-file-contents path nil nil nil t)
@@ -141,57 +150,57 @@
            nil t)
       (string-trim (match-string 1)))))
 
-(defun my-reading-feed-path ()
-  "Return the generated read-later RSS feed path."
-  (expand-file-name my-reading-feed-file my-reading-root-directory))
+(defun my-save-link-feed-path ()
+  "Return the generated save-link RSS feed path."
+  (expand-file-name my-save-link-feed-file my-save-link-root-directory))
 
-(defun my-reading-feed-url ()
-  "Return the generated read-later RSS feed as a file URL."
-  (concat "file://" (expand-file-name (my-reading-feed-path))))
+(defun my-save-link-feed-url ()
+  "Return the generated save-link RSS feed as a file URL."
+  (concat "file://" (expand-file-name (my-save-link-feed-path))))
 
-(defun my-reading-generate-feed ()
-  "Generate the local read-later RSS feed from canonical Org items."
+(defun my-save-link-generate-feed ()
+  "Generate the local save-link RSS feed from canonical Org items."
   (interactive)
   (let ((result
-         (my-reading--call-json
-          (my-reading--script "read-later-feed")
-          "--root" my-reading-root-directory
-          "--output" (my-reading-feed-path)
+         (my-save-link--call-json
+          (my-save-link--script "save-link-feed")
+          "--root" my-save-link-root-directory
+          "--output" (my-save-link-feed-path)
           "--json")))
     (when (called-interactively-p 'interactive)
-      (message "Generated read-later feed with %s items: %s"
+      (message "Generated save-link feed with %s items: %s"
                (alist-get 'items result)
                (alist-get 'path result)))
     result))
 
-(defun my-reading-update-feed ()
-  "Generate the read-later RSS feed and update it in Elfeed when available."
+(defun my-save-link-update-feed ()
+  "Generate the save-link RSS feed and update it in Elfeed when available."
   (interactive)
-  (let ((result (my-reading-generate-feed)))
-    (my-reading--refresh-elfeed-org-feeds)
+  (let ((result (my-save-link-generate-feed)))
+    (my-save-link--refresh-elfeed-org-feeds)
     (if (fboundp 'elfeed-update-feed)
         (progn
-          (elfeed-update-feed (my-reading-feed-url))
-          (message "Updating read-later feed in Elfeed: %s"
+          (elfeed-update-feed (my-save-link-feed-url))
+          (message "Updating save-link feed in Elfeed: %s"
                    (alist-get 'path result)))
-      (message "Generated read-later feed; run Elfeed update after Elfeed loads: %s"
+      (message "Generated save-link feed; run Elfeed update after Elfeed loads: %s"
                (alist-get 'path result)))
     result))
 
-(defun my-reading--update-elfeed-feed-quietly ()
-  "Refresh the generated read-later feed in Elfeed when Elfeed is loaded."
+(defun my-save-link--update-elfeed-feed-quietly ()
+  "Refresh the generated save-link feed in Elfeed when Elfeed is loaded."
   (when (fboundp 'elfeed-update-feed)
-    (my-reading--refresh-elfeed-org-feeds)
-    (elfeed-update-feed (my-reading-feed-url))))
+    (my-save-link--refresh-elfeed-org-feeds)
+    (elfeed-update-feed (my-save-link-feed-url))))
 
-(defun my-reading--refresh-elfeed-org-feeds ()
+(defun my-save-link--refresh-elfeed-org-feeds ()
   "Refresh `elfeed-feeds' from elfeed-org when it is available."
   (when (and (boundp 'rmh-elfeed-org-files)
              (boundp 'rmh-elfeed-org-tree-id)
              (fboundp 'rmh-elfeed-org-process))
     (rmh-elfeed-org-process rmh-elfeed-org-files rmh-elfeed-org-tree-id)))
 
-(defun my-reading--category-tag (category)
+(defun my-save-link--category-tag (category)
   "Return a safe Elfeed tag symbol for CATEGORY."
   (let ((tag (replace-regexp-in-string
               "[^A-Za-z0-9_@#.-]+" "-"
@@ -199,40 +208,40 @@
     (unless (string-empty-p tag)
       (intern tag))))
 
-(defun my-reading--elfeed-local-feed-entry-p (entry)
-  "Return non-nil when ENTRY came from the generated read-later feed."
+(defun my-save-link--elfeed-local-feed-entry-p (entry)
+  "Return non-nil when ENTRY came from the generated save-link feed."
   (and (fboundp 'elfeed-entry-feed-id)
-       (string= (elfeed-entry-feed-id entry) (my-reading-feed-url))))
+       (string= (elfeed-entry-feed-id entry) (my-save-link-feed-url))))
 
-(defun my-reading--elfeed-tag-local-feed-entry (entry)
-  "Apply read-later search tags to generated Elfeed ENTRY."
-  (when (my-reading--elfeed-local-feed-entry-p entry)
+(defun my-save-link--elfeed-tag-local-feed-entry (entry)
+  "Apply save-link search tags to generated Elfeed ENTRY."
+  (when (my-save-link--elfeed-local-feed-entry-p entry)
     (let* ((categories (and (fboundp 'elfeed-meta)
                             (elfeed-meta entry :categories)))
-           (category-tags (delq nil (mapcar #'my-reading--category-tag categories))))
-      (apply #'elfeed-tag entry (cons 'readlater category-tags)))))
+           (category-tags (delq nil (mapcar #'my-save-link--category-tag categories))))
+      (apply #'elfeed-tag entry (cons 'savelink category-tags)))))
 
-(defun my-reading--elfeed-tag-local-feed-entry-from-parse (_type _item entry)
-  "Apply read-later tags while Elfeed parses generated feed ENTRY."
-  (my-reading--elfeed-tag-local-feed-entry entry))
+(defun my-save-link--elfeed-tag-local-feed-entry-from-parse (_type _item entry)
+  "Apply save-link tags while Elfeed parses generated feed ENTRY."
+  (my-save-link--elfeed-tag-local-feed-entry entry))
 
-(defun my-reading--elfeed-tag-local-feed-entries (&optional url)
+(defun my-save-link--elfeed-tag-local-feed-entries (&optional url)
   "Retag existing generated feed entries after Elfeed updates URL."
-  (when (or (null url) (string= url (my-reading-feed-url)))
+  (when (or (null url) (string= url (my-save-link-feed-url)))
     (when (and (boundp 'elfeed-db-entries) (hash-table-p elfeed-db-entries))
       (maphash
        (lambda (_id entry)
-         (my-reading--elfeed-tag-local-feed-entry entry))
+         (my-save-link--elfeed-tag-local-feed-entry entry))
        elfeed-db-entries)
       (when (fboundp 'elfeed-db-save)
         (elfeed-db-save)))))
 
-(defun my-reading--result-deleted-records (result)
-  "Return deleted record list from read-later delete RESULT."
+(defun my-save-link--result-deleted-records (result)
+  "Return deleted record list from save-link delete RESULT."
   (or (alist-get 'deleted result) '()))
 
-(defun my-reading--result-org-ids (result)
-  "Return deleted Org IDs from read-later delete RESULT."
+(defun my-save-link--result-org-ids (result)
+  "Return deleted Org IDs from save-link delete RESULT."
   (delq nil
         (delete-dups
          (mapcar (lambda (record)
@@ -240,34 +249,34 @@
                      (when (and (stringp org-id)
                                 (not (string-empty-p org-id)))
                        org-id)))
-                 (my-reading--result-deleted-records result)))))
+                 (my-save-link--result-deleted-records result)))))
 
-(defun my-reading--result-snapshot-count (result)
-  "Return number of snapshots deleted in read-later delete RESULT."
+(defun my-save-link--result-snapshot-count (result)
+  "Return number of snapshots deleted in save-link delete RESULT."
   (apply #'+
          (mapcar (lambda (record)
                    (length (or (alist-get 'snapshots_deleted record) '())))
-                 (my-reading--result-deleted-records result))))
+                 (my-save-link--result-deleted-records result))))
 
-(defun my-reading--read-later-item-path-p (path)
-  "Return non-nil when PATH is an Org item in the read-later items directory."
-  (let ((items-directory (expand-file-name "items/" my-reading-root-directory))
+(defun my-save-link--save-link-item-path-p (path)
+  "Return non-nil when PATH is an Org item in the save-link items directory."
+  (let ((items-directory (expand-file-name "items/" my-save-link-root-directory))
         (path (expand-file-name path)))
     (and (equal (file-name-extension path) "org")
          (file-in-directory-p path items-directory))))
 
-(defun my-reading--all-read-later-items-p (files)
-  "Return non-nil when every file in FILES is a read-later item."
-  (and files (seq-every-p #'my-reading--read-later-item-path-p files)))
+(defun my-save-link--all-save-link-items-p (files)
+  "Return non-nil when every file in FILES is a save-link item."
+  (and files (seq-every-p #'my-save-link--save-link-item-path-p files)))
 
-(defun my-reading--elfeed-delete-org-ids (org-ids)
-  "Remove read-later feed entries matching ORG-IDS from the live Elfeed DB."
+(defun my-save-link--elfeed-delete-org-ids (org-ids)
+  "Remove save-link feed entries matching ORG-IDS from the live Elfeed DB."
   (when (and org-ids
              (boundp 'elfeed-db-entries)
              (hash-table-p elfeed-db-entries))
     (let ((deleted 0))
       (dolist (org-id org-ids)
-        (let ((entry-id (cons (my-reading-feed-url) org-id)))
+        (let ((entry-id (cons (my-save-link-feed-url) org-id)))
           (when (gethash entry-id elfeed-db-entries)
             (when (and (boundp 'elfeed-db-index) elfeed-db-index)
               (ignore-errors
@@ -289,12 +298,12 @@
               (elfeed-search-update--force)))))
       deleted)))
 
-(defun my-reading--delete-message (result elfeed-count)
+(defun my-save-link--delete-message (result elfeed-count)
   "Display deletion summary for RESULT and ELFEED-COUNT."
-  (let ((item-count (length (my-reading--result-deleted-records result)))
+  (let ((item-count (length (my-save-link--result-deleted-records result)))
         (queue-count (length (or (alist-get 'queue_deleted result) '())))
-        (snapshot-count (my-reading--result-snapshot-count result)))
-    (message "Deleted %d read-later item%s, %d queue entr%s, %d snapshot%s, %d Elfeed entr%s"
+        (snapshot-count (my-save-link--result-snapshot-count result)))
+    (message "Deleted %d save-link item%s, %d queue entr%s, %d snapshot%s, %d Elfeed entr%s"
              item-count
              (if (= item-count 1) "" "s")
              queue-count
@@ -304,50 +313,50 @@
              elfeed-count
              (if (= elfeed-count 1) "y" "ies"))))
 
-(defun my-reading-delete-files (files)
-  "Delete read-later item FILES and their generated state."
+(defun my-save-link-delete-files (files)
+  "Delete save-link item FILES and their generated state."
   (interactive
    (list
-    (list (read-file-name "Read-later item: "
-                          (expand-file-name "items/" my-reading-root-directory)
+    (list (read-file-name "Save-link item: "
+                          (expand-file-name "items/" my-save-link-root-directory)
                           nil t nil
                           (lambda (path)
                             (or (file-directory-p path)
-                                (my-reading--read-later-item-path-p path)))))))
+                                (my-save-link--save-link-item-path-p path)))))))
   (let ((files (delete-dups (mapcar #'expand-file-name files))))
-    (unless (my-reading--all-read-later-items-p files)
+    (unless (my-save-link--all-save-link-items-p files)
       (user-error "Can only delete Org files under %s"
-                  (expand-file-name "items/" my-reading-root-directory)))
+                  (expand-file-name "items/" my-save-link-root-directory)))
     (when (yes-or-no-p
-           (format "Delete %d read-later item%s and clean queue/snapshots/Elfeed? "
+           (format "Delete %d save-link item%s and clean queue/snapshots/Elfeed? "
                    (length files)
                    (if (= (length files) 1) "" "s")))
       (let* ((args (apply #'append
                           (mapcar (lambda (file) (list "--item" file)) files)))
-             (result (apply #'my-reading--delete-script args))
-             (elfeed-count (my-reading--elfeed-delete-org-ids
-                            (my-reading--result-org-ids result))))
-        (my-reading--delete-message result (or elfeed-count 0))
+             (result (apply #'my-save-link--delete-script args))
+             (elfeed-count (my-save-link--elfeed-delete-org-ids
+                            (my-save-link--result-org-ids result))))
+        (my-save-link--delete-message result (or elfeed-count 0))
         result))))
 
-(defun my-reading--elfeed-read-later-entry-org-id (entry)
-  "Return the read-later Org ID represented by generated feed ENTRY."
-  (when (my-reading--elfeed-local-feed-entry-p entry)
+(defun my-save-link--elfeed-save-link-entry-org-id (entry)
+  "Return the save-link Org ID represented by generated feed ENTRY."
+  (when (my-save-link--elfeed-local-feed-entry-p entry)
     (let ((entry-id (elfeed-entry-id entry)))
       (when (consp entry-id)
         (cdr entry-id)))))
 
-(defun my-reading--item-path-for-org-id (org-id)
-  "Return read-later item path for ORG-ID, or nil."
+(defun my-save-link--item-path-for-org-id (org-id)
+  "Return save-link item path for ORG-ID, or nil."
   (when (and (stringp org-id) (not (string-empty-p org-id)))
-    (let ((items-directory (expand-file-name "items/" my-reading-root-directory)))
+    (let ((items-directory (expand-file-name "items/" my-save-link-root-directory)))
       (when (file-directory-p items-directory)
         (seq-find
          (lambda (path)
-           (string= org-id (my-reading--read-org-property path "ID")))
+           (string= org-id (my-save-link--read-org-property path "ID")))
          (directory-files items-directory t "\\.org\\'"))))))
 
-(defun my-reading--selected-elfeed-entries ()
+(defun my-save-link--selected-elfeed-entries ()
   "Return selected Elfeed entries from search or show mode."
   (cond
    ((derived-mode-p 'elfeed-show-mode)
@@ -358,41 +367,41 @@
    (t
     (user-error "Promote from an Elfeed search or show buffer"))))
 
-(defun my-reading--elfeed-entry-feed-tags (entry)
-  "Return comma-separated feed tags from ENTRY for read-later storage."
+(defun my-save-link--elfeed-entry-feed-tags (entry)
+  "Return comma-separated feed tags from ENTRY for save-link storage."
   (mapconcat
    #'symbol-name
    (seq-remove (lambda (tag)
-                 (memq tag '(unread star saved readlater saved-link saved-article)))
+                 (memq tag '(unread star saved savelink saved-link saved-article)))
                (elfeed-entry-tags entry))
    ","))
 
-(defun my-reading--capture-elfeed-entry-result (entry)
-  "Capture regular Elfeed ENTRY as a lightweight read-later item."
+(defun my-save-link--capture-elfeed-entry-result (entry)
+  "Capture regular Elfeed ENTRY as a lightweight save-link item."
   (let* ((url (elfeed-entry-link entry))
          (title (elfeed-entry-title entry))
-         (feed-tags (my-reading--elfeed-entry-feed-tags entry))
+         (feed-tags (my-save-link--elfeed-entry-feed-tags entry))
          (args (append
                 (list "--url" url
                       "--title" title
                       "--source" "elfeed"
                       "--archive-mode" "metadata")
-                (my-reading--arg "--feed-tags" feed-tags)))
-         (result (apply #'my-reading--capture-script args)))
+                (my-save-link--arg "--feed-tags" feed-tags)))
+         (result (apply #'my-save-link--capture-script args)))
     (elfeed-tag entry 'saved)
     (when (derived-mode-p 'elfeed-search-mode)
       (elfeed-search-update-entry entry))
     result))
 
-(defun my-reading--item-path-for-elfeed-entry (entry)
-  "Return read-later item path for ENTRY, capturing it first when needed."
-  (if-let* ((org-id (my-reading--elfeed-read-later-entry-org-id entry)))
-      (or (my-reading--item-path-for-org-id org-id)
-          (user-error "No read-later item file found for Org ID %s" org-id))
-    (alist-get 'path (my-reading--capture-elfeed-entry-result entry))))
+(defun my-save-link--item-path-for-elfeed-entry (entry)
+  "Return save-link item path for ENTRY, capturing it first when needed."
+  (if-let* ((org-id (my-save-link--elfeed-save-link-entry-org-id entry)))
+      (or (my-save-link--item-path-for-org-id org-id)
+          (user-error "No save-link item file found for Org ID %s" org-id))
+    (alist-get 'path (my-save-link--capture-elfeed-entry-result entry))))
 
-(defun my-reading-delete-elfeed-entries ()
-  "Delete selected generated read-later entries from Elfeed and disk."
+(defun my-save-link-delete-elfeed-entries ()
+  "Delete selected generated save-link entries from Elfeed and disk."
   (interactive)
   (let* ((entries (cond
                    ((derived-mode-p 'elfeed-show-mode)
@@ -402,56 +411,56 @@
                     (elfeed-search-selected))))
          (org-ids (delq nil
                         (delete-dups
-                         (mapcar #'my-reading--elfeed-read-later-entry-org-id
+                         (mapcar #'my-save-link--elfeed-save-link-entry-org-id
                                  entries)))))
     (unless org-ids
-      (user-error "No generated read-later Elfeed entries selected"))
+      (user-error "No generated save-link Elfeed entries selected"))
     (when (yes-or-no-p
-           (format "Delete %d read-later item%s and clean queue/snapshots/Elfeed? "
+           (format "Delete %d save-link item%s and clean queue/snapshots/Elfeed? "
                    (length org-ids)
                    (if (= (length org-ids) 1) "" "s")))
       (let* ((args (apply #'append
                           (mapcar (lambda (org-id) (list "--org-id" org-id))
                                   org-ids)))
-             (result (apply #'my-reading--delete-script args))
-             (elfeed-count (my-reading--elfeed-delete-org-ids org-ids)))
-        (my-reading--delete-message result (or elfeed-count 0))
+             (result (apply #'my-save-link--delete-script args))
+             (elfeed-count (my-save-link--elfeed-delete-org-ids org-ids)))
+        (my-save-link--delete-message result (or elfeed-count 0))
         (when (derived-mode-p 'elfeed-show-mode)
           (kill-buffer))
         result))))
 
-(defun my-reading-delete-dwim ()
-  "Delete read-later items from Dired, Elfeed, or the current item buffer."
+(defun my-save-link-delete-dwim ()
+  "Delete save-link items from Dired, Elfeed, or the current item buffer."
   (interactive)
   (cond
    ((derived-mode-p 'dired-mode)
     (require 'dired)
-    (my-reading-delete-files (dired-get-marked-files)))
+    (my-save-link-delete-files (dired-get-marked-files)))
    ((or (derived-mode-p 'elfeed-show-mode)
         (derived-mode-p 'elfeed-search-mode))
-    (my-reading-delete-elfeed-entries))
+    (my-save-link-delete-elfeed-entries))
    ((and buffer-file-name
-         (my-reading--read-later-item-path-p buffer-file-name))
-    (my-reading-delete-files (list buffer-file-name)))
+         (my-save-link--save-link-item-path-p buffer-file-name))
+    (my-save-link-delete-files (list buffer-file-name)))
    (t
-    (call-interactively #'my-reading-delete-files))))
+    (call-interactively #'my-save-link-delete-files))))
 
-(defun my-reading-dired-do-delete (&optional arg)
-  "Delete Dired read-later item files through the read-later cleanup path.
-For non-read-later files, delegate to `dired-do-delete'."
+(defun my-save-link-dired-do-delete (&optional arg)
+  "Delete Dired save-link item files through the save-link cleanup path.
+For non-save-link files, delegate to `dired-do-delete'."
   (interactive "P")
   (require 'dired)
   (let ((files (dired-get-marked-files nil arg)))
     (cond
-     ((my-reading--all-read-later-items-p files)
-      (my-reading-delete-files files)
+     ((my-save-link--all-save-link-items-p files)
+      (my-save-link-delete-files files)
       (revert-buffer))
-     ((seq-some #'my-reading--read-later-item-path-p files)
-      (user-error "Delete read-later items separately so cleanup can run"))
+     ((seq-some #'my-save-link--save-link-item-path-p files)
+      (user-error "Delete save-link items separately so cleanup can run"))
      (t
       (dired-do-delete arg)))))
 
-(defun my-reading--dired-flagged-files ()
+(defun my-save-link--dired-flagged-files ()
   "Return Dired files flagged for deletion."
   (require 'dired)
   (let* ((dired-marker-char dired-del-marker)
@@ -463,47 +472,47 @@ For non-read-later files, delegate to `dired-do-delete'."
       (nreverse
        (dired-map-over-marks (dired-get-filename) nil)))))
 
-(defun my-reading-dired-do-flagged-delete (&optional nomessage)
-  "Delete flagged read-later item files through the read-later cleanup path.
-For non-read-later files, delegate to `dired-do-flagged-delete'."
+(defun my-save-link-dired-do-flagged-delete (&optional nomessage)
+  "Delete flagged save-link item files through the save-link cleanup path.
+For non-save-link files, delegate to `dired-do-flagged-delete'."
   (interactive)
-  (let ((files (my-reading--dired-flagged-files)))
+  (let ((files (my-save-link--dired-flagged-files)))
     (cond
-     ((my-reading--all-read-later-items-p files)
-      (my-reading-delete-files files)
+     ((my-save-link--all-save-link-items-p files)
+      (my-save-link-delete-files files)
       (revert-buffer))
-     ((seq-some #'my-reading--read-later-item-path-p files)
-      (user-error "Delete read-later items separately so cleanup can run"))
+     ((seq-some #'my-save-link--save-link-item-path-p files)
+      (user-error "Delete save-link items separately so cleanup can run"))
      (files
       (dired-do-flagged-delete nomessage))
      (t
       (unless nomessage
         (message "(No deletions requested)"))))))
 
-(defun my-reading--region-text ()
+(defun my-save-link--region-text ()
   "Return active region text, or an empty string."
   (if (use-region-p)
       (buffer-substring-no-properties (region-beginning) (region-end))
     ""))
 
-(defun my-reading--message-result (result)
+(defun my-save-link--message-result (result)
   "Display capture RESULT and return the item path."
   (let ((path (alist-get 'path result))
         (duplicate (alist-get 'duplicate result)))
-    (message "%s read-later item: %s"
+    (message "%s save-link item: %s"
              (if duplicate "Updated" "Captured")
              path)
     path))
 
 ;;; Org protocol helpers -----------------------------------------------
 
-(defun my-reading--archive-mode (value)
+(defun my-save-link--archive-mode (value)
   "Return VALUE when it is a valid archive mode, otherwise the default."
   (if (member value '("readable" "metadata" "full" "defer"))
       value
-    my-reading-default-archive-mode))
+    my-save-link-default-archive-mode))
 
-(defun my-reading-capture-org-protocol (info)
+(defun my-save-link-capture-org-protocol (info)
   "Capture a browser link from org-protocol INFO.
 Expected INFO is a plist containing `:url', `:title', optional
 `:body', `:source', `:tags', `:note', and `:archive-mode'."
@@ -514,12 +523,12 @@ Expected INFO is a plist containing `:url', `:title', optional
          (tags (my-plist-non-empty-string info :tags))
          (note (my-plist-non-empty-string info :note))
          (archive-mode
-          (my-reading--archive-mode
+          (my-save-link--archive-mode
            (or (my-plist-non-empty-string info :archive-mode)
                (my-plist-non-empty-string info :archive_mode)))))
     (unless url
-      (user-error "org-protocol read-later capture requires a URL"))
-    (my-reading-capture-url url title
+      (user-error "org-protocol save-link capture requires a URL"))
+    (my-save-link-capture-url url title
                             :source source
                             :tags tags
                             :note note
@@ -528,39 +537,39 @@ Expected INFO is a plist containing `:url', `:title', optional
     nil))
 
 (with-eval-after-load 'org-protocol
-  (my-org-protocol-register "read-later"
-                            #'my-reading-capture-org-protocol
+  (my-org-protocol-register "save-link"
+                            #'my-save-link-capture-org-protocol
                             :kill-client t))
 
 (require 'org-protocol nil t)
 
 ;;; Browser helpers -----------------------------------------------------
 
-(defun my-reading--eww-data-value (property)
+(defun my-save-link--eww-data-value (property)
   "Return PROPERTY from EWW's current page data, or nil."
   (when (and (boundp 'eww-data) (listp eww-data))
     (plist-get eww-data property)))
 
-(defun my-reading--current-page-url ()
+(defun my-save-link--current-page-url ()
   "Return the current browser page URL or URL at point."
   (cond
    ((derived-mode-p 'eww-mode)
-    (my-reading--eww-data-value :url))
+    (my-save-link--eww-data-value :url))
    ((thing-at-point-url-at-point))))
 
-(defun my-reading--current-page-title (url)
+(defun my-save-link--current-page-title (url)
   "Return the current browser page title, falling back to URL."
   (cond
    ((derived-mode-p 'eww-mode)
-    (or (my-reading--eww-data-value :title) url))
+    (or (my-save-link--eww-data-value :title) url))
    (t
     (read-string "Title: " nil nil url))))
 
 ;;; Capture commands ----------------------------------------------------
 
-(cl-defun my-reading-capture-url (url title &key source tags note selection
+(cl-defun my-save-link-capture-url (url title &key source tags note selection
                                       archive-mode feed-tags)
-  "Capture URL with TITLE into the local read-later store.
+  "Capture URL with TITLE into the local save-link store.
 Keyword arguments SOURCE, TAGS, NOTE, SELECTION, ARCHIVE-MODE, and
 FEED-TAGS are passed through to the CLI capture contract."
   (interactive
@@ -570,41 +579,41 @@ FEED-TAGS are passed through to the CLI capture contract."
     :source "manual"
     :tags (read-string "Tags: ")
     :note (read-string "Note: ")
-    :selection (my-reading--region-text)
+    :selection (my-save-link--region-text)
     :archive-mode (completing-read
                    "Archive mode: "
                    '("readable" "metadata" "full" "defer")
-                   nil t nil nil my-reading-default-archive-mode)))
+                   nil t nil nil my-save-link-default-archive-mode)))
   (let ((args (append
                (list "--url" url
                      "--title" title
                      "--source" (or source "manual")
                      "--archive-mode" (or archive-mode
-                                          my-reading-default-archive-mode))
-               (my-reading--arg "--tags" tags)
-               (my-reading--arg "--feed-tags" feed-tags)
-               (my-reading--arg "--note" note)
-               (my-reading--arg "--selection" selection))))
-    (prog1 (my-reading--message-result (apply #'my-reading--capture-script args))
-      (my-reading--update-elfeed-feed-quietly))))
+                                          my-save-link-default-archive-mode))
+               (my-save-link--arg "--tags" tags)
+               (my-save-link--arg "--feed-tags" feed-tags)
+               (my-save-link--arg "--note" note)
+               (my-save-link--arg "--selection" selection))))
+    (prog1 (my-save-link--message-result (apply #'my-save-link--capture-script args))
+      (my-save-link--update-elfeed-feed-quietly))))
 
-(defun my-reading-capture-current-page ()
+(defun my-save-link-capture-current-page ()
   "Capture the current Emacs browser page or URL at point."
   (interactive)
-  (let* ((url (or (my-reading--current-page-url)
+  (let* ((url (or (my-save-link--current-page-url)
                   (read-string "URL: ")))
-         (title (my-reading--current-page-title url))
+         (title (my-save-link--current-page-title url))
          (source (if (derived-mode-p 'eww-mode) "eww" "emacs"))
-         (selection (my-reading--region-text)))
+         (selection (my-save-link--region-text)))
     (when (string-empty-p (string-trim url))
       (user-error "No page URL found"))
-    (my-reading-capture-url url title
+    (my-save-link-capture-url url title
                             :source source
                             :selection selection
-                            :archive-mode my-reading-default-archive-mode)))
+                            :archive-mode my-save-link-default-archive-mode)))
 
-(defun my-reading-capture-elfeed-entry ()
-  "Capture the current Elfeed entry into the read-later store."
+(defun my-save-link-capture-elfeed-entry ()
+  "Capture the current Elfeed entry into the save-link store."
   (interactive)
   (let ((entry (my-elfeed-entry-at-point)))
     (unless entry
@@ -616,109 +625,109 @@ FEED-TAGS are passed through to the CLI capture contract."
                   (seq-remove (lambda (tag) (memq tag '(unread star saved)))
                               (elfeed-entry-tags entry))
                   ",")))
-      (my-reading-capture-url url title
+      (my-save-link-capture-url url title
                               :source "elfeed"
-                              :archive-mode my-reading-default-archive-mode
+                              :archive-mode my-save-link-default-archive-mode
                               :feed-tags tags)
       (elfeed-tag entry 'saved)
       (when (derived-mode-p 'elfeed-search-mode)
         (elfeed-search-update-entry entry)))))
 
-(defun my-reading-capture-dwim ()
+(defun my-save-link-capture-dwim ()
   "Capture the current thing: Elfeed entry, Emacs browser page, or URL."
   (interactive)
   (cond
    ((or (derived-mode-p 'elfeed-show-mode)
         (derived-mode-p 'elfeed-search-mode))
-    (my-reading-capture-elfeed-entry))
+    (my-save-link-capture-elfeed-entry))
    ((or (derived-mode-p 'eww-mode)
         (thing-at-point-url-at-point))
-    (my-reading-capture-current-page))
+    (my-save-link-capture-current-page))
    (t
-    (call-interactively #'my-reading-capture-url))))
+    (call-interactively #'my-save-link-capture-url))))
 
-(defun my-reading-import-readwise-export (path)
+(defun my-save-link-import-readwise-export (path)
   "Import a one-time Readwise/Reader export file at PATH."
   (interactive "fReadwise export file: ")
   (let ((result
-         (my-reading--call-json
-          (my-reading--script "readwise-export-import")
-          "--root" my-reading-root-directory
+         (my-save-link--call-json
+          (my-save-link--script "readwise-export-import")
+          "--root" my-save-link-root-directory
           "--json"
           (expand-file-name path))))
     (message "Readwise import processed %d records" (length result))
     result))
 
-(defun my-reading-open-root ()
-  "Open the read-later root directory."
+(defun my-save-link-open-root ()
+  "Open the save-link root directory."
   (interactive)
-  (dired my-reading-root-directory))
+  (dired my-save-link-root-directory))
 
-(defun my-reading-open-queue ()
-  "Open the read-later ingest queue."
+(defun my-save-link-open-queue ()
+  "Open the save-link ingest queue."
   (interactive)
-  (dired (expand-file-name "queue/" my-reading-root-directory)))
+  (dired (expand-file-name "queue/" my-save-link-root-directory)))
 
-(defun my-reading-snapshot-queue ()
-  "Process all queued read-later snapshots."
+(defun my-save-link-snapshot-queue ()
+  "Process all queued save-link snapshots."
   (interactive)
   (require 'compile)
-  (let* ((default-directory (file-name-as-directory my-reading-root-directory))
-         (script (my-reading--script "read-later-snapshot"))
+  (let* ((default-directory (file-name-as-directory my-save-link-root-directory))
+         (script (my-save-link--script "save-link-snapshot"))
          (command (mapconcat #'shell-quote-argument
-                             (list script "--root" my-reading-root-directory "--all")
+                             (list script "--root" my-save-link-root-directory "--all")
                              " ")))
     (compilation-start command 'compilation-mode
-                       (lambda (_mode) "*read-later-snapshot*"))))
+                       (lambda (_mode) "*save-link-snapshot*"))))
 
-(defun my-reading--snapshot-compilation-finished (buffer status)
+(defun my-save-link--snapshot-compilation-finished (buffer status)
   "Refresh Elfeed after snapshot compilation BUFFER finishes with STATUS."
   (when (string-match-p "\\`finished" status)
     (with-current-buffer buffer
-      (message "Promoted %d selected read-later item%s"
-               (or my-reading--snapshot-promote-count 0)
-               (if (= (or my-reading--snapshot-promote-count 0) 1) "" "s")))
-    (my-reading--update-elfeed-feed-quietly)))
+      (message "Promoted %d selected save-link item%s"
+               (or my-save-link--snapshot-promote-count 0)
+               (if (= (or my-save-link--snapshot-promote-count 0) 1) "" "s")))
+    (my-save-link--update-elfeed-feed-quietly)))
 
-(defun my-reading-snapshot-items (items)
+(defun my-save-link-snapshot-items (items)
   "Snapshot exactly ITEMS and consume their matching queue entries."
   (interactive
    (list
-    (list (read-file-name "Read-later item: "
-                          (expand-file-name "items/" my-reading-root-directory)
+    (list (read-file-name "Save-link item: "
+                          (expand-file-name "items/" my-save-link-root-directory)
                           nil t nil
                           (lambda (path)
                             (or (file-directory-p path)
-                                (my-reading--read-later-item-path-p path)))))))
+                                (my-save-link--save-link-item-path-p path)))))))
   (let* ((items (delete-dups (mapcar #'expand-file-name items)))
          (count (length items)))
-    (unless (my-reading--all-read-later-items-p items)
+    (unless (my-save-link--all-save-link-items-p items)
       (user-error "Can only snapshot Org files under %s"
-                  (expand-file-name "items/" my-reading-root-directory)))
+                  (expand-file-name "items/" my-save-link-root-directory)))
     (require 'compile)
-    (let* ((default-directory (file-name-as-directory my-reading-root-directory))
-           (script (my-reading--script "read-later-snapshot"))
-           (args (append (list script "--root" my-reading-root-directory
+    (let* ((default-directory (file-name-as-directory my-save-link-root-directory))
+           (script (my-save-link--script "save-link-snapshot"))
+           (args (append (list script "--root" my-save-link-root-directory
                                "--mode" "readable")
                          (apply #'append
                                 (mapcar (lambda (item) (list "--item" item))
                                         items))))
            (command (mapconcat #'shell-quote-argument args " "))
            (buffer (compilation-start command 'compilation-mode
-                                      (lambda (_mode) "*read-later-promote*"))))
+                                      (lambda (_mode) "*save-link-promote*"))))
       (with-current-buffer buffer
-        (setq-local my-reading--snapshot-promote-count count)
+        (setq-local my-save-link--snapshot-promote-count count)
         (add-hook 'compilation-finish-functions
-                  #'my-reading--snapshot-compilation-finished nil t))
+                  #'my-save-link--snapshot-compilation-finished nil t))
       buffer)))
 
-(defun my-reading-promote-elfeed-entries ()
+(defun my-save-link-promote-elfeed-entries ()
   "Promote selected Elfeed entries into saved snapshots.
-Generated read-later entries reuse their existing item files. Regular RSS
-entries are first captured as lightweight read-later items, then only the
+Generated save-link entries reuse their existing item files. Regular RSS
+entries are first captured as lightweight save-link items, then only the
 selected items are snapshotted."
   (interactive)
-  (let* ((entries (my-reading--selected-elfeed-entries))
+  (let* ((entries (my-save-link--selected-elfeed-entries))
          (count (length entries)))
     (unless entries
       (user-error "No Elfeed entries selected"))
@@ -728,46 +737,46 @@ selected items are snapshotted."
                    (if (= count 1) "y" "ies")
                    (if (= count 1) "" "s")))
       (let ((items (delete-dups
-                    (mapcar #'my-reading--item-path-for-elfeed-entry entries))))
-        (my-reading--update-elfeed-feed-quietly)
-        (my-reading-snapshot-items items)))))
+                    (mapcar #'my-save-link--item-path-for-elfeed-entry entries))))
+        (my-save-link--update-elfeed-feed-quietly)
+        (my-save-link-snapshot-items items)))))
 
 ;;; Keybindings ---------------------------------------------------------
 
-(my-leader-define "n d" #'my-reading-capture-dwim)
-(my-leader-define "n D" #'my-reading-delete-dwim)
-(my-leader-define "n l" #'my-reading-update-feed)
-(my-leader-define "n p" #'my-reading-promote-elfeed-entries)
-(my-leader-define "n q" #'my-reading-open-queue)
-(my-leader-define "n r" #'my-reading-open-root)
-(my-leader-define "n w" #'my-reading-capture-current-page)
-(my-leader-define "n x" #'my-reading-snapshot-queue)
+(my-leader-define "n d" #'my-save-link-capture-dwim)
+(my-leader-define "n D" #'my-save-link-delete-dwim)
+(my-leader-define "n l" #'my-save-link-update-feed)
+(my-leader-define "n p" #'my-save-link-promote-elfeed-entries)
+(my-leader-define "n q" #'my-save-link-open-queue)
+(my-leader-define "n r" #'my-save-link-open-root)
+(my-leader-define "n w" #'my-save-link-capture-current-page)
+(my-leader-define "n x" #'my-save-link-snapshot-queue)
 
 (with-eval-after-load 'elfeed
   (add-hook 'elfeed-new-entry-parse-hook
-            #'my-reading--elfeed-tag-local-feed-entry-from-parse)
+            #'my-save-link--elfeed-tag-local-feed-entry-from-parse)
   (add-hook 'elfeed-update-hooks
-            #'my-reading--elfeed-tag-local-feed-entries)
+            #'my-save-link--elfeed-tag-local-feed-entries)
   (dolist (map (list elfeed-search-mode-map elfeed-show-mode-map))
-    (define-key map (kbd "D") #'my-reading-delete-elfeed-entries)
-    (define-key map (kbd "P") #'my-reading-promote-elfeed-entries)
-    (define-key map (kbd "d") #'my-reading-capture-elfeed-entry)))
+    (define-key map (kbd "D") #'my-save-link-delete-elfeed-entries)
+    (define-key map (kbd "P") #'my-save-link-promote-elfeed-entries)
+    (define-key map (kbd "d") #'my-save-link-capture-elfeed-entry)))
 
 (with-eval-after-load 'dired
-  (define-key dired-mode-map [remap dired-do-delete] #'my-reading-dired-do-delete)
+  (define-key dired-mode-map [remap dired-do-delete] #'my-save-link-dired-do-delete)
   (define-key dired-mode-map [remap dired-do-flagged-delete]
-              #'my-reading-dired-do-flagged-delete))
+              #'my-save-link-dired-do-flagged-delete))
 
 (with-eval-after-load 'which-key
   (which-key-add-keymap-based-replacements my-leader-map
-    "n d" '("save to read-later" . my-reading-capture-dwim)
-    "n D" '("delete read-later item" . my-reading-delete-dwim)
-    "n l" '("update read-later feed" . my-reading-update-feed)
-    "n p" '("promote selected" . my-reading-promote-elfeed-entries)
-    "n q" "read-later queue"
-    "n r" "read-later root"
-    "n w" '("capture web page" . my-reading-capture-current-page)
-    "n x" '("snapshot queue" . my-reading-snapshot-queue)))
+    "n d" '("save to save-link" . my-save-link-capture-dwim)
+    "n D" '("delete save-link item" . my-save-link-delete-dwim)
+    "n l" '("update save-link feed" . my-save-link-update-feed)
+    "n p" '("promote selected" . my-save-link-promote-elfeed-entries)
+    "n q" "save-link queue"
+    "n r" "save-link root"
+    "n w" '("capture web page" . my-save-link-capture-current-page)
+    "n x" '("snapshot queue" . my-save-link-snapshot-queue)))
 
-(provide 'my-reading)
-;;; my-reading.el ends here
+(provide 'my-save-link)
+;;; my-save-link.el ends here
