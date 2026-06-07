@@ -2,7 +2,7 @@
 
 ;; Vulpea: networked notes backed by its own SQLite database, with a
 ;; typed query API and structured `vulpea-meta' metadata.  This is the
-;; notes engine — it replaced org-node; see docs/vulpea-migration-plan.md.
+;; notes engine — it replaced org-node (see emacs-decisions-log.md).
 ;; Notes live in `my-notes-directory'.
 
 ;;; Forward declarations ------------------------------------------------

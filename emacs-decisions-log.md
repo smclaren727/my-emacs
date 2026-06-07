@@ -12,7 +12,9 @@ These entries supersede older sections below where they conflict.
 - Networked notes use **vulpea** (its own SQLite DB) via `modules/my-vulpea.el`,
   replacing org-node/org-mem.  `my-nodes.el` and
   `elisp/my-node-contact-email.el` were removed and the `my-flag-nodes` flag is
-  gone.  Full record: `docs/vulpea-migration-plan.md`.
+  gone.  The Phase-1 migration plan doc was retired
+  once complete; Phase 2/3 (the Go serve layer + PWAs) live in the
+  `emacs-org-serve` repo.
 - Notes leader prefix `o n` binds vulpea: `f` find, `i` insert-link, `b`
   find-backlink, `g` notes grep (`my-vulpea-grep` → `consult-ripgrep`), `s`
   full DB scan.  `[[` completes vulpea notes (titles + aliases) via
