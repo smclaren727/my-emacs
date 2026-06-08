@@ -52,7 +52,7 @@
 (defvar my-save-link-root-directory
   (expand-file-name
    (or (getenv "MY_SAVE_LINK_ROOT")
-       (expand-file-name "50-Resources/Save-Link/" my-notes-directory)))
+       (expand-file-name "00-Capture/Ingest/Saved-Links/" my-notes-directory)))
   "Root directory for local-first save-link captures.")
 
 (defvar my-save-link-default-archive-mode "metadata"
