@@ -52,10 +52,10 @@
         kept-old-versions 2))
 
 ;;; Shared paths -------------------------------------------------------
-;; Used by multiple modules (org-mode, feeds).  Defined here so no
-;; module needs to defensively re-declare it.
-(defvar my-emacs-source-root (expand-file-name user-emacs-directory)
-  "Root directory containing the tracked Emacs configuration source.")
+;; The authoritative, env-aware definition lives in init.el; this value-less
+;; declaration just silences the byte-compiler here (a value-bearing defvar
+;; would be a no-op anyway, since init.el binds the symbol first).
+(defvar my-emacs-source-root)
 
 (defun my-emacs-source-file (path)
   "Return PATH resolved relative to `my-emacs-source-root'."

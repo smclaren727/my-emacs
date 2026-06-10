@@ -20,12 +20,6 @@
 (defconst my-node-openrouter-secret-file "/run/secrets/openrouter_api_key"
   "Secret file containing the OpenRouter API key for the node.")
 
-(defconst my-node-telegram-api-id-secret-file "/run/secrets/telegram_api_id"
-  "Secret file containing the Telegram API id for the node.")
-
-(defconst my-node-telegram-api-hash-secret-file "/run/secrets/telegram_api_hash"
-  "Secret file containing the Telegram API hash for the node.")
-
 (defun my-node--read-secret (path)
   "Return the trimmed contents of PATH, or nil if it is unavailable."
   (when (file-readable-p path)
@@ -36,13 +30,12 @@
 
 (defun my-node--apply-secrets ()
   "Read secrets from `/run/secrets' and publish them to Emacs state."
+  ;; Only OpenRouter is published here. Telegram on the node uses the
+  ;; harness-telegram Bot API daemon (the bot token, wired via systemd), not a
+  ;; telega user-client, so the telegram api-id/hash secrets were vestigial.
   (let ((openrouter-key (my-node--read-secret my-node-openrouter-secret-file)))
     (when openrouter-key
-      (setenv "OPENROUTER_API_KEY" openrouter-key)))
-  (let ((api-id (my-node--read-secret my-node-telegram-api-id-secret-file))
-        (api-hash (my-node--read-secret my-node-telegram-api-hash-secret-file)))
-    (when (and api-id api-hash)
-      (setq telega-app (cons (string-to-number api-id) api-hash)))))
+      (setenv "OPENROUTER_API_KEY" openrouter-key))))
 
 (defun my-node-health ()
   "Return :ok when the daemon is responsive."
