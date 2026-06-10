@@ -223,6 +223,9 @@ behavior.
   - `40-Knowledge/` — currently `knowledge.org`
   - `50-Resources/` — bookmarks.org, feeds.org, Saved-Articles/, Contacts/
   - `60-Archive/` — archive.org
+  - `References/` — enriched reference notes from the capture→triage pipeline (X-post bookmarks + saved web links); the **largest content dir**, surfaced by the emacs-org-serve Saves PWA tab
+  - `Notes/` — standalone general notes
+  - `90-Harness/` — Emacs-Harness control-plane runtime (state, workflows, config)
   - `journal/` — vulpea-journal daily notes (`journal/%Y-%m-%d.org`), tagged `journal`
 - Capture templates: todo (`t`), note (`n`), project (`p`)
 - Project capture creates a new file in `10-Projects/` via `my-org-capture-project-file`
