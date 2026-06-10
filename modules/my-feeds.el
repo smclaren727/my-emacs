@@ -78,6 +78,9 @@ Managed by elfeed-org — feeds are org headings tagged :elfeed:.")
   (elfeed-db-directory (expand-file-name "elfeed/db/" (locate-user-emacs-file "var/")))
   ;; Use curl for faster, more reliable fetching.
   (elfeed-use-curl t)
+  ;; Defense in depth: restrict curl to http(s) so a stray file:// feed cannot
+  ;; read local files (the org-protocol capture path already rejects non-http).
+  (elfeed-curl-extra-arguments '("--proto" "=http,https"))
   ;; Default search shows unread entries from the last 2 weeks.
   (elfeed-search-filter "@2-weeks-ago +unread")
   ;; Keep the stock Elfeed fallback renderer roomy.
@@ -394,6 +397,11 @@ Expected INFO is a plist containing `:url', `:title', and optional
          (feed-type (my-plist-non-empty-string info :type)))
     (unless url
       (user-error "org-protocol feed capture requires a URL"))
+    ;; org-protocol is an untrusted boundary: only http(s) feeds, so a crafted
+    ;; capture cannot register a file:// "feed" that elfeed would then read off
+    ;; the local disk. (Interactive `my-feeds-add-url' stays permissive.)
+    (unless (string-match-p "\\`https?://" url)
+      (user-error "org-protocol feed capture only accepts http(s) URLs: %s" url))
     (my-feeds-add-url url title page-url feed-type)
     nil))
 

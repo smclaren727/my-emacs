@@ -528,6 +528,11 @@ Expected INFO is a plist containing `:url', `:title', optional
                (my-plist-non-empty-string info :archive_mode)))))
     (unless url
       (user-error "org-protocol save-link capture requires a URL"))
+    ;; org-protocol is an untrusted boundary: only http(s) links, so a crafted
+    ;; capture cannot drive the snapshot fetcher at a file:// path or an internal
+    ;; address. (Interactive / eww capture paths stay permissive.)
+    (unless (string-match-p "\\`https?://" url)
+      (user-error "org-protocol save-link only accepts http(s) URLs: %s" url))
     (my-save-link-capture-url url title
                             :source source
                             :tags tags
