@@ -37,7 +37,7 @@ def default_root() -> Path:
     root = os.environ.get("MY_SAVE_LINK_ROOT")
     if root:
         return Path(root).expanduser()
-    return Path("~/All-The-Things/50-Resources/Save-Link").expanduser()
+    return Path("~/All-The-Things/00-Capture/Ingest/Saved-Links").expanduser()
 
 
 def normalize_url(url: str) -> str:

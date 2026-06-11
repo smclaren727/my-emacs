@@ -10,13 +10,13 @@ iPhone/loxley ingress remains roadmap work.
 Mac default root:
 
 ```text
-~/All-The-Things/50-Resources/Save-Link/
+~/All-The-Things/00-Capture/Ingest/Saved-Links/
 ```
 
 Planned loxley root:
 
 ```text
-/srv/loxley/All-The-Things/50-Resources/Save-Link/
+/srv/loxley/All-The-Things/00-Capture/Ingest/Saved-Links/
 ```
 
 Folder roles:
@@ -156,7 +156,7 @@ correctly but Emacs will come to the front after every capture.
 The five feature scripts live together in `~/.emacs.d/scripts/save-link/`.
 They all accept `--root` to target a non-default store. Without `--root`,
 they use `MY_SAVE_LINK_ROOT` when set, otherwise
-`~/All-The-Things/50-Resources/Save-Link`. The core scripts also support
+`~/All-The-Things/00-Capture/Ingest/Saved-Links`. The core scripts also support
 `--json` for automation-friendly output.
 
 Capture a URL:
@@ -186,7 +186,7 @@ Delete a save-link item and clean generated state:
 
 ```sh
 ~/.emacs.d/scripts/save-link/save-link-delete \
-  --item ~/All-The-Things/50-Resources/Save-Link/items/some-item.org
+  --item ~/All-The-Things/00-Capture/Ingest/Saved-Links/items/some-item.org
 ```
 
 The delete script can also select items with `--org-id` or `--url`.
@@ -215,14 +215,14 @@ Process one item:
 
 ```sh
 ~/.emacs.d/scripts/save-link/save-link-snapshot \
-  --item ~/All-The-Things/50-Resources/Save-Link/items/some-item.org
+  --item ~/All-The-Things/00-Capture/Ingest/Saved-Links/items/some-item.org
 ```
 
 Force the Playwright/Readability extractor for one item:
 
 ```sh
 ~/.emacs.d/scripts/save-link/save-link-snapshot \
-  --item ~/All-The-Things/50-Resources/Save-Link/items/some-item.org \
+  --item ~/All-The-Things/00-Capture/Ingest/Saved-Links/items/some-item.org \
   --extractor readability
 ```
 
