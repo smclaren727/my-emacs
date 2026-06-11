@@ -392,19 +392,6 @@ def process_queue_file(root: Path, queue_path: Path, extractor: str) -> dict:
     return result
 
 
-def refresh_feed(root: Path) -> None:
-    script = Path(__file__).with_name("save-link-feed")
-    if not script.exists():
-        return
-    subprocess.run(
-        [sys.executable, str(script), "--root", str(root)],
-        text=True,
-        capture_output=True,
-        timeout=30,
-        check=False,
-    )
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default="")
@@ -429,8 +416,6 @@ def main() -> int:
             results.append(process_queue_file(root, queue_path, args.extractor))
     else:
         parser.error("Provide --item, --queue-file, or --all")
-
-    refresh_feed(root)
 
     if args.json:
         print(json.dumps(results, ensure_ascii=False, sort_keys=True))

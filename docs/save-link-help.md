@@ -30,13 +30,11 @@ snapshots/readable/ readable Org conversions
 imports/readwise/   one-time Reader export material
 failures/           failed snapshot jobs
 logs/               capture/index/processed logs
-feed.xml            generated RSS feed for Elfeed review
 ```
 
 Local captures create an Org item in `items/`, dedupe by normalized URL, and
 default to lightweight metadata-only saves. Duplicate saves append to the
-existing item's capture log. The generated `feed.xml` is derived from `items/`;
-it can be deleted and rebuilt at any time.
+existing item's capture log.
 
 ## Item Contract
 
@@ -77,11 +75,8 @@ my-save-link-capture-current-page
 my-save-link-capture-elfeed-entry
 my-save-link-open-root
 my-save-link-open-queue
-my-save-link-generate-feed
-my-save-link-update-feed
 my-save-link-delete-dwim
 my-save-link-delete-files
-my-save-link-promote-elfeed-entries
 my-save-link-snapshot-items
 my-save-link-snapshot-queue
 my-save-link-import-readwise-export
@@ -92,9 +87,7 @@ Leader bindings, using `C-c u` or the double-space leader:
 ```text
 n d   save to save-link
 n D   delete save-link item
-n p   promote selected Elfeed entries
 n w   capture current Emacs browser/page
-n l   update generated save-link feed
 n q   open save-link queue
 n r   open save-link root
 n x   process snapshot queue
@@ -104,13 +97,10 @@ In Elfeed:
 
 ```text
 d     save current Elfeed item to save-link
-D     delete generated save-link item and clean related state
-P     promote selected entries to saved snapshots
 ```
 
-Use `d` mostly on regular RSS entries. On an existing generated `+savelink`
-entry it will dedupe against the existing item and append another capture-log
-entry. Use `P` to promote/snapshot and `D` to delete generated save-link items.
+`d` captures the current RSS entry into your save-links and tags the Elfeed
+entry `saved`.
 
 In Dired, normal delete commands are intercepted only for Org files under the
 save-link `items/` directory:
@@ -121,61 +111,6 @@ d x   flag then execute save-link item deletion with cleanup
 ```
 
 For non-save-link files, Dired delete behavior stays unchanged.
-
-## Elfeed Review Feed
-
-Saved links are exposed back to Elfeed through a generated local RSS feed:
-
-```text
-~/All-The-Things/50-Resources/Save-Link/feed.xml
-```
-
-That feed is listed in `~/All-The-Things/50-Resources/feeds.org` under the
-normal `:elfeed:` tree:
-
-```org
-** Save Link :savelink:
-*** [[file:///Users/seanmclaren/All-The-Things/50-Resources/Save-Link/feed.xml][Save Link]]
-```
-
-Captures and snapshot processing refresh `feed.xml`; Emacs captures also ask
-Elfeed to refresh the local feed when Elfeed is already loaded. To rebuild it
-manually and ask Elfeed to update that source:
-
-```text
-SPC SPC n l
-```
-
-To see saved links and promoted items inside Elfeed, use a filter such as:
-
-```text
-+savelink
-```
-
-The feed carries item categories, and the Emacs save-link layer turns those
-into Elfeed search tags like `saved-link`, `saved-article`, `source-safari`,
-`source-eww`, `source-elfeed`, and any tags stored on the save-link item.
-The feed description stays intentionally lightweight: source, capture time,
-snapshot status, original URL, Org item link, notes, and selections. Snapshot
-bodies are kept in the Org item and `snapshots/`, not embedded in `feed.xml`.
-
-## Promote Selected Elfeed Entries
-
-Use `P` in Elfeed, or `SPC SPC n p`, after selecting entries you want to keep
-long term. In an Elfeed search buffer, an active region selects multiple
-entries; with no region, the command uses the entry at point. This command
-snapshots only the selected entries:
-
-```text
-P
-SPC SPC n p
-```
-
-For regular RSS entries, promotion first captures the entry as a lightweight
-save-link item, tags the original Elfeed entry as `saved`, and then snapshots
-that item. For generated `+savelink` entries, promotion reuses the existing Org
-item and snapshots that item directly. Unselected files in `Save-Link/items/`
-are not processed.
 
 ## Browser Bookmarklet
 
@@ -247,12 +182,6 @@ Process all queued local snapshots:
 ~/.emacs.d/scripts/save-link/save-link-snapshot --all
 ```
 
-Regenerate the Elfeed review feed:
-
-```sh
-~/.emacs.d/scripts/save-link/save-link-feed
-```
-
 Delete a save-link item and clean generated state:
 
 ```sh
@@ -263,10 +192,8 @@ Delete a save-link item and clean generated state:
 The delete script can also select items with `--org-id` or `--url`.
 
 The delete command removes the canonical item file, matching queue entries, and
-matching `snapshots/html/` and `snapshots/readable/` files. It then regenerates
-`feed.xml` and appends a historical deletion record to `logs/deletions.jsonl`.
-When invoked from Emacs, the live generated Elfeed entries are also removed from
-the Elfeed DB.
+matching `snapshots/html/` and `snapshots/readable/` files, and appends a
+historical deletion record to `logs/deletions.jsonl`.
 
 Snapshot processing defaults to `--extractor auto`, which tries a
 Playwright-rendered page with Mozilla Readability first, then falls back to
@@ -370,8 +297,8 @@ The token should be stored on loxley via `sops-nix` as:
 ## Current Boundary
 
 Local Mac/Emacs captures create canonical `items/` entries and default to
-metadata-only saves. Snapshot work happens only when you explicitly promote
-selected Elfeed entries or run the snapshot queue processor.
+metadata-only saves. Snapshot work happens only when you snapshot selected
+items or run the snapshot queue processor.
 
 There is no separate kind or state field in the current item contract.
 `SNAPSHOT_STATUS` is the only lifecycle-like property: feed categories derive

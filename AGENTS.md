@@ -69,8 +69,7 @@ no Spacemacs).  Every package solves a concrete problem.
     mail-sync            — launchd-friendly mail sync/index helper
     save-link/
       save-link-capture   — canonical CLI capture entrypoint for URLs and metadata
-      save-link-delete    — deletes items plus generated queue/snapshot/feed state
-      save-link-feed      — generates the local RSS feed consumed by elfeed-org
+      save-link-delete    — deletes items plus generated queue/snapshot state
       save-link-readability — Playwright/Mozilla Readability article extractor
       save-link-snapshot  — fetch readable/full snapshots for queued captures
     readwise-export-import — one-time Readwise/Reader export importer

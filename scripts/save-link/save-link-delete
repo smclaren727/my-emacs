@@ -238,28 +238,6 @@ def delete_queue_entries(root: Path, records: list[dict], dry_run: bool) -> list
     return deleted
 
 
-def refresh_feed(root: Path, dry_run: bool) -> dict:
-    if dry_run:
-        return {}
-    script = Path(__file__).with_name("save-link-feed")
-    if not script.exists():
-        return {}
-    result = subprocess.run(
-        [sys.executable, str(script), "--root", str(root), "--json"],
-        text=True,
-        capture_output=True,
-        timeout=30,
-        check=False,
-    )
-    if result.returncode != 0:
-        message = result.stderr.strip() or result.stdout.strip()
-        return {"error": message or "save-link-feed failed"}
-    try:
-        return json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return {"error": "save-link-feed returned invalid JSON"}
-
-
 def delete_records(root: Path, records: list[dict], dry_run: bool) -> dict:
     deleted: list[dict] = []
     for record in records:
@@ -281,9 +259,6 @@ def delete_records(root: Path, records: list[dict], dry_run: bool) -> dict:
         "dry_run": dry_run,
         "deleted_at": iso_timestamp(),
     }
-    feed_update = refresh_feed(root, dry_run)
-    if feed_update:
-        event["feed_update"] = feed_update
     if not dry_run:
         jsonl_append(root / "logs" / "deletions.jsonl", event)
     return event

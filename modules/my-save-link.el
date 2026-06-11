@@ -11,22 +11,10 @@
 (require 'thingatpt)
 
 (declare-function elfeed-entry-link "elfeed-db" (entry))
-(declare-function elfeed-entry-id "elfeed-db" (entry))
-(declare-function elfeed-entry-feed-id "elfeed-db" (entry))
 (declare-function elfeed-entry-tags "elfeed-db" (entry))
 (declare-function elfeed-entry-title "elfeed-db" (entry))
-(declare-function elfeed-db-gc "elfeed-db" (&optional stats-p))
-(declare-function elfeed-meta "elfeed-db" (entry prop &optional default))
-(declare-function elfeed-db-save "elfeed-db" ())
-(declare-function elfeed-db-set-update-time "elfeed-db" ())
-(declare-function elfeed-search-buffer "elfeed-search")
-(declare-function elfeed-search-selected "elfeed-search" (&optional ignore-region-p))
-(declare-function elfeed-search-update--force "elfeed-search")
 (declare-function elfeed-search-update-entry "elfeed-search" (entry))
 (declare-function elfeed-tag "elfeed-db" (entry &rest tags))
-(declare-function elfeed-update-feed "elfeed" (url))
-(declare-function rmh-elfeed-org-process "elfeed-org" (files tree-id))
-(declare-function avl-tree-delete "avl-tree" (tree data))
 (declare-function dired-get-filename "dired" (&optional localp no-error-if-not-filep))
 (declare-function dired-get-marked-files "dired" (&optional localp arg filter distinguish-one-marked error))
 (declare-function dired-marker-regexp "dired" ())
@@ -34,18 +22,11 @@
 (declare-function dired-do-flagged-delete "dired" (&optional nomessage))
 (declare-function dired-map-over-marks "dired" (body arg &optional show-progress distinguish-one-marked))
 
-(defvar elfeed-show-entry)
-(defvar elfeed-db-entries)
-(defvar elfeed-db-index)
-(defvar elfeed-new-entry-parse-hook)
-(defvar elfeed-update-hooks)
 (defvar dired-del-marker)
 (defvar dired-marker-char)
 (defvar dired-mode-map)
 (defvar eww-data)
 (defvar org-protocol-protocol-alist)
-(defvar rmh-elfeed-org-files)
-(defvar rmh-elfeed-org-tree-id)
 
 ;;; Variables -----------------------------------------------------------
 
@@ -57,9 +38,6 @@
 
 (defvar my-save-link-default-archive-mode "metadata"
   "Default archive mode passed to `save-link-capture'.")
-
-(defvar my-save-link-feed-file "feed.xml"
-  "Generated RSS feed filename under `my-save-link-root-directory'.")
 
 (defvar-local my-save-link--snapshot-promote-count nil
   "Number of selected entries being promoted by this compilation buffer.")
@@ -141,115 +119,9 @@
          (my-save-link--script "save-link-delete")
          (append (list "--root" my-save-link-root-directory "--json") args)))
 
-(defun my-save-link--read-org-property (path key)
-  "Read Org property KEY from PATH."
-  (with-temp-buffer
-    (insert-file-contents path nil nil nil t)
-    (when (re-search-forward
-           (format "^:%s:[ \t]*\\(.*?\\)[ \t]*$" (regexp-quote key))
-           nil t)
-      (string-trim (match-string 1)))))
-
-(defun my-save-link-feed-path ()
-  "Return the generated save-link RSS feed path."
-  (expand-file-name my-save-link-feed-file my-save-link-root-directory))
-
-(defun my-save-link-feed-url ()
-  "Return the generated save-link RSS feed as a file URL."
-  (concat "file://" (expand-file-name (my-save-link-feed-path))))
-
-(defun my-save-link-generate-feed ()
-  "Generate the local save-link RSS feed from canonical Org items."
-  (interactive)
-  (let ((result
-         (my-save-link--call-json
-          (my-save-link--script "save-link-feed")
-          "--root" my-save-link-root-directory
-          "--output" (my-save-link-feed-path)
-          "--json")))
-    (when (called-interactively-p 'interactive)
-      (message "Generated save-link feed with %s items: %s"
-               (alist-get 'items result)
-               (alist-get 'path result)))
-    result))
-
-(defun my-save-link-update-feed ()
-  "Generate the save-link RSS feed and update it in Elfeed when available."
-  (interactive)
-  (let ((result (my-save-link-generate-feed)))
-    (my-save-link--refresh-elfeed-org-feeds)
-    (if (fboundp 'elfeed-update-feed)
-        (progn
-          (elfeed-update-feed (my-save-link-feed-url))
-          (message "Updating save-link feed in Elfeed: %s"
-                   (alist-get 'path result)))
-      (message "Generated save-link feed; run Elfeed update after Elfeed loads: %s"
-               (alist-get 'path result)))
-    result))
-
-(defun my-save-link--update-elfeed-feed-quietly ()
-  "Refresh the generated save-link feed in Elfeed when Elfeed is loaded."
-  (when (fboundp 'elfeed-update-feed)
-    (my-save-link--refresh-elfeed-org-feeds)
-    (elfeed-update-feed (my-save-link-feed-url))))
-
-(defun my-save-link--refresh-elfeed-org-feeds ()
-  "Refresh `elfeed-feeds' from elfeed-org when it is available."
-  (when (and (boundp 'rmh-elfeed-org-files)
-             (boundp 'rmh-elfeed-org-tree-id)
-             (fboundp 'rmh-elfeed-org-process))
-    (rmh-elfeed-org-process rmh-elfeed-org-files rmh-elfeed-org-tree-id)))
-
-(defun my-save-link--category-tag (category)
-  "Return a safe Elfeed tag symbol for CATEGORY."
-  (let ((tag (replace-regexp-in-string
-              "[^A-Za-z0-9_@#.-]+" "-"
-              (downcase (string-trim category)))))
-    (unless (string-empty-p tag)
-      (intern tag))))
-
-(defun my-save-link--elfeed-local-feed-entry-p (entry)
-  "Return non-nil when ENTRY came from the generated save-link feed."
-  (and (fboundp 'elfeed-entry-feed-id)
-       (string= (elfeed-entry-feed-id entry) (my-save-link-feed-url))))
-
-(defun my-save-link--elfeed-tag-local-feed-entry (entry)
-  "Apply save-link search tags to generated Elfeed ENTRY."
-  (when (my-save-link--elfeed-local-feed-entry-p entry)
-    (let* ((categories (and (fboundp 'elfeed-meta)
-                            (elfeed-meta entry :categories)))
-           (category-tags (delq nil (mapcar #'my-save-link--category-tag categories))))
-      (apply #'elfeed-tag entry (cons 'savelink category-tags)))))
-
-(defun my-save-link--elfeed-tag-local-feed-entry-from-parse (_type _item entry)
-  "Apply save-link tags while Elfeed parses generated feed ENTRY."
-  (my-save-link--elfeed-tag-local-feed-entry entry))
-
-(defun my-save-link--elfeed-tag-local-feed-entries (&optional url)
-  "Retag existing generated feed entries after Elfeed updates URL."
-  (when (or (null url) (string= url (my-save-link-feed-url)))
-    (when (and (boundp 'elfeed-db-entries) (hash-table-p elfeed-db-entries))
-      (maphash
-       (lambda (_id entry)
-         (my-save-link--elfeed-tag-local-feed-entry entry))
-       elfeed-db-entries)
-      (when (fboundp 'elfeed-db-save)
-        (elfeed-db-save)))))
-
 (defun my-save-link--result-deleted-records (result)
   "Return deleted record list from save-link delete RESULT."
   (or (alist-get 'deleted result) '()))
-
-(defun my-save-link--result-org-ids (result)
-  "Return deleted Org IDs from save-link delete RESULT."
-  (delq nil
-        (delete-dups
-         (mapcar (lambda (record)
-                   (let ((org-id (alist-get 'org_id record)))
-                     (when (and (stringp org-id)
-                                (not (string-empty-p org-id)))
-                       org-id)))
-                 (my-save-link--result-deleted-records result)))))
 
 (defun my-save-link--result-snapshot-count (result)
   "Return number of snapshots deleted in save-link delete RESULT."
@@ -269,49 +141,18 @@
   "Return non-nil when every file in FILES is a save-link item."
   (and files (seq-every-p #'my-save-link--save-link-item-path-p files)))
 
-(defun my-save-link--elfeed-delete-org-ids (org-ids)
-  "Remove save-link feed entries matching ORG-IDS from the live Elfeed DB."
-  (when (and org-ids
-             (boundp 'elfeed-db-entries)
-             (hash-table-p elfeed-db-entries))
-    (let ((deleted 0))
-      (dolist (org-id org-ids)
-        (let ((entry-id (cons (my-save-link-feed-url) org-id)))
-          (when (gethash entry-id elfeed-db-entries)
-            (when (and (boundp 'elfeed-db-index) elfeed-db-index)
-              (ignore-errors
-                (avl-tree-delete elfeed-db-index entry-id)))
-            (remhash entry-id elfeed-db-entries)
-            (setq deleted (1+ deleted)))))
-      (when (> deleted 0)
-        (when (fboundp 'elfeed-db-set-update-time)
-          (elfeed-db-set-update-time))
-        (when (fboundp 'elfeed-db-gc)
-          (ignore-errors
-            (elfeed-db-gc)))
-        (when (fboundp 'elfeed-db-save)
-          (elfeed-db-save))
-        (when (and (fboundp 'elfeed-search-buffer)
-                   (fboundp 'elfeed-search-update--force))
-          (when-let* ((buffer (get-buffer (elfeed-search-buffer))))
-            (with-current-buffer buffer
-              (elfeed-search-update--force)))))
-      deleted)))
-
-(defun my-save-link--delete-message (result elfeed-count)
-  "Display deletion summary for RESULT and ELFEED-COUNT."
+(defun my-save-link--delete-message (result)
+  "Display deletion summary for RESULT."
   (let ((item-count (length (my-save-link--result-deleted-records result)))
         (queue-count (length (or (alist-get 'queue_deleted result) '())))
         (snapshot-count (my-save-link--result-snapshot-count result)))
-    (message "Deleted %d save-link item%s, %d queue entr%s, %d snapshot%s, %d Elfeed entr%s"
+    (message "Deleted %d save-link item%s, %d queue entr%s, %d snapshot%s"
              item-count
              (if (= item-count 1) "" "s")
              queue-count
              (if (= queue-count 1) "y" "ies")
              snapshot-count
-             (if (= snapshot-count 1) "" "s")
-             elfeed-count
-             (if (= elfeed-count 1) "y" "ies"))))
+             (if (= snapshot-count 1) "" "s"))))
 
 (defun my-save-link-delete-files (files)
   "Delete save-link item FILES and their generated state."
@@ -328,117 +169,22 @@
       (user-error "Can only delete Org files under %s"
                   (expand-file-name "items/" my-save-link-root-directory)))
     (when (yes-or-no-p
-           (format "Delete %d save-link item%s and clean queue/snapshots/Elfeed? "
+           (format "Delete %d save-link item%s and clean queue/snapshots? "
                    (length files)
                    (if (= (length files) 1) "" "s")))
       (let* ((args (apply #'append
                           (mapcar (lambda (file) (list "--item" file)) files)))
-             (result (apply #'my-save-link--delete-script args))
-             (elfeed-count (my-save-link--elfeed-delete-org-ids
-                            (my-save-link--result-org-ids result))))
-        (my-save-link--delete-message result (or elfeed-count 0))
-        result))))
-
-(defun my-save-link--elfeed-save-link-entry-org-id (entry)
-  "Return the save-link Org ID represented by generated feed ENTRY."
-  (when (my-save-link--elfeed-local-feed-entry-p entry)
-    (let ((entry-id (elfeed-entry-id entry)))
-      (when (consp entry-id)
-        (cdr entry-id)))))
-
-(defun my-save-link--item-path-for-org-id (org-id)
-  "Return save-link item path for ORG-ID, or nil."
-  (when (and (stringp org-id) (not (string-empty-p org-id)))
-    (let ((items-directory (expand-file-name "items/" my-save-link-root-directory)))
-      (when (file-directory-p items-directory)
-        (seq-find
-         (lambda (path)
-           (string= org-id (my-save-link--read-org-property path "ID")))
-         (directory-files items-directory t "\\.org\\'"))))))
-
-(defun my-save-link--selected-elfeed-entries ()
-  "Return selected Elfeed entries from search or show mode."
-  (cond
-   ((derived-mode-p 'elfeed-show-mode)
-    (when elfeed-show-entry
-      (list elfeed-show-entry)))
-   ((derived-mode-p 'elfeed-search-mode)
-    (elfeed-search-selected))
-   (t
-    (user-error "Promote from an Elfeed search or show buffer"))))
-
-(defun my-save-link--elfeed-entry-feed-tags (entry)
-  "Return comma-separated feed tags from ENTRY for save-link storage."
-  (mapconcat
-   #'symbol-name
-   (seq-remove (lambda (tag)
-                 (memq tag '(unread star saved savelink saved-link saved-article)))
-               (elfeed-entry-tags entry))
-   ","))
-
-(defun my-save-link--capture-elfeed-entry-result (entry)
-  "Capture regular Elfeed ENTRY as a lightweight save-link item."
-  (let* ((url (elfeed-entry-link entry))
-         (title (elfeed-entry-title entry))
-         (feed-tags (my-save-link--elfeed-entry-feed-tags entry))
-         (args (append
-                (list "--url" url
-                      "--title" title
-                      "--source" "elfeed"
-                      "--archive-mode" "metadata")
-                (my-save-link--arg "--feed-tags" feed-tags)))
-         (result (apply #'my-save-link--capture-script args)))
-    (elfeed-tag entry 'saved)
-    (when (derived-mode-p 'elfeed-search-mode)
-      (elfeed-search-update-entry entry))
-    result))
-
-(defun my-save-link--item-path-for-elfeed-entry (entry)
-  "Return save-link item path for ENTRY, capturing it first when needed."
-  (if-let* ((org-id (my-save-link--elfeed-save-link-entry-org-id entry)))
-      (or (my-save-link--item-path-for-org-id org-id)
-          (user-error "No save-link item file found for Org ID %s" org-id))
-    (alist-get 'path (my-save-link--capture-elfeed-entry-result entry))))
-
-(defun my-save-link-delete-elfeed-entries ()
-  "Delete selected generated save-link entries from Elfeed and disk."
-  (interactive)
-  (let* ((entries (cond
-                   ((derived-mode-p 'elfeed-show-mode)
-                    (when elfeed-show-entry
-                      (list elfeed-show-entry)))
-                   ((derived-mode-p 'elfeed-search-mode)
-                    (elfeed-search-selected))))
-         (org-ids (delq nil
-                        (delete-dups
-                         (mapcar #'my-save-link--elfeed-save-link-entry-org-id
-                                 entries)))))
-    (unless org-ids
-      (user-error "No generated save-link Elfeed entries selected"))
-    (when (yes-or-no-p
-           (format "Delete %d save-link item%s and clean queue/snapshots/Elfeed? "
-                   (length org-ids)
-                   (if (= (length org-ids) 1) "" "s")))
-      (let* ((args (apply #'append
-                          (mapcar (lambda (org-id) (list "--org-id" org-id))
-                                  org-ids)))
-             (result (apply #'my-save-link--delete-script args))
-             (elfeed-count (my-save-link--elfeed-delete-org-ids org-ids)))
-        (my-save-link--delete-message result (or elfeed-count 0))
-        (when (derived-mode-p 'elfeed-show-mode)
-          (kill-buffer))
+             (result (apply #'my-save-link--delete-script args)))
+        (my-save-link--delete-message result)
         result))))
 
 (defun my-save-link-delete-dwim ()
-  "Delete save-link items from Dired, Elfeed, or the current item buffer."
+  "Delete save-link items from Dired or the current item buffer."
   (interactive)
   (cond
    ((derived-mode-p 'dired-mode)
     (require 'dired)
     (my-save-link-delete-files (dired-get-marked-files)))
-   ((or (derived-mode-p 'elfeed-show-mode)
-        (derived-mode-p 'elfeed-search-mode))
-    (my-save-link-delete-elfeed-entries))
    ((and buffer-file-name
          (my-save-link--save-link-item-path-p buffer-file-name))
     (my-save-link-delete-files (list buffer-file-name)))
@@ -599,8 +345,7 @@ FEED-TAGS are passed through to the CLI capture contract."
                (my-save-link--arg "--feed-tags" feed-tags)
                (my-save-link--arg "--note" note)
                (my-save-link--arg "--selection" selection))))
-    (prog1 (my-save-link--message-result (apply #'my-save-link--capture-script args))
-      (my-save-link--update-elfeed-feed-quietly))))
+    (my-save-link--message-result (apply #'my-save-link--capture-script args))))
 
 (defun my-save-link-capture-current-page ()
   "Capture the current Emacs browser page or URL at point."
@@ -686,13 +431,12 @@ FEED-TAGS are passed through to the CLI capture contract."
                        (lambda (_mode) "*save-link-snapshot*"))))
 
 (defun my-save-link--snapshot-compilation-finished (buffer status)
-  "Refresh Elfeed after snapshot compilation BUFFER finishes with STATUS."
+  "Report snapshot compilation BUFFER completion with STATUS."
   (when (string-match-p "\\`finished" status)
     (with-current-buffer buffer
       (message "Promoted %d selected save-link item%s"
                (or my-save-link--snapshot-promote-count 0)
-               (if (= (or my-save-link--snapshot-promote-count 0) 1) "" "s")))
-    (my-save-link--update-elfeed-feed-quietly)))
+               (if (= (or my-save-link--snapshot-promote-count 0) 1) "" "s")))))
 
 (defun my-save-link-snapshot-items (items)
   "Snapshot exactly ITEMS and consume their matching queue entries."
@@ -726,45 +470,17 @@ FEED-TAGS are passed through to the CLI capture contract."
                   #'my-save-link--snapshot-compilation-finished nil t))
       buffer)))
 
-(defun my-save-link-promote-elfeed-entries ()
-  "Promote selected Elfeed entries into saved snapshots.
-Generated save-link entries reuse their existing item files. Regular RSS
-entries are first captured as lightweight save-link items, then only the
-selected items are snapshotted."
-  (interactive)
-  (let* ((entries (my-save-link--selected-elfeed-entries))
-         (count (length entries)))
-    (unless entries
-      (user-error "No Elfeed entries selected"))
-    (when (yes-or-no-p
-           (format "Promote %d selected Elfeed entr%s to saved snapshot%s? "
-                   count
-                   (if (= count 1) "y" "ies")
-                   (if (= count 1) "" "s")))
-      (let ((items (delete-dups
-                    (mapcar #'my-save-link--item-path-for-elfeed-entry entries))))
-        (my-save-link--update-elfeed-feed-quietly)
-        (my-save-link-snapshot-items items)))))
-
 ;;; Keybindings ---------------------------------------------------------
 
 (my-leader-define "n d" #'my-save-link-capture-dwim)
 (my-leader-define "n D" #'my-save-link-delete-dwim)
-(my-leader-define "n l" #'my-save-link-update-feed)
-(my-leader-define "n p" #'my-save-link-promote-elfeed-entries)
 (my-leader-define "n q" #'my-save-link-open-queue)
 (my-leader-define "n r" #'my-save-link-open-root)
 (my-leader-define "n w" #'my-save-link-capture-current-page)
 (my-leader-define "n x" #'my-save-link-snapshot-queue)
 
 (with-eval-after-load 'elfeed
-  (add-hook 'elfeed-new-entry-parse-hook
-            #'my-save-link--elfeed-tag-local-feed-entry-from-parse)
-  (add-hook 'elfeed-update-hooks
-            #'my-save-link--elfeed-tag-local-feed-entries)
   (dolist (map (list elfeed-search-mode-map elfeed-show-mode-map))
-    (define-key map (kbd "D") #'my-save-link-delete-elfeed-entries)
-    (define-key map (kbd "P") #'my-save-link-promote-elfeed-entries)
     (define-key map (kbd "d") #'my-save-link-capture-elfeed-entry)))
 
 (with-eval-after-load 'dired
@@ -776,8 +492,6 @@ selected items are snapshotted."
   (which-key-add-keymap-based-replacements my-leader-map
     "n d" '("save to save-link" . my-save-link-capture-dwim)
     "n D" '("delete save-link item" . my-save-link-delete-dwim)
-    "n l" '("update save-link feed" . my-save-link-update-feed)
-    "n p" '("promote selected" . my-save-link-promote-elfeed-entries)
     "n q" "save-link queue"
     "n r" "save-link root"
     "n w" '("capture web page" . my-save-link-capture-current-page)
