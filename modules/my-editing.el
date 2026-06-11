@@ -8,6 +8,12 @@
 
 ;;; Minibuffer completion ---------------------------------------------
 
+;; Enable the recursive minibuffers feature
+(setq enable-recursive-minibuffers t)
+
+;; Show the current recursion depth in the prompt
+(minibuffer-depth-indicate-mode 1)
+
 (use-package vertico
   :hook (after-init . vertico-mode)
   :custom
@@ -95,6 +101,18 @@
 
 (use-package avy
   :bind ("M-j" . avy-goto-char-timer))
+
+;;; Temporary buffers -------------------------------------------------
+
+;; Map single-key choices to major modes for ad hoc temporary buffers.
+(defcustom tmp-buffer-mode-alist
+  '((?o . org-mode)
+    (?t . text-mode)
+    (?m . markdown-mode)
+    (?l . lisp-interaction-mode))
+  "List of major modes for temporary buffers and their hotkeys."
+  :type '(alist :key-type character :value-type symbol)
+  :group 'convenience)
 
 ;;; Markdown ----------------------------------------------------------
 
